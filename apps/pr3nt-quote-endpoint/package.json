@@ -1,0 +1,14 @@
+{
+  "name": "pr3nt-quote-endpoint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple quote request endpoint for pr3nt.nl Shopify theme",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.100.0"
+  }
+}
