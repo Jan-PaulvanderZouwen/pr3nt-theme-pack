@@ -1,52 +1,4 @@
 (function(){
-  function setNativeValue(input, value){
-    if(!input) return;
-    var proto = input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-    var setter = Object.getOwnPropertyDescriptor(proto, 'value') && Object.getOwnPropertyDescriptor(proto, 'value').set;
-    if(setter) setter.call(input, value);
-    else input.value = value;
-    input.dispatchEvent(new Event('input', { bubbles:true }));
-    input.dispatchEvent(new Event('change', { bubbles:true }));
-  }
-
-  function setFileInput(targetInput, sourceInput){
-    if(!targetInput || !sourceInput || !sourceInput.files || !sourceInput.files[0]) return false;
-    try{
-      var dt = new DataTransfer();
-      dt.items.add(sourceInput.files[0]);
-      targetInput.files = dt.files;
-      targetInput.dispatchEvent(new Event('input', { bubbles:true }));
-      targetInput.dispatchEvent(new Event('change', { bubbles:true }));
-      return true;
-    }catch(err){
-      console.warn('pr3nt: kon bestand niet doorzetten naar Shopify Forms', err);
-      return false;
-    }
-  }
-
-  function getPossibleShopifyFormsRoots(){
-    var roots = [];
-    var bridge = document.querySelector('[data-pr3nt-shopify-forms-bridge]');
-    if(bridge) roots.push(bridge);
-    roots.push(document);
-    return roots;
-  }
-
-  function findShopifyFormsElements(){
-    var roots = getPossibleShopifyFormsRoots();
-    for(var i=0;i<roots.length;i++){
-      var root = roots[i];
-      var sfForm = root.querySelector('form[data-testid="form"]') || root.querySelector('shop-lead-capture')?.closest('form');
-      if(!sfForm) continue;
-      var submit = sfForm.querySelector('[data-testid="btn-form-submit"]') || sfForm.querySelector('button[type="submit"]');
-      var email = sfForm.querySelector('#email');
-      if(sfForm && submit && email){
-        return { form: sfForm, submit: submit };
-      }
-    }
-    return { form: null, submit: null };
-  }
-
   function showBridgeError(form, message){
     var error = form.querySelector('[data-p-bridge-error]');
     if(error){
@@ -62,46 +14,32 @@
     if(error) error.classList.remove('is-visible');
   }
 
-  function waitForShopifyForms(callback, tries){
-    tries = tries || 0;
-    var found = findShopifyFormsElements();
-    if(found.form && found.submit){ callback(found.form, found.submit); return; }
-    if(tries >= 140){ callback(null, null); return; }
-    window.setTimeout(function(){ waitForShopifyForms(callback, tries + 1); }, 150);
-  }
+  async function submitToQuoteEndpoint(form, fields){
+    var endpoint = form.getAttribute('data-p-endpoint');
+    if(!endpoint){
+      throw new Error('De offerte-app is nog niet gekoppeld. Vul de endpoint URL in bij deze sectie.');
+    }
 
-  function submitToShopifyForms(form, fields, onDone){
-    waitForShopifyForms(function(sfForm, submit){
-      if(!sfForm || !submit){
-        console.warn('pr3nt: Shopify Forms formulier niet gevonden. Controleer of het app block op dezelfde pagina staat en niet volledig is uitgeschakeld.');
-        onDone(false, 'De Shopify Forms-koppeling is niet gevonden. Controleer of de sectie “pr3nt Shopify Forms” met het Shopify Forms app block op deze pagina staat.');
-        return;
-      }
+    var body = new FormData();
+    body.append('file', fields.fileInput.files[0]);
+    body.append('color', fields.color);
+    body.append('material', fields.material);
+    body.append('name', fields.name);
+    body.append('email', fields.email);
+    body.append('phone', fields.phone);
+    body.append('note', fields.note || '');
+    body.append('rush', fields.rush || 'Nee');
 
-      setFileInput(sfForm.querySelector('#custom\\#upload_3d_bestand-field'), fields.fileInput);
-      setNativeValue(sfForm.querySelector('#custom\\#kleur'), fields.color);
-      setNativeValue(sfForm.querySelector('#first_name'), fields.name);
-      setNativeValue(sfForm.querySelector('#email'), fields.email);
-      setNativeValue(sfForm.querySelector('#phone_number'), fields.phone);
-      setNativeValue(sfForm.querySelector('textarea[name="custom#opmerkingen"]'), fields.note);
-
-      var material = sfForm.querySelector('input[name="custom#materiaal"][value="'+fields.material+'"]');
-      if(material){
-        material.checked = true;
-        material.dispatchEvent(new Event('input', { bubbles:true }));
-        material.dispatchEvent(new Event('change', { bubbles:true }));
-      }
-
-      var rush = sfForm.querySelector('input[name="custom#spoed"][value="Spoed"]');
-      if(rush){
-        rush.checked = fields.rush === 'Ja';
-        rush.dispatchEvent(new Event('input', { bubbles:true }));
-        rush.dispatchEvent(new Event('change', { bubbles:true }));
-      }
-
-      window.setTimeout(function(){ submit.click(); }, 300);
-      onDone(true);
+    var response = await fetch(endpoint, {
+      method: 'POST',
+      body: body
     });
+
+    var data = await response.json().catch(function(){ return {}; });
+    if(!response.ok || !data.ok){
+      throw new Error(data.error || 'De aanvraag kon niet worden verstuurd.');
+    }
+    return data;
   }
 
   function initForms(scope){
@@ -197,7 +135,7 @@
       if(nextButton)nextButton.addEventListener('click',function(){setStep(2)});
       var change=form.querySelector('[data-p-change]'); if(change)change.addEventListener('click',function(){setStep(1)});
 
-      form.addEventListener('submit',function(e){
+      form.addEventListener('submit',async function(e){
         e.preventDefault();
         if(!allOk()){
           update();
@@ -207,27 +145,22 @@
         hideBridgeError(form);
         setPending(true);
 
-        submitToShopifyForms(form, {
-          fileInput: fileInput,
-          color: colorInput.value,
-          material: materialInput.value,
-          name: nameInput.value,
-          email: emailInput.value,
-          phone: phoneInput.value,
-          note: noteInput ? noteInput.value : '',
-          rush: rushInput.value
-        }, function(sent, message){
-          if(!sent){
-            setPending(false);
-            showBridgeError(form, message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
-            return;
-          }
-          window.setTimeout(function(){
-            if(document.visibilityState !== 'hidden'){
-              showBridgeError(form, 'Shopify verwerkt de upload nog. Wacht nog even; bij grote bestanden kan dit langer duren.');
-            }
-          }, 14000);
-        });
+        try {
+          var result = await submitToQuoteEndpoint(form, {
+            fileInput: fileInput,
+            color: colorInput.value,
+            material: materialInput.value,
+            name: nameInput.value,
+            email: emailInput.value,
+            phone: phoneInput.value,
+            note: noteInput ? noteInput.value : '',
+            rush: rushInput.value
+          });
+          window.location.href = result.redirect || '/pages/offerte-aanvraag-ontvangen';
+        } catch(error) {
+          setPending(false);
+          showBridgeError(form, error.message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+        }
       });
 
       update();
