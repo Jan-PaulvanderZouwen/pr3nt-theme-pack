@@ -1,13 +1,9 @@
-<div class="p-form" data-pr3nt-form data-p-use-shopify-forms>
+<div class="p-form">
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
-  {% assign pr3nt_success_url = success_url | default: '/pages/offerte-aanvraag-ontvangen' %}
-  {% form 'contact', id: pr3nt_form_id, enctype: 'multipart/form-data' %}
-    <input type="hidden" name="return_to" value="{{ pr3nt_success_url }}">
-    <input type="hidden" name="contact[Onderwerp]" value="Nieuwe offerte-aanvraag via pr3nt.nl">
-    <input type="hidden" name="contact[Gewenste ontvanger]" value="bestellingen@pr3nt.nl">
-    <input type="hidden" name="contact[Materiaal]" value="PLA" data-p-material-input>
-    <input type="hidden" name="contact[Spoed]" value="Nee" data-p-rush-input>
-    <input type="hidden" name="contact[Bestandsnaam]" value="" data-p-file-name>
+  <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-use-shopify-forms novalidate>
+    <input type="hidden" value="PLA" data-p-material-input>
+    <input type="hidden" value="Nee" data-p-rush-input>
+    <input type="hidden" value="" data-p-file-name>
 
     <div class="p-form-head">
       <div>
@@ -28,7 +24,7 @@
         <strong data-p-file-label>Sleep je 3D-bestand hierheen</strong>
         <span class="p-upload-help">Ondersteund: {{ supported_formats | default: 'STL, 3MF, OBJ, STEP of STP' }}</span>
         <span class="p-btn p-btn-dark p-upload-button">Bestand kiezen</span>
-        <input class="p-file-input" type="file" name="contact[3D bestand]" accept=".stl,.3mf,.obj,.step,.stp" data-p-file>
+        <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp" data-p-file>
       </label>
       <div class="p-error" data-p-file-error>Upload een geldig 3D-bestand.</div>
 
@@ -42,7 +38,7 @@
         </div>
         <label class="p-field">
           <span>Gewenste kleur</span>
-          <input type="text" name="contact[Kleur]" placeholder="Bijv. zwart, wit, rood..." required data-p-color>
+          <input type="text" placeholder="Bijv. zwart, wit, rood..." required data-p-color>
         </label>
       </div>
 
@@ -59,21 +55,16 @@
       </div>
 
       <div class="p-field-grid p-field-grid-wide">
-        <label class="p-field"><span>Naam</span><input type="text" name="contact[name]" placeholder="Je naam" required data-p-name></label>
-        <label class="p-field"><span>E-mailadres</span><input type="email" name="contact[email]" placeholder="jij@example.nl" required data-p-email></label>
+        <label class="p-field"><span>Naam</span><input type="text" placeholder="Je naam" required data-p-name></label>
+        <label class="p-field"><span>E-mailadres</span><input type="email" placeholder="jij@example.nl" required data-p-email></label>
       </div>
 
-      <label class="p-field" style="margin-top:14px"><span>Telefoonnummer</span><input type="tel" name="contact[Telefoonnummer]" placeholder="Bijv. 06 12 34 56 78" required data-p-phone></label>
-      <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea name="contact[body]" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
+      <label class="p-field" style="margin-top:14px"><span>Telefoonnummer</span><input type="tel" placeholder="Bijv. 06 12 34 56 78" required data-p-phone></label>
+      <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
+      <div class="p-error" data-p-bridge-error>De Shopify Forms-koppeling kon niet worden gevonden. Controleer of het Shopify Forms app block op deze pagina staat.</div>
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
-
-    {% if form.posted_successfully? %}
-      <div class="p-success" data-p-contact-success data-p-success-url="{{ pr3nt_success_url }}">Offerte-aanvraag ontvangen. Je wordt doorgestuurd...</div>
-      <script>window.location.replace('{{ pr3nt_success_url }}');</script>
-    {% endif %}
-    {% if form.errors %}<div class="p-error is-visible">Controleer je gegevens en probeer opnieuw.</div>{% endif %}
-  {% endform %}
+  </form>
 </div>
