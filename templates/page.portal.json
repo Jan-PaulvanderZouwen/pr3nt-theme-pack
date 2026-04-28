@@ -1,0 +1,14 @@
+{
+  "sections": {
+    "portal": {
+      "type": "pr3nt-portal-dashboard"
+    },
+    "quote": {
+      "type": "pr3nt-quote-section"
+    }
+  },
+  "order": [
+    "portal",
+    "quote"
+  ]
+}

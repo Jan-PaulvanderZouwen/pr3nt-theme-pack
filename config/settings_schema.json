@@ -1,0 +1,76 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "pr3nt Theme Pack",
+    "theme_version": "1.0.0",
+    "theme_author": "OpenAI / pr3nt",
+    "theme_documentation_url": "https://shopify.dev/docs/storefronts/themes",
+    "theme_support_url": "mailto:info@pr3nt.nl"
+  },
+  {
+    "name": "Kleuren",
+    "settings": [
+      {
+        "type": "color",
+        "id": "color_dark",
+        "label": "Donkere kleur",
+        "default": "#101820"
+      },
+      {
+        "type": "color",
+        "id": "color_green",
+        "label": "Accent groen",
+        "default": "#00D084"
+      },
+      {
+        "type": "color",
+        "id": "color_blue",
+        "label": "Accent blauw",
+        "default": "#3D8BFF"
+      },
+      {
+        "type": "color",
+        "id": "color_cream",
+        "label": "Achtergrond crème",
+        "default": "#F7F4EF"
+      }
+    ]
+  },
+  {
+    "name": "Typografie",
+    "settings": [
+      {
+        "type": "select",
+        "id": "heading_font_mode",
+        "label": "Heading font",
+        "default": "space_grotesk",
+        "options": [
+          {
+            "value": "space_grotesk",
+            "label": "Space Grotesk"
+          },
+          {
+            "value": "inter",
+            "label": "Inter"
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "id": "body_font_mode",
+        "label": "Body font",
+        "default": "inter",
+        "options": [
+          {
+            "value": "inter",
+            "label": "Inter"
+          },
+          {
+            "value": "system",
+            "label": "Systeemfont"
+          }
+        ]
+      }
+    ]
+  }
+]

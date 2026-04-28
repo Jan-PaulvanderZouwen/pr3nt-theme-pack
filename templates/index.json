@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "hero": {
+      "type": "pr3nt-hero"
+    },
+    "trustbar": {
+      "type": "pr3nt-trustbar"
+    },
+    "features": {
+      "type": "pr3nt-feature-cards"
+    },
+    "steps": {
+      "type": "pr3nt-how-it-works"
+    },
+    "quote": {
+      "type": "pr3nt-quote-section"
+    },
+    "pricing": {
+      "type": "pr3nt-pricing"
+    },
+    "gallery": {
+      "type": "pr3nt-gallery"
+    },
+    "video": {
+      "type": "pr3nt-video"
+    },
+    "materials": {
+      "type": "pr3nt-materials"
+    },
+    "faq": {
+      "type": "pr3nt-faq"
+    },
+    "cta": {
+      "type": "pr3nt-cta"
+    }
+  },
+  "order": [
+    "hero",
+    "trustbar",
+    "features",
+    "steps",
+    "quote",
+    "pricing",
+    "gallery",
+    "video",
+    "materials",
+    "faq",
+    "cta"
+  ]
+}

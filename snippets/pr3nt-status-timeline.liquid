@@ -1,0 +1,12 @@
+{% assign status_steps = 'Order ontvangen met orderdetails|Offerte wordt aangemaakt|Offerte verstuurd|Betaling voltooid|Print in queue|Print is klaar voor verzending|Print is verzonden|Print is geleverd' | split: '|' %}
+{% assign current = current_status | default: 'Order ontvangen met orderdetails' %}
+{% assign current_index = 0 %}
+{% for step in status_steps %}{% if step == current %}{% assign current_index = forloop.index0 %}{% endif %}{% endfor %}
+<div class="p-status">
+  {% for step in status_steps %}
+    {% assign class_name = '' %}
+    {% if forloop.index0 < current_index %}{% assign class_name = 'is-done' %}{% endif %}
+    {% if forloop.index0 == current_index %}{% assign class_name = 'is-current' %}{% endif %}
+    <div class="p-status-step {{ class_name }}"><div class="p-status-dot">{{ forloop.index }}</div><div><strong>{{ step }}</strong>{% if forloop.index0 == current_index %}<p class="p-card-text">Huidige status</p>{% endif %}</div></div>
+  {% endfor %}
+</div>

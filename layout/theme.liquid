@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <title>{{ page_title }}{% if current_tags %} – {{ current_tags | join: ', ' }}{% endif %}{% unless page_title contains shop.name %} – {{ shop.name }}{% endunless %}</title>
+  {% if page_description %}<meta name="description" content="{{ page_description | escape }}">{% endif %}
+  {{ content_for_header }}
+  {{ 'pr3nt.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'pr3nt.js' | asset_url }}" defer></script>
+</head>
+<body>
+  {% section 'pr3nt-header' %}
+  <main id="MainContent" role="main">{{ content_for_layout }}</main>
+  {% section 'pr3nt-footer' %}
+</body>
+</html>

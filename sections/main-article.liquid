@@ -1,0 +1,2 @@
+<article class="p-section white"><div class="p-wrap" style="max-width:860px"><p class="p-eyebrow">{{ article.published_at | date: '%d-%m-%Y' }}</p><h1 class="p-title-sm">{{ article.title }}</h1>{% if article.image %}<div class="p-media" style="border-radius:var(--p-radius);margin-top:28px;min-height:360px"><img src="{{ article.image | image_url: width: 1400 }}" alt="{{ article.image.alt | escape }}"></div>{% endif %}<div class="p-copy" style="margin-top:28px">{{ article.content }}</div></div></article>
+{% schema %}{"name":"Blogartikel","settings":[]}{% endschema %}
