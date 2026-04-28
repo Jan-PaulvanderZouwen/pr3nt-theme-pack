@@ -1,0 +1,21 @@
+name = "pr3nt-quote-endpoint"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://pr3nt.nl"
+TO_EMAIL = "bestellingen@pr3nt.nl"
+FROM_EMAIL = "Pr3nt Offertes <offertes@pr3nt.nl>"
+SUCCESS_URL = "https://pr3nt.nl/pages/offerte-aanvraag-ontvangen"
+
+# Secrets needed:
+# wrangler secret put RESEND_API_KEY
+# Optional, for upload links:
+# wrangler secret put R2_PUBLIC_BASE_URL
+
+# Optional R2 bucket for storing uploaded 3D files.
+# Create with: wrangler r2 bucket create pr3nt-quotes
+# Uncomment after creating the bucket:
+# [[r2_buckets]]
+# binding = "QUOTE_FILES"
+# bucket_name = "pr3nt-quotes"
