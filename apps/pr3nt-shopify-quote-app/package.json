@@ -1,0 +1,21 @@
+{
+  "name": "pr3nt-shopify-quote-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Custom Shopify quote app for pr3nt.nl",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "setup:dirs": "mkdir -p uploads/quotes data"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "uuid": "^11.0.5"
+  }
+}
