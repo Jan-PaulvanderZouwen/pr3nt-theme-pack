@@ -1,4 +1,4 @@
-<div class="p-form" data-pr3nt-form>
+<div class="p-form" data-pr3nt-form data-p-use-shopify-forms>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   {% assign pr3nt_success_url = success_url | default: '/pages/offerte-aanvraag-ontvangen' %}
   {% form 'contact', id: pr3nt_form_id, enctype: 'multipart/form-data' %}
@@ -64,7 +64,7 @@
       </div>
 
       <label class="p-field" style="margin-top:14px"><span>Telefoonnummer</span><input type="tel" name="contact[Telefoonnummer]" placeholder="Bijv. 06 12 34 56 78" required data-p-phone></label>
-      <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea name="contact[body]" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..."></textarea></label>
+      <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea name="contact[body]" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
