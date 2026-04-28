@@ -78,6 +78,10 @@ function quoteStatusLabel(status = 'received') {
   return labels[status] || labels.received;
 }
 
+function isShopifyAccessDenied(error) {
+  return String(error?.message || '').toLowerCase().includes('access denied');
+}
+
 async function getShopifyAdminToken() {
   if (config.shopifyToken) return config.shopifyToken;
 
@@ -173,9 +177,17 @@ async function createCustomer({ name, email, phone }) {
 }
 
 async function findOrCreateCustomer(input) {
-  const existing = await findCustomerByEmail(input.email);
-  if (existing) return existing;
-  return createCustomer(input);
+  try {
+    const existing = await findCustomerByEmail(input.email);
+    if (existing) return existing;
+    return createCustomer(input);
+  } catch (error) {
+    if (isShopifyAccessDenied(error)) {
+      console.warn('Shopify customer access denied. Offerte wordt zonder customer-koppeling verwerkt. Controleer read_customers/write_customers scopes en protected customer data settings.');
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function createQuoteMetaobject(quote) {
@@ -261,6 +273,7 @@ function adminEmailHtml(quote) {
           ['Opmerking', quote.note || '-'],
           ['Shopify customer ID', quote.customerId || '-'],
           ['Metaobject ID', quote.metaobjectId || '-'],
+          ['Shopify waarschuwing', quote.customerWarning || quote.metaobjectError || '-'],
         ].map(([label, value]) => `
           <tr>
             <td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td>
@@ -355,7 +368,12 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
     }
 
     const customer = await findOrCreateCustomer(quote);
-    quote.customerId = customer.id;
+    if (customer) {
+      quote.customerId = customer.id;
+    } else {
+      quote.customerId = '';
+      quote.customerWarning = 'Shopify klant niet aangemaakt: customer API toegang ontbreekt.';
+    }
 
     try {
       const metaobject = await createQuoteMetaobject(quote);
