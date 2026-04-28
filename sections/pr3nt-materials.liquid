@@ -1,2 +1,62 @@
-<section class="p-section" style="--py:{{ section.settings.padding_y }}px"><div class="p-wrap p-grid-2"><div style="background:var(--p-dark);color:white;border-radius:var(--p-radius);padding:28px"><p class="p-eyebrow" style="color:var(--p-green)">{{ section.settings.eyebrow }}</p><h2 class="p-title-sm">{{ section.settings.heading }}</h2><div class="p-grid-2" style="margin-top:24px;grid-template-columns:repeat(2,1fr)">{% for block in section.blocks %}<article style="background:rgba(255,255,255,.1);border-radius:24px;overflow:hidden" {{ block.shopify_attributes }}><div class="p-media" style="min-height:170px">{% if block.settings.image != blank %}<img src="{{ block.settings.image | image_url: width: 800 }}" alt="{{ block.settings.title | escape }}" loading="lazy">{% else %}<div class="p-media-fallback">Upload afbeelding</div>{% endif %}</div><div style="padding:20px"><h3 style="margin:0;font-size:24px;color:white">{{ block.settings.title }}</h3><p style="color:rgba(255,255,255,.66);line-height:1.7">{{ block.settings.text }}</p></div></article>{% endfor %}</div></div><div style="background:var(--p-green);border-radius:var(--p-radius);padding:28px;color:var(--p-dark)"><h2 class="p-title-sm">{{ section.settings.size_heading }}</h2><p style="font-size:22px;font-weight:950">{{ section.settings.size_value }}</p><p style="line-height:1.7;color:rgba(16,24,32,.65)">{{ section.settings.size_text }}</p></div></div></section>
-{% schema %}{"name":"pr3nt materialen","settings":[{"type":"range","id":"padding_y","label":"Verticale ruimte","min":40,"max":140,"step":4,"default":76},{"type":"text","id":"eyebrow","label":"Label","default":"Materiaalkeuze"},{"type":"text","id":"heading","label":"Titel","default":"PLA of PETG?"},{"type":"text","id":"size_heading","label":"Formaat titel","default":"Maximaal printformaat"},{"type":"text","id":"size_value","label":"Formaat waarde","default":"255 × 255 × 255 mm"},{"type":"textarea","id":"size_text","label":"Formaat tekst","default":"Past je model niet binnen dit formaat, dan moet het model worden verkleind of opgesplitst."}],"blocks":[{"type":"material","name":"Materiaal","settings":[{"type":"image_picker","id":"image","label":"Afbeelding"},{"type":"text","id":"title","label":"Titel","default":"PLA"},{"type":"textarea","id":"text","label":"Tekst","default":"Beschrijving"}]}],"presets":[{"name":"pr3nt materialen","blocks":[{"type":"material","settings":{"title":"PLA","text":"De beste keuze voor decoratieve prints, hobbyprojecten, organizers, modellen en snelle onderdelen."}},{"type":"material","settings":{"title":"PETG","text":"Sterker en taaier. Geschikt voor functionele onderdelen die iets meer moeten kunnen hebben."}}]}]}{% endschema %}
+<section class="p-section" style="--py:{{ section.settings.padding_y }}px">
+  <div class="p-wrap p-grid-2">
+    <div style="background:var(--p-dark);color:white;border-radius:var(--p-radius);padding:28px">
+      <p class="p-eyebrow" style="color:var(--p-green)">{{ section.settings.eyebrow }}</p>
+      <h2 class="p-title-sm">{{ section.settings.heading }}</h2>
+      {% if section.settings.text != blank %}
+        <p class="p-copy">{{ section.settings.text }}</p>
+      {% endif %}
+
+      <div class="p-grid-2" style="margin-top:24px;grid-template-columns:repeat(2,1fr)">
+        {% for block in section.blocks %}
+          <article class="p-material-card" {{ block.shopify_attributes }}>
+            <div class="p-material-icon">{{ block.settings.icon }}</div>
+            <h3 style="margin:0;font-size:22px;color:white">{{ block.settings.title }}</h3>
+            <p style="color:rgba(255,255,255,.66);line-height:1.65;font-size:15px;">{{ block.settings.text }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="background:var(--p-green);border-radius:var(--p-radius);padding:28px;color:var(--p-dark)">
+      <h2 class="p-title-sm">{{ section.settings.size_heading }}</h2>
+      <p style="font-size:20px;font-weight:800">{{ section.settings.size_value }}</p>
+      <p style="line-height:1.65;color:rgba(16,24,32,.65);font-size:15px;">{{ section.settings.size_text }}</p>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "pr3nt materialen",
+  "settings": [
+    { "type": "range", "id": "padding_y", "label": "Verticale ruimte", "min": 40, "max": 140, "step": 4, "default": 76 },
+    { "type": "text", "id": "eyebrow", "label": "Label", "default": "Materiaalkeuze" },
+    { "type": "text", "id": "heading", "label": "Titel", "default": "PLA of PETG?" },
+    { "type": "textarea", "id": "text", "label": "Intro tekst", "default": "Kies het materiaal dat past bij jouw toepassing. PLA is strak en snel, PETG is sterker en taaier." },
+    { "type": "text", "id": "size_heading", "label": "Formaat titel", "default": "Maximaal printformaat" },
+    { "type": "text", "id": "size_value", "label": "Formaat waarde", "default": "255 × 255 × 255 mm" },
+    { "type": "textarea", "id": "size_text", "label": "Formaat tekst", "default": "Past je model niet binnen dit formaat, dan moet het model worden verkleind of opgesplitst." }
+  ],
+  "blocks": [
+    {
+      "type": "material",
+      "name": "Materiaal",
+      "settings": [
+        { "type": "text", "id": "icon", "label": "Icoon", "default": "P" },
+        { "type": "text", "id": "title", "label": "Titel", "default": "PLA" },
+        { "type": "textarea", "id": "text", "label": "Tekst", "default": "Beschrijving" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "pr3nt materialen",
+      "blocks": [
+        { "type": "material", "settings": { "icon": "P", "title": "PLA", "text": "De beste keuze voor decoratieve prints, hobbyprojecten, organizers, modellen en snelle onderdelen." } },
+        { "type": "material", "settings": { "icon": "G", "title": "PETG", "text": "Sterker en taaier. Geschikt voor functionele onderdelen die iets meer moeten kunnen hebben." } }
+      ]
+    }
+  ]
+}
+{% endschema %}
