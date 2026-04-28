@@ -29,6 +29,25 @@
   color: rgba(16,24,32,.58);
   font-size: 14px;
 }
+.p-shopify-forms-hidden {
+  position: fixed !important;
+  left: -9999px !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.p-shopify-forms-hidden iframe,
+.p-shopify-forms-hidden form,
+.p-shopify-forms-hidden input,
+.p-shopify-forms-hidden button,
+.p-shopify-forms-hidden textarea {
+  pointer-events: auto !important;
+}
 .p-confirm-wrap {
   min-height: 68vh;
   display: grid;
