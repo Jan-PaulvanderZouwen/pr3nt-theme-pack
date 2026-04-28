@@ -152,60 +152,6 @@
         "heading": "Van 3D-bestand naar offerte en print."
       }
     },
-    "quote": {
-      "type": "pr3nt-quote-section",
-      "blocks": {
-        "price_nbFUzj": {
-          "type": "price",
-          "settings": {
-            "label": "Opstartkosten",
-            "value": "€7,50"
-          }
-        },
-        "price_fWFmdB": {
-          "type": "price",
-          "settings": {
-            "label": "Verpakkingsmateriaal",
-            "value": "€3,50"
-          }
-        },
-        "price_ThFrPX": {
-          "type": "price",
-          "settings": {
-            "label": "Verzending",
-            "value": "€6,55"
-          }
-        },
-        "price_8KFkYp": {
-          "type": "price",
-          "settings": {
-            "label": "Fillament /g",
-            "value": "€0,12"
-          }
-        },
-        "price_q8JamQ": {
-          "type": "price",
-          "settings": {
-            "label": "Printuur",
-            "value": "€0,35"
-          }
-        }
-      },
-      "block_order": [
-        "price_nbFUzj",
-        "price_fWFmdB",
-        "price_ThFrPX",
-        "price_8KFkYp",
-        "price_q8JamQ"
-      ],
-      "settings": {
-        "padding_y": 76,
-        "eyebrow": "Offerte aanvragen",
-        "heading": "Upload je bestand, wij rekenen het uit.",
-        "text": "Een 3D-bestand kun je niet eerlijk automatisch prijzen zonder het eerst te controleren. Support, wanddikte, printoriëntatie, materiaalverbruik en printtijd bepalen de uiteindelijke prijs. Daarom ontvang je bij pr3nt.nl altijd eerst een offerte.",
-        "supported_formats": "STL, 3MF, OBJ, STEP of STP"
-      }
-    },
     "pricing": {
       "type": "pr3nt-pricing",
       "blocks": {
@@ -423,6 +369,60 @@
         "size_text": "Past je model niet binnen dit formaat, dan moet het model worden verkleind of opgesplitst."
       }
     },
+    "quote": {
+      "type": "pr3nt-quote-section",
+      "blocks": {
+        "price_nbFUzj": {
+          "type": "price",
+          "settings": {
+            "label": "Opstartkosten",
+            "value": "€7,50"
+          }
+        },
+        "price_fWFmdB": {
+          "type": "price",
+          "settings": {
+            "label": "Verpakkingsmateriaal",
+            "value": "€3,50"
+          }
+        },
+        "price_ThFrPX": {
+          "type": "price",
+          "settings": {
+            "label": "Verzending",
+            "value": "€6,55"
+          }
+        },
+        "price_8KFkYp": {
+          "type": "price",
+          "settings": {
+            "label": "Fillament /g",
+            "value": "€0,12"
+          }
+        },
+        "price_q8JamQ": {
+          "type": "price",
+          "settings": {
+            "label": "Printuur",
+            "value": "€0,35"
+          }
+        }
+      },
+      "block_order": [
+        "price_nbFUzj",
+        "price_fWFmdB",
+        "price_ThFrPX",
+        "price_8KFkYp",
+        "price_q8JamQ"
+      ],
+      "settings": {
+        "padding_y": 76,
+        "eyebrow": "Offerte aanvragen",
+        "heading": "Upload je bestand, wij rekenen het uit.",
+        "text": "Een 3D-bestand kun je niet eerlijk automatisch prijzen zonder het eerst te controleren. Support, wanddikte, printoriëntatie, materiaalverbruik en printtijd bepalen de uiteindelijke prijs. Daarom ontvang je bij pr3nt.nl altijd eerst een offerte.",
+        "supported_formats": "STL, 3MF, OBJ, STEP of STP"
+      }
+    },
     "faq": {
       "type": "pr3nt-faq",
       "blocks": {
@@ -500,11 +500,11 @@
     "trustbar",
     "features",
     "steps",
-    "quote",
     "pricing",
     "gallery",
     "video",
     "materials",
+    "quote",
     "faq",
     "cta"
   ]
