@@ -19,6 +19,7 @@
         "heading_after": "je offerte.",
         "text": "Heb je een onderdeel, prototype of hobbyproject dat je wilt laten 3D-printen? Upload je bestand, kies PLA of PETG en ontvang een duidelijke offerte. Wij controleren je model, berekenen de printtijd en sturen je een eerlijke prijs voordat je betaalt.",
         "supported_formats": "STL, 3MF, OBJ, STEP of STP",
+        "quote_endpoint_url": "https://app.pr3nt.nl/api/quote",
         "primary_label": "Vraag offerte aan",
         "primary_link": "#upload",
         "secondary_label": "Bekijk prijsopbouw",
