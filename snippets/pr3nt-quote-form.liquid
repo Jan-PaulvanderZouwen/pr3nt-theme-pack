@@ -1,7 +1,8 @@
 <div class="p-form" data-pr3nt-form>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   {% assign pr3nt_success_url = success_url | default: '/pages/offerte-aanvraag-ontvangen' %}
-  {% form 'contact', id: pr3nt_form_id, enctype: 'multipart/form-data', return_to: pr3nt_success_url %}
+  {% form 'contact', id: pr3nt_form_id, enctype: 'multipart/form-data' %}
+    <input type="hidden" name="return_to" value="{{ pr3nt_success_url }}">
     <input type="hidden" name="contact[Onderwerp]" value="Nieuwe offerte-aanvraag via pr3nt.nl">
     <input type="hidden" name="contact[Gewenste ontvanger]" value="bestellingen@pr3nt.nl">
     <input type="hidden" name="contact[Materiaal]" value="PLA" data-p-material-input>
@@ -69,7 +70,10 @@
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
 
-    {% if form.posted_successfully? %}<div class="p-success">Offerte-aanvraag ontvangen. We nemen zo snel mogelijk contact met je op.</div>{% endif %}
+    {% if form.posted_successfully? %}
+      <div class="p-success" data-p-contact-success data-p-success-url="{{ pr3nt_success_url }}">Offerte-aanvraag ontvangen. Je wordt doorgestuurd...</div>
+      <script>window.location.replace('{{ pr3nt_success_url }}');</script>
+    {% endif %}
     {% if form.errors %}<div class="p-error is-visible">Controleer je gegevens en probeer opnieuw.</div>{% endif %}
   {% endform %}
 </div>
