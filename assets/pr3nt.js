@@ -1,6 +1,4 @@
 (function(){
-  var SUCCESS_URL = '/pages/offerte-aanvraag-ontvangen';
-
   function setNativeValue(input, value){
     if(!input) return;
     var proto = input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
@@ -26,8 +24,27 @@
     }
   }
 
-  function getShopifyFormsRoot(){
-    return document.querySelector('[data-pr3nt-shopify-forms-bridge]') || document;
+  function getPossibleShopifyFormsRoots(){
+    var roots = [];
+    var bridge = document.querySelector('[data-pr3nt-shopify-forms-bridge]');
+    if(bridge) roots.push(bridge);
+    roots.push(document);
+    return roots;
+  }
+
+  function findShopifyFormsElements(){
+    var roots = getPossibleShopifyFormsRoots();
+    for(var i=0;i<roots.length;i++){
+      var root = roots[i];
+      var sfForm = root.querySelector('form[data-testid="form"]') || root.querySelector('shop-lead-capture')?.closest('form');
+      if(!sfForm) continue;
+      var submit = sfForm.querySelector('[data-testid="btn-form-submit"]') || sfForm.querySelector('button[type="submit"]');
+      var email = sfForm.querySelector('#email');
+      if(sfForm && submit && email){
+        return { form: sfForm, submit: submit };
+      }
+    }
+    return { form: null, submit: null };
   }
 
   function showBridgeError(form, message){
@@ -47,19 +64,17 @@
 
   function waitForShopifyForms(callback, tries){
     tries = tries || 0;
-    var root = getShopifyFormsRoot();
-    var sfForm = root.querySelector('form[data-testid="form"]');
-    var submit = sfForm && (sfForm.querySelector('[data-testid="btn-form-submit"]') || sfForm.querySelector('button[type="submit"]'));
-    if(sfForm && submit){ callback(sfForm, submit); return; }
-    if(tries >= 40){ callback(null, null); return; }
+    var found = findShopifyFormsElements();
+    if(found.form && found.submit){ callback(found.form, found.submit); return; }
+    if(tries >= 140){ callback(null, null); return; }
     window.setTimeout(function(){ waitForShopifyForms(callback, tries + 1); }, 150);
   }
 
   function submitToShopifyForms(form, fields, onDone){
     waitForShopifyForms(function(sfForm, submit){
       if(!sfForm || !submit){
-        console.warn('pr3nt: Shopify Forms formulier niet gevonden. Voeg het Shopify Forms app block toe op dezelfde pagina.');
-        onDone(false, 'De Shopify Forms-koppeling is nog niet geladen. Ververs de pagina of probeer het opnieuw.');
+        console.warn('pr3nt: Shopify Forms formulier niet gevonden. Controleer of het app block op dezelfde pagina staat en niet volledig is uitgeschakeld.');
+        onDone(false, 'De Shopify Forms-koppeling is niet gevonden. Controleer of de sectie “pr3nt Shopify Forms” met het Shopify Forms app block op deze pagina staat.');
         return;
       }
 
@@ -84,7 +99,7 @@
         rush.dispatchEvent(new Event('change', { bubbles:true }));
       }
 
-      window.setTimeout(function(){ submit.click(); }, 250);
+      window.setTimeout(function(){ submit.click(); }, 300);
       onDone(true);
     });
   }
@@ -211,7 +226,7 @@
             if(document.visibilityState !== 'hidden'){
               showBridgeError(form, 'Shopify verwerkt de upload nog. Wacht nog even; bij grote bestanden kan dit langer duren.');
             }
-          }, 12000);
+          }, 14000);
         });
       });
 
