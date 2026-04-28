@@ -19,6 +19,8 @@ const config = {
   allowedOrigin: process.env.ALLOWED_ORIGIN || 'https://pr3nt.nl',
   shop: process.env.SHOPIFY_SHOP || 'pr3nd.myshopify.com',
   shopifyToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
+  shopifyClientId: process.env.SHOPIFY_CLIENT_ID || '',
+  shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || '',
   shopifyVersion: process.env.SHOPIFY_API_VERSION || '2025-10',
   successUrl: process.env.SUCCESS_URL || 'https://pr3nt.nl/pages/offerte-aanvraag-ontvangen',
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 50),
@@ -27,6 +29,8 @@ const config = {
   metaobjectType: process.env.QUOTE_METAOBJECT_TYPE || 'pr3nt_quote_request',
 };
 
+let cachedAdminToken = null;
+let cachedAdminTokenExpiresAt = 0;
 const allowedExtensions = new Set(['.stl', '.3mf', '.obj', '.step', '.stp']);
 
 await mkdir(config.uploadDir, { recursive: true });
@@ -74,16 +78,47 @@ function quoteStatusLabel(status = 'received') {
   return labels[status] || labels.received;
 }
 
-async function shopifyGraphQL(query, variables = {}) {
-  if (!config.shopifyToken) {
-    throw new Error('SHOPIFY_ADMIN_ACCESS_TOKEN ontbreekt.');
+async function getShopifyAdminToken() {
+  if (config.shopifyToken) return config.shopifyToken;
+
+  if (!config.shopifyClientId || !config.shopifyClientSecret) {
+    throw new Error('Shopify token ontbreekt. Vul SHOPIFY_ADMIN_ACCESS_TOKEN of SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET in.');
   }
+
+  const now = Date.now();
+  if (cachedAdminToken && cachedAdminTokenExpiresAt > now + 60_000) {
+    return cachedAdminToken;
+  }
+
+  const response = await fetch(`https://${config.shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'client_credentials',
+      client_id: config.shopifyClientId,
+      client_secret: config.shopifyClientSecret,
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) {
+    throw new Error(`Shopify client credentials token ophalen mislukt: ${JSON.stringify(body)}`);
+  }
+
+  cachedAdminToken = body.access_token;
+  const expiresInSeconds = Number(body.expires_in || 86400);
+  cachedAdminTokenExpiresAt = now + expiresInSeconds * 1000;
+  return cachedAdminToken;
+}
+
+async function shopifyGraphQL(query, variables = {}) {
+  const token = await getShopifyAdminToken();
 
   const response = await fetch(`https://${config.shop}/admin/api/${config.shopifyVersion}/graphql.json`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': config.shopifyToken,
+      'X-Shopify-Access-Token': token,
     },
     body: JSON.stringify({ query, variables }),
   });
@@ -276,7 +311,7 @@ async function sendEmails(quote) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, app: 'pr3nt-shopify-quote-app' });
+  res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials' });
 });
 
 app.get('/files/:quoteId/:fileName', async (req, res) => {
