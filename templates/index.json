@@ -371,7 +371,7 @@
         "padding_y": 76,
         "eyebrow": "Materiaalkeuze",
         "heading": "PLA of PETG?",
-        "text": "Kies het materiaal dat past bij jouw toepassing. PLA is strak en snel, PETG is sterker en taaier.",
+        "text": "",
         "size_heading": "Maximaal printformaat",
         "size_value": "255 × 255 × 255 mm",
         "size_text": "Past je model niet binnen dit formaat, dan moet het model worden verkleind of opgesplitst."
