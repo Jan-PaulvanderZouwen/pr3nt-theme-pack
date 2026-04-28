@@ -357,6 +357,31 @@
     },
     "video": {
       "type": "pr3nt-video",
+      "blocks": {
+        "bullet_CkeYPf": {
+          "type": "bullet",
+          "settings": {
+            "text": "no-nonsense aanpak"
+          }
+        },
+        "bullet_UdKCHa": {
+          "type": "bullet",
+          "settings": {
+            "text": "Goede klantenservice"
+          }
+        },
+        "bullet_7zGKVt": {
+          "type": "bullet",
+          "settings": {
+            "text": "Hoge kwaliteit prints"
+          }
+        }
+      },
+      "block_order": [
+        "bullet_CkeYPf",
+        "bullet_UdKCHa",
+        "bullet_7zGKVt"
+      ],
       "settings": {
         "padding_y": 76,
         "poster": "shopify://shop_images/20210707_232617.png",
@@ -364,11 +389,31 @@
         "video_height": 360,
         "eyebrow": "Bekijk hoe het werkt",
         "heading": "In 1 minuut zie je hoe uploaden, beoordelen en printen werkt.",
-        "text": "Plaats hier een korte video van je P1S, het uploadproces en een afgeronde print. Dat maakt de service direct begrijpelijk en betrouwbaar."
+        "text": "Upload je bestand, wij controleren het model en sturen je een offerte. Na akkoord printen we je onderdeel en verzenden we het netjes verpakt naar je toe."
       }
     },
     "materials": {
       "type": "pr3nt-materials",
+      "blocks": {
+        "material_8GpKtd": {
+          "type": "material",
+          "settings": {
+            "title": "PLA",
+            "text": "Bedoeld voor decaratieve doeleinden"
+          }
+        },
+        "material_iAFkXf": {
+          "type": "material",
+          "settings": {
+            "title": "PETG",
+            "text": "Bedoeld voor functionele doeleinden"
+          }
+        }
+      },
+      "block_order": [
+        "material_8GpKtd",
+        "material_iAFkXf"
+      ],
       "settings": {
         "padding_y": 76,
         "eyebrow": "Materiaalkeuze",
@@ -380,6 +425,58 @@
     },
     "faq": {
       "type": "pr3nt-faq",
+      "blocks": {
+        "faq_8FRRLB": {
+          "type": "faq",
+          "settings": {
+            "question": "Waarom kan ik niet direct afrekenen?",
+            "answer": "Een 3D-bestand moet eerst gecontroleerd en gesliced worden. Gewicht, printtijd, supportmateriaal en printoriëntatie bepalen de echte prijs. Daarom ontvang je eerst een offerte."
+          }
+        },
+        "faq_nPLeqN": {
+          "type": "faq",
+          "settings": {
+            "question": "Welke bestanden kan ik uploaden?",
+            "answer": "Je kunt STL, 3MF, OBJ, STEP of STP uploaden. Wij controleren daarna of het model geschikt is om te printen."
+          }
+        },
+        "faq_MfVTKj": {
+          "type": "faq",
+          "settings": {
+            "question": "Hoe snel wordt mijn print verzonden?",
+            "answer": "Standaard verzenden we binnen 3 dagen na akkoord op de offerte. Kies je voor spoed, dan verzenden we binnen 2 dagen na akkoord."
+          }
+        },
+        "faq_WCC4nX": {
+          "type": "faq",
+          "settings": {
+            "question": "Welke materialen kan ik kiezen?",
+            "answer": "Je kunt kiezen uit PLA en PETG. PLA is geschikt voor de meeste hobbyprints en decoratieve onderdelen. PETG is sterker en beter voor functionele onderdelen. \n<br><br>\nOm kwaliteit te waarborgen bieden we deze materialen aan, omdat we weten dat we de eigenschappen hiervan 100% beheersen. We streven ernaar om het materiaal-assortiment op langere termijn uit te breiden."
+          }
+        },
+        "faq_zQxmV6": {
+          "type": "faq",
+          "settings": {
+            "question": "Zijn alle kleuren mogelijk?",
+            "answer": "Je kunt je gewenste kleur invullen bij de aanvraag. De exacte tint hangt af van de beschikbaarheid van filament."
+          }
+        },
+        "faq_emWemU": {
+          "type": "faq",
+          "settings": {
+            "question": "Is nabewerking inbegrepen?",
+            "answer": "Standaard nabewerking is inbegrepen. Denk aan het verwijderen van supportmateriaal en het netjes verzendklaar maken van de print."
+          }
+        }
+      },
+      "block_order": [
+        "faq_8FRRLB",
+        "faq_nPLeqN",
+        "faq_MfVTKj",
+        "faq_WCC4nX",
+        "faq_zQxmV6",
+        "faq_emWemU"
+      ],
       "settings": {
         "padding_y": 76,
         "eyebrow": "FAQ",
