@@ -88,7 +88,7 @@
       ],
       "name": "pr3nt Shopify Forms",
       "settings": {
-        "hide_section": false,
+        "hide_section": true,
         "background": "dark",
         "anchor_id": "shopify-forms-offerte",
         "padding_y": 0,
