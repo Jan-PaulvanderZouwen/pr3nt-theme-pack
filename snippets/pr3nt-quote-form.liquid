@@ -1,6 +1,6 @@
 <div class="p-form">
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
-  <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-use-shopify-forms novalidate>
+  <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
     <input type="hidden" value="Nee" data-p-rush-input>
     <input type="hidden" value="" data-p-file-name>
@@ -64,7 +64,7 @@
       <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
-      <div class="p-error" data-p-bridge-error>De Shopify Forms-koppeling kon niet worden gevonden. Controleer of het Shopify Forms app block op deze pagina staat.</div>
+      <div class="p-error" data-p-bridge-error>De offerte-app is nog niet gekoppeld. Vul de endpoint URL in bij deze sectie.</div>
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
   </form>
