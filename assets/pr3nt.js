@@ -17,11 +17,12 @@
   async function submitToQuoteEndpoint(form, fields){
     var endpoint = form.getAttribute('data-p-endpoint');
     if(!endpoint){
-      throw new Error('De offerte-app is nog niet gekoppeld. Vul de endpoint URL in bij deze sectie.');
+      throw new Error('Vul eerst de webhook URL in bij “Offerte-app endpoint URL”.');
     }
 
     var body = new FormData();
     body.append('file', fields.fileInput.files[0]);
+    body.append('file_name', fields.fileInput.files[0].name);
     body.append('color', fields.color);
     body.append('material', fields.material);
     body.append('name', fields.name);
@@ -35,11 +36,20 @@
       body: body
     });
 
-    var data = await response.json().catch(function(){ return {}; });
-    if(!response.ok || !data.ok){
-      throw new Error(data.error || 'De aanvraag kon niet worden verstuurd.');
+    if(!response.ok){
+      throw new Error('De aanvraag kon niet worden verstuurd. Controleer de webhook URL.');
     }
-    return data;
+
+    var contentType = response.headers.get('content-type') || '';
+    if(contentType.indexOf('application/json') !== -1){
+      var data = await response.json().catch(function(){ return {}; });
+      if(data && data.ok === false){
+        throw new Error(data.error || 'De aanvraag kon niet worden verstuurd.');
+      }
+      return data || {};
+    }
+
+    return { ok: true, redirect: '/pages/offerte-aanvraag-ontvangen' };
   }
 
   function initForms(scope){
