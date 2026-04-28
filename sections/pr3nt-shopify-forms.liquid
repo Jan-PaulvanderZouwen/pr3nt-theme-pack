@@ -1,7 +1,11 @@
 {{ 'pr3nt.css' | asset_url | stylesheet_tag }}
 {{ 'pr3nt-form-polish.css' | asset_url | stylesheet_tag }}
 
-<section class="p-section {% if section.settings.background == 'dark' %}dark{% elsif section.settings.background == 'white' %}white{% endif %}" id="{{ section.settings.anchor_id | escape }}" style="--py:{{ section.settings.padding_y }}px">
+<section
+  class="p-section {% if section.settings.background == 'dark' %}dark{% elsif section.settings.background == 'white' %}white{% endif %}{% if section.settings.hide_section %} p-shopify-forms-hidden{% endif %}"
+  id="{{ section.settings.anchor_id | escape }}"
+  data-pr3nt-shopify-forms-bridge
+  style="--py:{{ section.settings.padding_y }}px">
   <div class="p-wrap p-grid-2">
     <div>
       {% if section.settings.eyebrow != blank %}<p class="p-eyebrow">{{ section.settings.eyebrow }}</p>{% endif %}
@@ -42,13 +46,14 @@
 {
   "name": "pr3nt Shopify Forms",
   "settings": [
+    { "type": "checkbox", "id": "hide_section", "label": "Sectie verbergen maar technisch actief houden", "default": true },
     { "type": "select", "id": "background", "label": "Achtergrond", "default": "dark", "options": [
       { "value": "cream", "label": "Crème" },
       { "value": "white", "label": "Wit" },
       { "value": "dark", "label": "Donker" }
     ] },
     { "type": "text", "id": "anchor_id", "label": "Anker ID", "default": "shopify-forms-offerte" },
-    { "type": "range", "id": "padding_y", "label": "Verticale ruimte", "min": 40, "max": 140, "step": 4, "default": 76 },
+    { "type": "range", "id": "padding_y", "label": "Verticale ruimte", "min": 0, "max": 140, "step": 4, "default": 0 },
     { "type": "text", "id": "eyebrow", "label": "Label", "default": "Offerte aanvragen" },
     { "type": "text", "id": "heading", "label": "Titel", "default": "Upload je bestand via Shopify Forms." },
     { "type": "textarea", "id": "text", "label": "Tekst", "default": "Gebruik deze sectie als je de inzendingen, uploads en bevestigingen via Shopify Forms wilt laten lopen, maar wel binnen de pr3nt uitstraling wilt blijven." },
