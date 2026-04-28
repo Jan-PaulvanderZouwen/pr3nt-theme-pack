@@ -14,6 +14,10 @@
     if(error) error.classList.remove('is-visible');
   }
 
+  function selectedFiles(fileInput){
+    return Array.prototype.slice.call(fileInput && fileInput.files ? fileInput.files : []);
+  }
+
   async function submitToQuoteEndpoint(form, fields){
     var endpoint = form.getAttribute('data-p-endpoint');
     if(!endpoint){
@@ -21,8 +25,8 @@
     }
 
     var body = new FormData();
-    body.append('file', fields.fileInput.files[0]);
-    body.append('file_name', fields.fileInput.files[0].name);
+    selectedFiles(fields.fileInput).forEach(function(file){ body.append('file', file); });
+    body.append('file_name', selectedFiles(fields.fileInput).map(function(file){ return file.name; }).join(', '));
     body.append('color', fields.color);
     body.append('material', fields.material);
     body.append('name', fields.name);
@@ -72,17 +76,25 @@
       var formTitle=form.querySelector('[data-p-form-title]'), stepIcon=form.querySelector('[data-p-step-icon]');
 
       function validFile(file){ if(!file||!file.name)return false; return allowed.indexOf(file.name.split('.').pop().toLowerCase())!==-1; }
+      function validFiles(){ var files=selectedFiles(fileInput); return files.length>0 && files.every(validFile); }
       function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim()); }
       function validPhone(v){ return /^\+?[0-9]{8,15}$/.test(String(v||'').replace(/[\s().-]/g,'')); }
-      function stepOneOk(){ return fileInput && validFile(fileInput.files[0]) && colorInput && colorInput.value.trim().length>=2; }
+      function stepOneOk(){ return fileInput && validFiles() && colorInput && colorInput.value.trim().length>=2; }
       function allOk(){ return stepOneOk() && nameInput.value.trim().length>=2 && validEmail(emailInput.value) && validPhone(phoneInput.value); }
+
+      function fileSummaryText(){
+        var files=selectedFiles(fileInput);
+        if(!files.length) return 'Geen bestand gekozen';
+        if(files.length===1) return files[0].name;
+        return files.length + ' bestanden gekozen';
+      }
 
       function updateSummary(){
         if(!summary)return;
-        var f=fileInput.files[0], fileName=f?f.name:'Geen bestand gekozen';
+        var fileName=fileSummaryText();
         var rushText=rushInput.value==='Ja'?'spoed · 2 dagen verzending':'standaard · 3 dagen verzending';
         summary.innerHTML='<strong>'+fileName+'</strong> <span>· '+materialInput.value+' · '+(colorInput.value||'kleur niet ingevuld')+' · '+rushText+'</span>';
-        if(fileNameInput) fileNameInput.value=f?f.name:'';
+        if(fileNameInput) fileNameInput.value=selectedFiles(fileInput).map(function(file){ return file.name; }).join(', ');
       }
 
       function updateHeader(){
@@ -115,10 +127,10 @@
       }
 
       if(fileInput) fileInput.addEventListener('change',function(){
-        var f=fileInput.files[0];
-        if(!f){ fileLabel.textContent='Sleep je 3D-bestand hierheen'; fileError.classList.remove('is-visible'); update(); return; }
-        if(!validFile(f)){ fileInput.value=''; fileLabel.textContent='Sleep je 3D-bestand hierheen'; fileError.classList.add('is-visible'); update(); return; }
-        fileLabel.textContent=f.name;
+        var files=selectedFiles(fileInput);
+        if(!files.length){ fileLabel.textContent='Sleep je 3D-bestanden hierheen'; fileError.classList.remove('is-visible'); update(); return; }
+        if(!files.every(validFile)){ fileInput.value=''; fileLabel.textContent='Sleep je 3D-bestanden hierheen'; fileError.classList.add('is-visible'); update(); return; }
+        fileLabel.textContent=fileSummaryText();
         fileError.classList.remove('is-visible');
         update();
       });
