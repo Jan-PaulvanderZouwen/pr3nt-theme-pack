@@ -114,6 +114,7 @@
         "step_PXKaPL": {
           "type": "step",
           "settings": {
+            "icon": "↑",
             "title": "Upload",
             "text": "Stuur jouw 3D ontwerp door via pr3nt.nl"
           }
@@ -121,6 +122,7 @@
         "step_YjWAPh": {
           "type": "step",
           "settings": {
+            "icon": "↑",
             "title": "Offerte",
             "text": "We checken het bestand en berekenen de prijs"
           }
@@ -128,6 +130,7 @@
         "step_3frY7V": {
           "type": "step",
           "settings": {
+            "icon": "↑",
             "title": "Print",
             "text": "We printen jouw ontwerp in het gewenste materiaal"
           }
@@ -135,6 +138,7 @@
         "step_LazqKW": {
           "type": "step",
           "settings": {
+            "icon": "↑",
             "title": "Verstuurd",
             "text": "We versturen het model binnen 3 dagen thuis"
           }
@@ -331,7 +335,8 @@
       "settings": {
         "padding_y": 76,
         "poster": "shopify://shop_images/20210707_232617.png",
-        "video_url": "https://vimeo.com/1166912936?share=copy&fl=sv&fe=ci",
+        "video_embed_url": "",
+        "video_file_url": "https://cdn.shopify.com/videos/c/o/v/184db68ee3aa4f52a3f115d4f3b9367a.mp4",
         "video_height": 360,
         "eyebrow": "Bekijk hoe het werkt",
         "heading": "In 1 minuut zie je hoe uploaden, beoordelen en printen werkt.",
@@ -344,6 +349,7 @@
         "material_8GpKtd": {
           "type": "material",
           "settings": {
+            "icon": "P",
             "title": "PLA",
             "text": "Bedoeld voor decaratieve doeleinden"
           }
@@ -351,6 +357,7 @@
         "material_iAFkXf": {
           "type": "material",
           "settings": {
+            "icon": "P",
             "title": "PETG",
             "text": "Bedoeld voor functionele doeleinden"
           }
@@ -364,6 +371,7 @@
         "padding_y": 76,
         "eyebrow": "Materiaalkeuze",
         "heading": "PLA of PETG?",
+        "text": "Kies het materiaal dat past bij jouw toepassing. PLA is strak en snel, PETG is sterker en taaier.",
         "size_heading": "Maximaal printformaat",
         "size_value": "255 × 255 × 255 mm",
         "size_text": "Past je model niet binnen dit formaat, dan moet het model worden verkleind of opgesplitst."
@@ -480,7 +488,8 @@
       "settings": {
         "padding_y": 76,
         "eyebrow": "FAQ",
-        "heading": "Veelgestelde vragen."
+        "heading": "Veelgestelde vragen.",
+        "text": "Alles wat je wilt weten voordat je jouw 3D-bestand uploadt."
       }
     },
     "cta": {
