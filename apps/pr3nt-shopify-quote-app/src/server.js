@@ -22,6 +22,7 @@ const config = {
   shopifyClientId: process.env.SHOPIFY_CLIENT_ID || '',
   shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || '',
   shopifyVersion: process.env.SHOPIFY_API_VERSION || '2025-10',
+  customersEnabled: String(process.env.SHOPIFY_CUSTOMERS_ENABLED || 'false') === 'true',
   successUrl: process.env.SUCCESS_URL || 'https://pr3nt.nl/pages/offerte-aanvraag-ontvangen',
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 50),
   uploadDir: path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes'),
@@ -177,13 +178,14 @@ async function createCustomer({ name, email, phone }) {
 }
 
 async function findOrCreateCustomer(input) {
+  if (!config.customersEnabled) return null;
   try {
     const existing = await findCustomerByEmail(input.email);
     if (existing) return existing;
     return createCustomer(input);
   } catch (error) {
     if (isShopifyAccessDenied(error)) {
-      console.warn('Shopify customer access denied. Offerte wordt zonder customer-koppeling verwerkt. Controleer read_customers/write_customers scopes en protected customer data settings.');
+      console.warn('Shopify customer access denied. Offerte wordt zonder customer-koppeling verwerkt.');
       return null;
     }
     throw error;
@@ -255,26 +257,30 @@ function transporter() {
 }
 
 function adminEmailHtml(quote) {
+  const rows = [
+    ['Quote ID', quote.id],
+    ['Naam', quote.name],
+    ['E-mail', quote.email],
+    ['Telefoon', quote.phone],
+    ['Materiaal', quote.material],
+    ['Kleur', quote.color],
+    ['Spoed', quote.rush],
+    ['Bestand', quote.fileOriginalName],
+    ['Download', quote.fileUrl],
+    ['Opmerking', quote.note || '-'],
+    ['Shopify customer ID', quote.customerId || '-'],
+    ['Metaobject ID', quote.metaobjectId || '-'],
+  ];
+
+  if (quote.customerNote) rows.push(['Klantkoppeling', quote.customerNote]);
+  if (quote.metaobjectError) rows.push(['Shopify waarschuwing', quote.metaobjectError]);
+
   return `
     <div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820">
       <h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1>
       <p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p>
       <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">
-        ${[
-          ['Quote ID', quote.id],
-          ['Naam', quote.name],
-          ['E-mail', quote.email],
-          ['Telefoon', quote.phone],
-          ['Materiaal', quote.material],
-          ['Kleur', quote.color],
-          ['Spoed', quote.rush],
-          ['Bestand', quote.fileOriginalName],
-          ['Download', quote.fileUrl],
-          ['Opmerking', quote.note || '-'],
-          ['Shopify customer ID', quote.customerId || '-'],
-          ['Metaobject ID', quote.metaobjectId || '-'],
-          ['Shopify waarschuwing', quote.customerWarning || quote.metaobjectError || '-'],
-        ].map(([label, value]) => `
+        ${rows.map(([label, value]) => `
           <tr>
             <td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td>
             <td style="border-bottom:1px solid #eee">${value || '-'}</td>
@@ -324,7 +330,7 @@ async function sendEmails(quote) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials' });
+  res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled });
 });
 
 app.get('/files/:quoteId/:fileName', async (req, res) => {
@@ -372,7 +378,7 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
       quote.customerId = customer.id;
     } else {
       quote.customerId = '';
-      quote.customerWarning = 'Shopify klant niet aangemaakt: customer API toegang ontbreekt.';
+      quote.customerNote = config.customersEnabled ? 'Klant kon niet automatisch worden gekoppeld.' : 'Klant wordt handmatig aangemaakt in Shopify.';
     }
 
     try {
