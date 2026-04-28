@@ -1,0 +1,101 @@
+.p-upload strong { color: var(--p-dark); }
+.p-upload > span:not(.p-btn),
+.p-upload-help {
+  display: block;
+  margin-top: 4px;
+  color: rgba(16,24,32,.58);
+  font-size: 14px;
+}
+.p-upload .p-btn,
+.p-upload-button {
+  display: inline-flex;
+  width: auto;
+  color: #fff !important;
+  background: var(--p-dark) !important;
+  margin-top: 16px;
+}
+.p-field-grid-wide { grid-template-columns: 1fr; }
+.p-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.p-summary-main { min-width: 0; flex: 1 1 auto; }
+.p-summary-main strong,
+.p-summary-main span { display: inline; }
+.p-summary-main span {
+  color: rgba(16,24,32,.58);
+  font-size: 14px;
+}
+.p-confirm-wrap {
+  min-height: 68vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.p-confirm-card {
+  max-width: 780px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid rgba(16,24,32,.07);
+  border-radius: 32px;
+  padding: clamp(28px, 6vw, 56px);
+  box-shadow: var(--p-shadow);
+  position: relative;
+  overflow: hidden;
+}
+.p-confirm-card:before {
+  content: '';
+  position: absolute;
+  inset: -120px auto auto 50%;
+  width: 280px;
+  height: 280px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(0,208,132,.22);
+  filter: blur(60px);
+}
+.p-confirm-card > * { position: relative; }
+.p-confirm-icon {
+  width: 82px;
+  height: 82px;
+  margin: 0 auto 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background: var(--p-green);
+  color: var(--p-dark);
+  font-size: 38px;
+  font-weight: 900;
+  animation: pPop .55s cubic-bezier(.2,1.4,.4,1) both;
+}
+.p-confirm-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 28px;
+  text-align: left;
+}
+.p-confirm-step {
+  border-radius: 18px;
+  background: var(--p-cream);
+  padding: 16px;
+  color: rgba(16,24,32,.65);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.p-confirm-step strong {
+  display: block;
+  color: var(--p-dark);
+  margin-bottom: 4px;
+}
+@keyframes pPop {
+  from { opacity: 0; transform: translateY(16px) scale(.85); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 640px) {
+  .p-confirm-steps { grid-template-columns: 1fr; }
+  .p-summary-row { display: grid; }
+}
