@@ -26,21 +26,6 @@
         "show_form": true
       }
     },
-    "pr3nt_shopify_forms_xXFcF9": {
-      "type": "pr3nt-shopify-forms",
-      "name": "pr3nt Shopify Forms",
-      "settings": {
-        "hide_section": true,
-        "background": "dark",
-        "anchor_id": "shopify-forms-offerte",
-        "padding_y": 0,
-        "eyebrow": "Offerte aanvragen",
-        "heading": "Upload je bestand via Shopify Forms.",
-        "text": "Gebruik deze sectie als je de inzendingen, uploads en bevestigingen via Shopify Forms wilt laten lopen, maar wel binnen de pr3nt uitstraling wilt blijven.",
-        "form_id": "970579",
-        "show_form_id_note": false
-      }
-    },
     "trustbar": {
       "type": "pr3nt-trustbar",
       "blocks": {
@@ -76,6 +61,43 @@
         "item_4wJnRL"
       ],
       "settings": {}
+    },
+    "pr3nt_shopify_forms_pwJEce": {
+      "type": "pr3nt-shopify-forms",
+      "blocks": {
+        "forms_inline_h66w4a": {
+          "type": "shopify://apps/forms/blocks/inline/8744a304-fcb1-4347-b211-bb6b4759a76a",
+          "settings": {
+            "form_id": "970579",
+            "text_color": "#202020",
+            "button_background_color": "#202020",
+            "button_label_color": "#FFFFFF",
+            "links_color": "#1878B9",
+            "errors_color": "#E02229",
+            "text_alignment": "center",
+            "form_alignment": "center",
+            "padding_top": 0,
+            "padding_bottom": 24,
+            "padding_right": 0,
+            "padding_left": 0
+          }
+        }
+      },
+      "block_order": [
+        "forms_inline_h66w4a"
+      ],
+      "name": "pr3nt Shopify Forms",
+      "settings": {
+        "hide_section": false,
+        "background": "dark",
+        "anchor_id": "shopify-forms-offerte",
+        "padding_y": 0,
+        "eyebrow": "Offerte aanvragen",
+        "heading": "Upload je bestand via Shopify Forms.",
+        "text": "Gebruik deze sectie als je de inzendingen, uploads en bevestigingen via Shopify Forms wilt laten lopen, maar wel binnen de pr3nt uitstraling wilt blijven.",
+        "form_id": "970579",
+        "show_form_id_note": false
+      }
     },
     "features": {
       "type": "pr3nt-feature-cards",
@@ -558,8 +580,8 @@
   },
   "order": [
     "hero",
-    "pr3nt_shopify_forms_xXFcF9",
     "trustbar",
+    "pr3nt_shopify_forms_pwJEce",
     "features",
     "pr3nt_shopify_forms_xBibnz",
     "steps",
