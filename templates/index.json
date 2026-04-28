@@ -465,7 +465,8 @@
         "eyebrow": "Offerte aanvragen",
         "heading": "Upload je bestand, wij rekenen het uit.",
         "text": "Een 3D-bestand kun je niet eerlijk automatisch prijzen zonder het eerst te controleren. Support, wanddikte, printoriëntatie, materiaalverbruik en printtijd bepalen de uiteindelijke prijs. Daarom ontvang je bij pr3nt.nl altijd eerst een offerte.",
-        "supported_formats": "STL, 3MF, OBJ, STEP of STP"
+        "supported_formats": "STL, 3MF, OBJ, STEP of STP",
+        "quote_endpoint_url": "https://app.pr3nt.nl/api/quote"
       }
     },
     "faq": {
