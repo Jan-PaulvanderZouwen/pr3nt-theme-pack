@@ -1,4 +1,6 @@
 (function(){
+  var SUCCESS_URL = '/pages/offerte-aanvraag-ontvangen';
+
   function setNativeValue(input, value){
     if(!input) return;
     var proto = input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
@@ -28,43 +30,63 @@
     return document.querySelector('[data-pr3nt-shopify-forms-bridge]') || document;
   }
 
-  function submitToShopifyForms(form, fields){
+  function showBridgeError(form, message){
+    var error = form.querySelector('[data-p-bridge-error]');
+    if(error){
+      error.textContent = message;
+      error.classList.add('is-visible');
+    } else {
+      alert(message);
+    }
+  }
+
+  function hideBridgeError(form){
+    var error = form.querySelector('[data-p-bridge-error]');
+    if(error) error.classList.remove('is-visible');
+  }
+
+  function waitForShopifyForms(callback, tries){
+    tries = tries || 0;
     var root = getShopifyFormsRoot();
-    var sfForm = root.querySelector('form[data-testid="form"]') || root.querySelector('form');
-    if(!sfForm){
-      console.warn('pr3nt: Shopify Forms formulier niet gevonden. Voeg het Shopify Forms app block toe op dezelfde pagina.');
-      return false;
-    }
+    var sfForm = root.querySelector('form[data-testid="form"]');
+    var submit = sfForm && (sfForm.querySelector('[data-testid="btn-form-submit"]') || sfForm.querySelector('button[type="submit"]'));
+    if(sfForm && submit){ callback(sfForm, submit); return; }
+    if(tries >= 40){ callback(null, null); return; }
+    window.setTimeout(function(){ waitForShopifyForms(callback, tries + 1); }, 150);
+  }
 
-    setFileInput(sfForm.querySelector('#custom\\#upload_3d_bestand-field'), fields.fileInput);
-    setNativeValue(sfForm.querySelector('#custom\\#kleur'), fields.color);
-    setNativeValue(sfForm.querySelector('#first_name'), fields.name);
-    setNativeValue(sfForm.querySelector('#email'), fields.email);
-    setNativeValue(sfForm.querySelector('#phone_number'), fields.phone);
-    setNativeValue(sfForm.querySelector('textarea[name="custom#opmerkingen"]'), fields.note);
+  function submitToShopifyForms(form, fields, onDone){
+    waitForShopifyForms(function(sfForm, submit){
+      if(!sfForm || !submit){
+        console.warn('pr3nt: Shopify Forms formulier niet gevonden. Voeg het Shopify Forms app block toe op dezelfde pagina.');
+        onDone(false, 'De Shopify Forms-koppeling is nog niet geladen. Ververs de pagina of probeer het opnieuw.');
+        return;
+      }
 
-    var material = sfForm.querySelector('input[name="custom#materiaal"][value="'+fields.material+'"]');
-    if(material){
-      material.checked = true;
-      material.dispatchEvent(new Event('input', { bubbles:true }));
-      material.dispatchEvent(new Event('change', { bubbles:true }));
-    }
+      setFileInput(sfForm.querySelector('#custom\\#upload_3d_bestand-field'), fields.fileInput);
+      setNativeValue(sfForm.querySelector('#custom\\#kleur'), fields.color);
+      setNativeValue(sfForm.querySelector('#first_name'), fields.name);
+      setNativeValue(sfForm.querySelector('#email'), fields.email);
+      setNativeValue(sfForm.querySelector('#phone_number'), fields.phone);
+      setNativeValue(sfForm.querySelector('textarea[name="custom#opmerkingen"]'), fields.note);
 
-    var rush = sfForm.querySelector('input[name="custom#spoed"][value="Spoed"]');
-    if(rush){
-      rush.checked = fields.rush === 'Ja';
-      rush.dispatchEvent(new Event('input', { bubbles:true }));
-      rush.dispatchEvent(new Event('change', { bubbles:true }));
-    }
+      var material = sfForm.querySelector('input[name="custom#materiaal"][value="'+fields.material+'"]');
+      if(material){
+        material.checked = true;
+        material.dispatchEvent(new Event('input', { bubbles:true }));
+        material.dispatchEvent(new Event('change', { bubbles:true }));
+      }
 
-    var submit = sfForm.querySelector('[data-testid="btn-form-submit"]') || sfForm.querySelector('button[type="submit"]');
-    if(!submit){
-      console.warn('pr3nt: Shopify Forms submitknop niet gevonden.');
-      return false;
-    }
+      var rush = sfForm.querySelector('input[name="custom#spoed"][value="Spoed"]');
+      if(rush){
+        rush.checked = fields.rush === 'Ja';
+        rush.dispatchEvent(new Event('input', { bubbles:true }));
+        rush.dispatchEvent(new Event('change', { bubbles:true }));
+      }
 
-    submit.click();
-    return true;
+      window.setTimeout(function(){ submit.click(); }, 250);
+      onDone(true);
+    });
   }
 
   function initForms(scope){
@@ -75,6 +97,7 @@
     forms.forEach(function(form){
       form.setAttribute('data-pr3nt-ready','true');
       var step=1;
+      var pending=false;
       var fileInput=form.querySelector('[data-p-file]'), fileLabel=form.querySelector('[data-p-file-label]'), fileError=form.querySelector('[data-p-file-error]');
       var nextButton=form.querySelector('[data-p-next]'), submitButton=form.querySelector('[data-p-submit]');
       var stepOne=form.querySelector('[data-p-step="1"]'), stepTwo=form.querySelector('[data-p-step="2"]');
@@ -104,9 +127,17 @@
         if(stepIcon) stepIcon.textContent = String(step);
       }
 
+      function setPending(isPending){
+        pending = isPending;
+        if(submitButton){
+          submitButton.disabled = isPending || !allOk();
+          submitButton.textContent = isPending ? 'Bestand uploaden en aanvraag versturen...' : 'Offerte aanvragen';
+        }
+      }
+
       function update(){
         if(nextButton)nextButton.disabled=!stepOneOk();
-        if(submitButton)submitButton.disabled=!allOk();
+        if(submitButton && !pending)submitButton.disabled=!allOk();
         updateHeader();
         updateSummary();
       }
@@ -152,27 +183,36 @@
       var change=form.querySelector('[data-p-change]'); if(change)change.addEventListener('click',function(){setStep(1)});
 
       form.addEventListener('submit',function(e){
+        e.preventDefault();
         if(!allOk()){
-          e.preventDefault();
           update();
           return;
         }
+        if(pending) return;
+        hideBridgeError(form);
+        setPending(true);
 
-        if(form.hasAttribute('data-p-use-shopify-forms')){
-          e.preventDefault();
-          if(submitButton){ submitButton.disabled = true; submitButton.textContent = 'Aanvraag versturen...'; }
-          var sent = submitToShopifyForms(form, {
-            fileInput: fileInput,
-            color: colorInput.value,
-            material: materialInput.value,
-            name: nameInput.value,
-            email: emailInput.value,
-            phone: phoneInput.value,
-            note: noteInput ? noteInput.value : '',
-            rush: rushInput.value
-          });
-          if(!sent && submitButton){ submitButton.disabled = false; submitButton.textContent = 'Offerte aanvragen'; }
-        }
+        submitToShopifyForms(form, {
+          fileInput: fileInput,
+          color: colorInput.value,
+          material: materialInput.value,
+          name: nameInput.value,
+          email: emailInput.value,
+          phone: phoneInput.value,
+          note: noteInput ? noteInput.value : '',
+          rush: rushInput.value
+        }, function(sent, message){
+          if(!sent){
+            setPending(false);
+            showBridgeError(form, message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+            return;
+          }
+          window.setTimeout(function(){
+            if(document.visibilityState !== 'hidden'){
+              showBridgeError(form, 'Shopify verwerkt de upload nog. Wacht nog even; bij grote bestanden kan dit langer duren.');
+            }
+          }, 12000);
+        });
       });
 
       update();
