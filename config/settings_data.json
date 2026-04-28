@@ -1,3 +1,62 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
-  "current": {}
+  "current": {
+    "sections": {
+      "pr3nt-header": {
+        "type": "pr3nt-header",
+        "settings": {
+          "logo_mark": "3",
+          "logo_text": "pr3nt",
+          "logo_subtitle": "3D-printservice",
+          "logo_link": "/",
+          "cta_label": "Offerte aanvragen",
+          "cta_link": "#upload"
+        }
+      },
+      "pr3nt-footer": {
+        "type": "pr3nt-footer",
+        "settings": {
+          "logo_mark": "3",
+          "logo_text": "pr3nt",
+          "logo_subtitle": "3D-printservice",
+          "logo_link": "/",
+          "description": "Voor hobbyisten, makers en iedereen die snel een onderdeel of prototype wil laten 3D-printen.",
+          "contact_heading": "Contact",
+          "email": "info@pr3nt.nl",
+          "phone": "0644944038",
+          "phone_link": "+31644944038",
+          "address_line_1": "Schoolstraat 41",
+          "address_line_2": "6744WS Ederveen",
+          "links_heading": "Snel naar",
+          "copyright": "© 2026 pr3nt.nl",
+          "bottom_text": "Upload. Offerte. Print. Verzending."
+        }
+      }
+    },
+    "content_for_index": [],
+    "blocks": {
+      "15683396631634586217": {
+        "type": "shopify://apps/inbox/blocks/chat/841fc607-4181-4ad1-842d-e24d7f8bad6b",
+        "disabled": false,
+        "settings": {
+          "button_color": "#000000",
+          "secondary_color": "#FFFFFF",
+          "ternary_color": "#6A6A6A",
+          "button_icon": "chat_bubble",
+          "button_text": "chat_with_us",
+          "button_horizontal_position": "bottom_right",
+          "button_vertical_position": "lowest",
+          "greeting_message": ""
+        }
+      }
+    }
+  }
 }
