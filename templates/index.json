@@ -69,6 +69,7 @@
         "card_DULFdY": {
           "type": "card",
           "settings": {
+            "image": "shopify://shop_images/Pr3nt_-_vervang_onderdelen.png",
             "title": "Vervang onderdelen",
             "text": "Laat ieder onderdeel opnieuw printen in plaats van meteen iets nieuws te kopen."
           }
@@ -76,6 +77,7 @@
         "card_JawwVq": {
           "type": "card",
           "settings": {
+            "image": "shopify://shop_images/Hobby_en_modelbouw_laten_printen.png",
             "title": "Voor hobby en modelbouw",
             "text": "Ideaal voor makers die snel verder willen met hun project."
           }
@@ -83,6 +85,7 @@
         "card_TjnnwB": {
           "type": "card",
           "settings": {
+            "image": "shopify://shop_images/Prototype_laten_printen.png",
             "title": "Prototypes en ideeën",
             "text": "Test je ontwerp eerst fysiek voordat je verder bouwt. Handig voor prototypes, hulpstukken en kleine productideeën."
           }
@@ -90,6 +93,7 @@
         "card_xpcJiV": {
           "type": "card",
           "settings": {
+            "image": "shopify://shop_images/Onderdelen_laten_printen.png",
             "title": "Praktische onderdelen",
             "text": "Van adapters en clips tot houders en montagebeugels. Handig voor onderdelen die je niet zomaar in de winkel vindt."
           }
@@ -293,37 +297,43 @@
         "image_ddMHw4": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Gereedschaps-organisers_laten_printen.png",
+            "title": "Werkplaats"
           }
         },
         "image_pryjPF": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Vaas_laten_printen.png",
+            "title": "Woonaccessoires"
           }
         },
         "image_LhH8DC": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Bureau-accessoires_laten_printen.png",
+            "title": "Bureau-accessoires"
           }
         },
         "image_EYgFF8": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Desk_organizers_laten_printen.png",
+            "title": "Opbergers"
           }
         },
         "image_y9JfP3": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Gamer-accessoires_laten_printen.png",
+            "title": "Gaming"
           }
         },
         "image_EQNXki": {
           "type": "image",
           "settings": {
-            "title": "Voorbeeld"
+            "image": "shopify://shop_images/Hobby_artikelen_laten_printen.png",
+            "title": "Modelbouw"
           }
         }
       },
