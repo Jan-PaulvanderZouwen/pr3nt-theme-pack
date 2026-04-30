@@ -24,6 +24,7 @@ const config = {
   shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || '',
   shopifyVersion: process.env.SHOPIFY_API_VERSION || '2025-10',
   customersEnabled: String(process.env.SHOPIFY_CUSTOMERS_ENABLED || 'false') === 'true',
+  metaobjectsEnabled: String(process.env.SHOPIFY_METAOBJECTS_ENABLED || 'false') === 'true',
   successUrl: process.env.SUCCESS_URL || 'https://pr3nt.nl/pages/offerte-aanvraag-ontvangen',
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 50),
   uploadDir: path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes'),
@@ -195,6 +196,8 @@ async function findOrCreateCustomer(input) {
 }
 
 async function createQuoteMetaobject(quote) {
+  if (!config.metaobjectsEnabled) return null;
+
   const fields = [
     { key: 'quote_id', value: quote.id },
     { key: 'status', value: quote.status },
@@ -335,7 +338,13 @@ async function sendEmails(quote) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled });
+  res.json({
+    ok: true,
+    app: 'pr3nt-shopify-quote-app',
+    auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials',
+    customersEnabled: config.customersEnabled,
+    metaobjectsEnabled: config.metaobjectsEnabled
+  });
 });
 
 registerAdminRoutes(app);
@@ -388,12 +397,16 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
       quote.customerNote = config.customersEnabled ? 'Klant kon niet automatisch worden gekoppeld.' : 'Klant wordt handmatig aangemaakt in Shopify.';
     }
 
-    try {
-      const metaobject = await createQuoteMetaobject(quote);
-      quote.metaobjectId = metaobject.id;
-    } catch (error) {
-      quote.metaobjectError = error.message;
-      console.warn(error.message);
+    if (config.metaobjectsEnabled) {
+      try {
+        const metaobject = await createQuoteMetaobject(quote);
+        quote.metaobjectId = metaobject?.id || '';
+      } catch (error) {
+        quote.metaobjectError = error.message;
+        console.warn(error.message);
+      }
+    } else {
+      quote.metaobjectId = '';
     }
 
     await saveQuoteLocally(quote);
