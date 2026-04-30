@@ -164,7 +164,7 @@
         "step_YjWAPh": {
           "type": "step",
           "settings": {
-            "icon": "↑",
+            "icon": "≡",
             "title": "Offerte",
             "text": "We checken het bestand en berekenen de prijs"
           }
@@ -172,7 +172,7 @@
         "step_3frY7V": {
           "type": "step",
           "settings": {
-            "icon": "↑",
+            "icon": "⌁",
             "title": "Print",
             "text": "We printen jouw ontwerp in het gewenste materiaal"
           }
@@ -180,7 +180,7 @@
         "step_LazqKW": {
           "type": "step",
           "settings": {
-            "icon": "↑",
+            "icon": "→",
             "title": "Verstuurd",
             "text": "We versturen het model binnen 3 dagen thuis"
           }
