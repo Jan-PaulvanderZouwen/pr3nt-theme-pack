@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
+import { registerPortalRoutes } from './portal.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -263,6 +264,7 @@ function transporter() {
 
 function adminEmailHtml(quote) {
   const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
+  const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
   const rows = [
     ['Quote ID', quote.id],
     ['Naam', quote.name],
@@ -274,6 +276,7 @@ function adminEmailHtml(quote) {
     ['Bestand', quote.fileOriginalName],
     ['Download', quote.fileUrl],
     ['Open aanvraag', adminUrl],
+    ['Klantportaal', portalUrl],
     ['Opmerking', quote.note || '-'],
     ['Shopify customer ID', quote.customerId || '-'],
     ['Metaobject ID', quote.metaobjectId || '-'],
@@ -348,6 +351,7 @@ app.get('/health', (_req, res) => {
 });
 
 registerAdminRoutes(app);
+registerPortalRoutes(app);
 
 app.get('/files/:quoteId/:fileName', async (req, res) => {
   const { quoteId, fileName } = req.params;
@@ -370,6 +374,7 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
 
     const quote = {
       id: quoteId,
+      portalToken: randomUUID(),
       status: 'received',
       createdAt: new Date().toISOString(),
       name: clean(req.body.name, 200),
@@ -379,6 +384,7 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
       color: clean(req.body.color, 120),
       rush: clean(req.body.rush, 10) || 'Nee',
       note: clean(req.body.note, 3000),
+      messages: [],
       fileOriginalName: uploadedFile.originalname,
       fileStoredName: finalFileName,
       fileExtension: ext,
