@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerAdminRoutes } from './admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +60,7 @@ const upload = multer({
 const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: config.allowedOrigin, methods: ['POST', 'GET', 'OPTIONS'] }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 function clean(value, max = 2000) {
@@ -257,6 +259,7 @@ function transporter() {
 }
 
 function adminEmailHtml(quote) {
+  const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
   const rows = [
     ['Quote ID', quote.id],
     ['Naam', quote.name],
@@ -267,6 +270,7 @@ function adminEmailHtml(quote) {
     ['Spoed', quote.rush],
     ['Bestand', quote.fileOriginalName],
     ['Download', quote.fileUrl],
+    ['Open aanvraag', adminUrl],
     ['Opmerking', quote.note || '-'],
     ['Shopify customer ID', quote.customerId || '-'],
     ['Metaobject ID', quote.metaobjectId || '-'],
@@ -279,6 +283,7 @@ function adminEmailHtml(quote) {
     <div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820">
       <h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1>
       <p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p>
+      <p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open in pr3nt Dashboard</a></p>
       <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">
         ${rows.map(([label, value]) => `
           <tr>
@@ -332,6 +337,8 @@ async function sendEmails(quote) {
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled });
 });
+
+registerAdminRoutes(app);
 
 app.get('/files/:quoteId/:fileName', async (req, res) => {
   const { quoteId, fileName } = req.params;
