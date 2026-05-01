@@ -1,12 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
+const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
 
 function esc(value = '') {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -33,6 +35,27 @@ function quoteAccepted(quote) {
   return Boolean(quote.acceptedAt) || ['accepted', 'paid', 'print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status);
 }
 
+function notifyAdminLater(quote, title, message) {
+  Promise.resolve().then(async () => {
+    const mailer = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.transip.email',
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: String(process.env.SMTP_SECURE || 'true') === 'true',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+    const to = process.env.MAIL_TO || 'bestellingen@pr3nt.nl';
+    const adminUrl = `${baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
+    await mailer.sendMail({
+      from,
+      to,
+      replyTo: quote.email || from,
+      subject: `${title} · ${quote.name || quote.id}`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820"><h1>${esc(title)}</h1><p>${esc(message)}</p><p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open aanvraag</a></p></div>`,
+    });
+  }).catch((error) => console.warn('Admin notificatie kon niet worden verzonden:', error.message));
+}
+
 function css() {
   return `<style>
   .portal-nav{display:flex!important;align-items:center!important}.project-switcher,.nav-pill{order:50!important}.account-icon{font-size:0!important;width:44px!important;height:44px!important;padding:0!important;display:inline-grid!important;place-items:center!important;order:9999!important;margin-left:auto!important}.account-icon::after{content:'👤';font-size:20px}
@@ -44,9 +67,13 @@ function css() {
 }
 
 function accountIconRight(html) {
-  let out = html.replace(/<a class="nav-link ([^"]*)" href="([^"]*)\/account">Account<\/a>/, '<a class="nav-link account-icon $1" href="$2/account" aria-label="Account">Account</a>');
-  out = out.replace(/(<a class="nav-link account-icon[\s\S]*?<\/a>)(\s*<label class="project-switcher">[\s\S]*?<\/label>)/, '$2$1');
-  out = out.replace(/(<a class="nav-link account-icon[\s\S]*?<\/a>)(\s*<span class="nav-pill">[\s\S]*?<\/span>)/, '$2$1');
+  let out = html.replace(/<a class="nav-link([^"]*)" href="([^"]*)\/account">Account<\/a>/, '<a class="nav-link account-icon$1" href="$2/account" aria-label="Account">Account</a>');
+  out = out.replace(/<nav class="portal-nav">([\s\S]*?)<\/nav>/, (match, inner) => {
+    const account = inner.match(/<a class="nav-link account-icon[\s\S]*?<\/a>/)?.[0] || '';
+    if (!account) return match;
+    const cleaned = inner.replace(account, '').trim();
+    return `<nav class="portal-nav">${cleaned}${account}</nav>`;
+  });
   return out;
 }
 
@@ -71,7 +98,7 @@ function selfService(quote) {
   cards.push(`<div class="self-card"><span class="eyebrow">Hulp nodig?</span><strong>Supportvraag</strong><p class="muted">Koppel een vraag aan dit project.</p><form method="post" action="/portal/${key}/support" class="self-form"><textarea name="message" placeholder="Waar kunnen we mee helpen?" required></textarea><button class="btn btn-light" type="submit">Vraag versturen</button></form></div>`);
   if (quote.status === 'delivered') cards.push(`<div class="self-card"><span class="eyebrow">Na levering</span><strong>Beoordeling</strong><form method="post" action="/portal/${key}/review" class="self-form"><div class="rating"><label><input type="radio" name="rating" value="5" required> 5</label><label><input type="radio" name="rating" value="4"> 4</label><label><input type="radio" name="rating" value="3"> 3</label></div><textarea name="review" placeholder="Korte review"></textarea><button class="btn btn-light" type="submit">Review versturen</button></form></div>`);
   const modal = quoteAccepted(quote) ? '' : `<input class="modal-toggle" type="checkbox" id="self-upload-modal"><div class="modal"><div class="modal-card"><h2>Bestand vervangen</h2><form method="post" action="/portal/${key}/selfservice-upload" enctype="multipart/form-data" class="self-form"><input type="file" name="file" accept=".stl,.3mf,.obj,.step,.stp" multiple required><div class="material-switch"><label><input type="radio" name="material" value="PLA" checked><span>PLA</span></label><label><input type="radio" name="material" value="PETG"><span>PETG</span></label></div><input name="color" placeholder="Kleur"><textarea name="description" placeholder="Wat is er veranderd?"></textarea><div class="action-row"><button class="btn btn-primary" type="submit">Uploaden en vervangen</button><label class="btn btn-light" for="self-upload-modal">Annuleren</label></div></form></div></div>`;
-  return `<section class="self-grid cards-${Math.min(cards.length,4)}">${cards.join('')}</section>${modal}`;
+  return `<section class="self-grid cards-${Math.min(cards.length, 4)}">${cards.join('')}</section>${modal}`;
 }
 
 function enhanceDashboard(html, quote) {
@@ -117,10 +144,10 @@ export function registerPortalUxLiteRoutes(app) {
     quote.manualPaymentRequired = true;
     quote.paymentLinkError = '';
     quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
-    quote.messages.push({ from: 'klant', text: 'Ik ga akkoord met de offerte.', createdAt: quote.acceptedAt });
+    if (!quote.messages.some((message) => message.text === 'Ik ga akkoord met de offerte.')) quote.messages.push({ from: 'klant', text: 'Ik ga akkoord met de offerte.', createdAt: quote.acceptedAt });
     quote.messages.push({ from: 'pr3nt', text: 'De offerte is akkoord. De Shopify betaallink wordt handmatig klaargezet.', createdAt: new Date().toISOString() });
     await writeQuotes(quotes);
-    await notifyAdmin(quote, 'Offerte akkoord: Shopify betaallink handmatig aanmaken', 'De klant heeft akkoord gegeven. Maak in Shopify een Draft Order aan en plak de betaallink in het adminveld Shopify betaallink.');
+    notifyAdminLater(quote, 'Offerte akkoord: Shopify betaallink handmatig aanmaken', 'De klant heeft akkoord gegeven. Maak in Shopify een Draft Order aan en plak de betaallink in het adminveld Shopify betaallink.');
     res.redirect(`/portal/${encodeURIComponent(req.params.key)}?saved=Offerte%20akkoord%20gegeven`);
   });
 }
