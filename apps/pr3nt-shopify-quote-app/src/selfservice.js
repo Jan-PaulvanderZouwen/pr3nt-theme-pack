@@ -1,20 +1,27 @@
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
+import PDFDocument from 'pdfkit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const uploadDir = path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes');
+const invoiceDir = path.resolve(appRoot, process.env.INVOICE_DIR || 'data/invoices');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
+const shop = process.env.SHOPIFY_SHOP || 'pr3nd.myshopify.com';
+const shopifyToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || '';
+const shopifyVersion = process.env.SHOPIFY_API_VERSION || '2025-10';
 const allowedExtensions = new Set(['.stl', '.3mf', '.obj', '.step', '.stp']);
 
 await mkdir(uploadDir, { recursive: true });
+await mkdir(invoiceDir, { recursive: true });
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -35,6 +42,25 @@ function e(value = '') {
 
 function clean(value = '', max = 3000) {
   return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
+}
+
+function money(value) {
+  const number = Number(String(value || '0').replace(',', '.'));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function fmt(value) {
+  return money(value).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function quoteLines(quote) {
+  if (Array.isArray(quote.quoteLines) && quote.quoteLines.length) return quote.quoteLines;
+  if (quote.quoteAmount) return [{ label: 'Offertebedrag', qty: 1, unit: quote.quoteAmount }];
+  return [];
+}
+
+function quoteTotal(quote) {
+  return quoteLines(quote).reduce((sum, line) => sum + money(line.qty || 1) * money(line.unit || 0), 0);
 }
 
 async function readQuotes() {
@@ -87,14 +113,120 @@ function deliveryEstimate(quote) {
     received: 'Offerte meestal binnen 1 werkdag',
     creating_quote: 'Offerte wordt voorbereid',
     quote_sent: 'Wacht op jouw akkoord',
-    accepted: quote.paymentUrl ? 'Na betaling plannen we de print in' : 'Betaallink wordt klaargezet',
+    accepted: quote.paymentUrl ? 'Betaallink staat klaar' : 'Betaallink wordt aangemaakt',
     paid: 'Print wordt ingepland',
     print_queue: 'Productie loopt',
     ready_to_ship: 'Verzending wordt voorbereid',
-    shipped: 'Onderweg met track & trace',
+    shipped: quote.trackingCode ? `Verzonden · ${quote.trackingCode}` : 'Onderweg',
     delivered: 'Project afgerond',
   };
   return estimates[status] || estimates.received;
+}
+
+async function shopifyGraphQL(query, variables = {}) {
+  if (!shopifyToken) throw new Error('SHOPIFY_ADMIN_ACCESS_TOKEN ontbreekt');
+  const response = await fetch(`https://${shop}/admin/api/${shopifyVersion}/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': shopifyToken },
+    body: JSON.stringify({ query, variables }),
+  });
+  const body = await response.json();
+  if (!response.ok || body.errors) throw new Error(`Shopify API error: ${JSON.stringify(body.errors || body)}`);
+  return body.data;
+}
+
+async function createShopifyPaymentLink(quote) {
+  if (quote.paymentUrl) return quote.paymentUrl;
+  const total = quoteTotal(quote);
+  if (!total) throw new Error('Geen offertebedrag beschikbaar voor betaallink');
+  const lineItems = quoteLines(quote).map((line) => ({
+    title: line.label || '3D print regel',
+    quantity: Math.max(1, Math.round(money(line.qty || 1))),
+    originalUnitPrice: String(money(line.unit || 0).toFixed(2)),
+    customAttributes: line.description ? [{ key: 'Omschrijving', value: String(line.description) }] : [],
+  })).filter((line) => Number(line.originalUnitPrice) > 0);
+  const data = await shopifyGraphQL(`mutation CreateDraftOrder($input: DraftOrderInput!) { draftOrderCreate(input: $input) { draftOrder { id invoiceUrl name } userErrors { field message } } }`, {
+    input: {
+      email: quote.email || undefined,
+      tags: ['pr3nt-offerte', quote.id],
+      note: `Offerte ${quote.id}`,
+      lineItems,
+      customAttributes: [{ key: 'pr3nt_quote_id', value: quote.id }],
+      useCustomerDefaultAddress: true,
+    },
+  });
+  const errors = data.draftOrderCreate.userErrors || [];
+  if (errors.length) throw new Error(errors.map((error) => error.message).join(', '));
+  quote.shopifyDraftOrderId = data.draftOrderCreate.draftOrder.id;
+  quote.shopifyDraftOrderName = data.draftOrderCreate.draftOrder.name;
+  quote.paymentUrl = data.draftOrderCreate.draftOrder.invoiceUrl;
+  return quote.paymentUrl;
+}
+
+function invoiceNumber(quote) {
+  return `PR3NT-${String(quote.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-10).toUpperCase()}`;
+}
+
+async function generateInvoicePdf(quote) {
+  const fileName = `${quote.id}.pdf`;
+  const filePath = path.join(invoiceDir, fileName);
+  if (fs.existsSync(filePath)) return `/portal/${encodeURIComponent(quote.portalToken || quote.id)}/invoices/${fileName}`;
+  await new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 48, size: 'A4' });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+    doc.fontSize(22).font('Helvetica-Bold').text('pr3nt.nl', { continued: false });
+    doc.moveDown(0.4);
+    doc.fontSize(10).font('Helvetica').fillColor('#667085').text('3D print offerte / factuur');
+    doc.fillColor('#101820').moveDown(1.5);
+    doc.fontSize(18).font('Helvetica-Bold').text(`Factuur ${invoiceNumber(quote)}`);
+    doc.fontSize(10).font('Helvetica').moveDown(0.5).text(`Datum: ${new Date(quote.acceptedAt || Date.now()).toLocaleDateString('nl-NL')}`);
+    doc.text(`Project: ${quote.id}`);
+    doc.moveDown(1.2);
+    const billing = quote.billing || {};
+    doc.fontSize(12).font('Helvetica-Bold').text('Klantgegevens');
+    doc.font('Helvetica').fontSize(10).text(billing.name || quote.name || '-');
+    if (billing.company) doc.text(billing.company);
+    if (billing.address) doc.text(billing.address);
+    if (billing.postalCode || billing.city) doc.text(`${billing.postalCode || ''} ${billing.city || ''}`.trim());
+    if (billing.country) doc.text(billing.country);
+    if (billing.vat) doc.text(`BTW: ${billing.vat}`);
+    doc.text(quote.email || '');
+    doc.moveDown(1.4);
+    doc.fontSize(12).font('Helvetica-Bold').text('Specificatie');
+    doc.moveDown(0.4);
+    const startY = doc.y;
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.text('Omschrijving', 48, startY);
+    doc.text('Aantal', 300, startY, { width: 60, align: 'right' });
+    doc.text('Prijs', 370, startY, { width: 70, align: 'right' });
+    doc.text('Totaal', 455, startY, { width: 90, align: 'right' });
+    doc.moveTo(48, startY + 16).lineTo(545, startY + 16).strokeColor('#e5e7eb').stroke();
+    let y = startY + 28;
+    doc.font('Helvetica').fontSize(9).fillColor('#101820');
+    for (const line of quoteLines(quote)) {
+      const qty = money(line.qty || 1);
+      const unit = money(line.unit || 0);
+      const total = qty * unit;
+      doc.text(line.label || 'Regel', 48, y, { width: 230 });
+      if (line.description) doc.fillColor('#667085').text(line.description, 48, y + 12, { width: 230 }).fillColor('#101820');
+      doc.text(String(line.qty || 1), 300, y, { width: 60, align: 'right' });
+      doc.text(`EUR ${fmt(unit)}`, 370, y, { width: 70, align: 'right' });
+      doc.text(`EUR ${fmt(total)}`, 455, y, { width: 90, align: 'right' });
+      y += line.description ? 40 : 28;
+      if (y > 700) { doc.addPage(); y = 70; }
+    }
+    doc.moveTo(48, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(13).text('Totaal', 370, y, { width: 70, align: 'right' });
+    doc.text(`EUR ${fmt(quoteTotal(quote))}`, 455, y, { width: 90, align: 'right' });
+    doc.moveDown(3);
+    doc.font('Helvetica').fontSize(9).fillColor('#667085').text('Deze factuur is automatisch gegenereerd vanuit het pr3nt klantportaal. Betaling verloopt via de Shopify betaallink zodra beschikbaar.');
+    doc.end();
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
+  return `/portal/${encodeURIComponent(quote.portalToken || quote.id)}/invoices/${fileName}`;
 }
 
 function selfServiceHtml(quote) {
@@ -105,22 +237,33 @@ function selfServiceHtml(quote) {
 
 function enhancePortalHtml(html, quote) {
   if (typeof html !== 'string' || !html.includes('</body>')) return html;
-  const css = `<style>.self-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.self-card{background:#fff;border:1px solid var(--line,#e5e7eb);border-radius:22px;padding:18px;box-shadow:0 12px 36px rgba(16,24,32,.06)}.self-card strong{display:block;font-size:18px;margin:8px 0}.self-form{display:grid;gap:10px}.rating{display:flex;gap:8px;flex-wrap:wrap}.rating label{background:#f5f7f6;border:1px solid var(--line,#e5e7eb);border-radius:999px;padding:8px 12px;font-weight:850}.delivery-pill{background:#f5f7f6;border:1px solid var(--line,#e5e7eb);padding:7px 10px;border-radius:999px;font-weight:850;font-size:13px}@media(max-width:850px){.self-grid{grid-template-columns:1fr}}</style>`;
+  const css = `<style>.self-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.self-card{background:#fff;border:1px solid var(--line,#e5e7eb);border-radius:22px;padding:18px;box-shadow:0 12px 36px rgba(16,24,32,.06)}.self-card strong{display:block;font-size:18px;margin:8px 0}.self-form{display:grid;gap:10px}.rating{display:flex;gap:8px;flex-wrap:wrap}.rating label{background:#f5f7f6;border:1px solid var(--line,#e5e7eb);border-radius:999px;padding:8px 12px;font-weight:850}.delivery-pill{background:#f5f7f6;border:1px solid var(--line,#e5e7eb);padding:7px 10px;border-radius:999px;font-weight:850;font-size:13px}.account-icon{font-size:0!important;width:44px;height:44px;padding:0!important;display:inline-grid!important;place-items:center}.account-icon::after{content:'👤';font-size:20px}.invoice-list{display:grid;gap:10px}.invoice-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line,#e5e7eb);border-radius:16px;background:#f8fafc}@media(max-width:850px){.self-grid{grid-template-columns:1fr}}</style>`;
   let output = html.replace('</head>', `${css}</head>`);
-  output = output.replace('</div></div><div class="next-action">', `<span class="delivery-pill">${e(deliveryEstimate(quote))}</span></div></div><div class="next-action">`);
-  output = output.replace('<section class="grid"><aside class="card"><h2>Relevante informatie</h2>', `${selfServiceHtml(quote)}<section class="grid"><aside class="card"><h2>Relevante informatie</h2>`);
+  output = output.replace(/<a class="nav-link ([^"]*)" href="([^"]*)\/account">Account<\/a>/, '<a class="nav-link account-icon $1" href="$2/account" aria-label="Account">Account</a>');
+  output = output.replace('</div></div><div class="next-action">', `<span class="delivery-pill">${e(deliveryEstimate(quote))}</span>${quote.status === 'shipped' && quote.trackingCode ? `<span class="delivery-pill">Track & trace: ${e(quote.trackingCode)}</span>` : ''}</div></div><div class="next-action">`);
+  output = output.replace(/<section class="grid"><aside class="card"><h2>Relevante informatie<\/h2>/, `${selfServiceHtml(quote)}<section class="grid"><aside class="card"><h2>Relevante informatie</h2>`);
+  output = output.replace(/<div class="card" id="tracking">[\s\S]*?<\/div><\/section>/, '</section>');
   return output;
+}
+
+function enhanceAccountHtml(html, quote) {
+  if (typeof html !== 'string' || !html.includes('</body>')) return html;
+  const invoices = Array.isArray(quote.invoices) ? quote.invoices : [];
+  const rows = invoices.length ? invoices.map((invoice) => `<div class="invoice-item"><div><strong>${e(invoice.number || 'Factuur')}</strong><br><span class="muted">${e(new Date(invoice.createdAt || Date.now()).toLocaleDateString('nl-NL'))} · EUR ${fmt(invoice.total || quoteTotal(quote))}</span></div><a class="btn btn-light" href="${e(invoice.url)}">Download PDF</a></div>`).join('') : '<p class="muted">Er zijn nog geen facturen beschikbaar. Na akkoord wordt automatisch een PDF-factuur klaargezet.</p>';
+  const invoiceBlock = `<section class="card" style="margin-top:18px"><h2>Facturen</h2><div class="invoice-list">${rows}</div></section>`;
+  return html.replace('</head>', '<style>.invoice-list{display:grid;gap:10px}.invoice-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line,#e5e7eb);border-radius:16px;background:#f8fafc}.account-icon{font-size:0!important;width:44px;height:44px;padding:0!important;display:inline-grid!important;place-items:center}.account-icon::after{content:\'👤\';font-size:20px}</style></head>').replace(/<a class="nav-link ([^"]*)" href="([^"]*)\/account">Account<\/a>/, '<a class="nav-link account-icon $1" href="$2/account" aria-label="Account">Account</a>').replace('</form></section>', `</form></section>${invoiceBlock}`);
 }
 
 export function registerSelfServiceRoutes(app) {
   app.use('/portal/:token', async (req, res, next) => {
-    if (req.method !== 'GET' || req.path.endsWith('/account')) return next();
+    if (req.method !== 'GET') return next();
     const originalSend = res.send.bind(res);
     res.send = (body) => {
       Promise.resolve().then(async () => {
         const quotes = await readQuotes();
         const quote = findQuote(quotes, req.params.token);
-        originalSend(quote ? enhancePortalHtml(body, quote) : body);
+        if (!quote) return originalSend(body);
+        originalSend(req.path.endsWith('/account') ? enhanceAccountHtml(body, quote) : enhancePortalHtml(body, quote));
       }).catch(() => originalSend(body));
       return res;
     };
@@ -161,23 +304,7 @@ export function registerSelfServiceRoutes(app) {
     const quote = findQuote(quotes, req.params.token);
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
     const now = new Date().toISOString();
-    const newQuote = {
-      ...quote,
-      id: `quote-${Date.now()}-${randomUUID().slice(0, 8)}`,
-      portalToken: randomUUID(),
-      status: 'received',
-      createdAt: now,
-      updatedAt: now,
-      originalQuoteId: quote.id,
-      quoteLines: [],
-      quoteAmount: '',
-      acceptedAt: '',
-      paidAt: '',
-      quoteSentAt: '',
-      paymentUrl: '',
-      trackingCode: '',
-      messages: [{ from: 'klant', text: `Herhaalbestelling aangevraagd op basis van ${quote.id}.`, createdAt: now }],
-    };
+    const newQuote = { ...quote, id: `quote-${Date.now()}-${randomUUID().slice(0, 8)}`, portalToken: randomUUID(), status: 'received', createdAt: now, updatedAt: now, originalQuoteId: quote.id, quoteLines: [], quoteAmount: '', acceptedAt: '', paidAt: '', quoteSentAt: '', paymentUrl: '', trackingCode: '', invoices: [], messages: [{ from: 'klant', text: `Herhaalbestelling aangevraagd op basis van ${quote.id}.`, createdAt: now }] };
     delete newQuote.archivedAt;
     delete newQuote.deleteAfter;
     quotes.unshift(newQuote);
@@ -211,5 +338,47 @@ export function registerSelfServiceRoutes(app) {
     await writeQuotes(quotes);
     await notifyAdmin(quote, 'Klant heeft bestand vervangen', text);
     res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Bestand%20vervangen`);
+  });
+
+  app.post('/portal/:token/accept', async (req, res, next) => {
+    const quotes = await readQuotes();
+    const quote = findQuote(quotes, req.params.token);
+    if (!quote) return next();
+    if (quote.acceptedAt) return next();
+    quote.acceptedAt = new Date().toISOString();
+    quote.status = 'accepted';
+    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+    quote.messages.push({ from: 'klant', text: 'Ik ga akkoord met de offerte.', createdAt: quote.acceptedAt });
+    try {
+      await createShopifyPaymentLink(quote);
+      quote.messages.push({ from: 'pr3nt', text: 'De betaallink is automatisch klaargezet.', createdAt: new Date().toISOString() });
+    } catch (error) {
+      quote.paymentLinkError = error.message;
+      quote.messages.push({ from: 'pr3nt', text: 'Betaallink kon niet automatisch worden aangemaakt. We zetten deze handmatig klaar.', createdAt: new Date().toISOString() });
+      await notifyAdmin(quote, 'Betaallink kon niet automatisch worden aangemaakt', error.message);
+    }
+    try {
+      const invoiceUrl = await generateInvoicePdf(quote);
+      quote.invoices = Array.isArray(quote.invoices) ? quote.invoices : [];
+      if (!quote.invoices.some((invoice) => invoice.url === invoiceUrl)) {
+        quote.invoices.push({ number: invoiceNumber(quote), url: invoiceUrl, total: quoteTotal(quote), createdAt: new Date().toISOString() });
+      }
+    } catch (error) {
+      quote.invoiceError = error.message;
+      await notifyAdmin(quote, 'Factuur kon niet automatisch worden gegenereerd', error.message);
+    }
+    await writeQuotes(quotes);
+    await notifyAdmin(quote, 'Offerte akkoord gegeven', 'De klant heeft akkoord gegeven op de offerte.');
+    res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Offerte%20akkoord%20gegeven`);
+  });
+
+  app.get('/portal/:token/invoices/:fileName', async (req, res) => {
+    const quotes = await readQuotes();
+    const quote = findQuote(quotes, req.params.token);
+    if (!quote) return res.status(404).send('Factuur niet gevonden');
+    const fileName = req.params.fileName.replace(/[^a-zA-Z0-9._-]/g, '');
+    const allowed = Array.isArray(quote.invoices) && quote.invoices.some((invoice) => String(invoice.url || '').endsWith(`/${fileName}`));
+    if (!allowed) return res.status(404).send('Factuur niet gevonden');
+    res.download(path.join(invoiceDir, fileName));
   });
 }
