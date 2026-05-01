@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
 import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
+import { registerPortalFixRoutes } from './portalfixes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -177,6 +178,7 @@ app.get('/health', (_req, res) => {
 });
 
 registerAdminRoutes(app);
+registerPortalFixRoutes(app);
 registerSelfServiceRoutes(app);
 registerPortalRoutes(app);
 
