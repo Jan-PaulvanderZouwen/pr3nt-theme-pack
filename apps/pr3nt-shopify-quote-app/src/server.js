@@ -44,25 +44,23 @@ await mkdir(config.dataDir, { recursive: true });
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, config.uploadDir),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      cb(null, `${Date.now()}-${randomUUID()}${ext}`);
-    },
+    filename: (_req, file, cb) => cb(null, `${Date.now()}-${randomUUID()}${path.extname(file.originalname || '').toLowerCase()}`),
   }),
   limits: { fileSize: config.maxFileSizeMb * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
-    if (!allowedExtensions.has(ext)) {
-      cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP of STP.'));
-      return;
-    }
+    if (!allowedExtensions.has(ext)) return cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP of STP.'));
     cb(null, true);
   },
 });
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+}));
 app.use(cors({ origin: config.allowedOrigin, methods: ['POST', 'GET', 'OPTIONS'] }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -73,16 +71,7 @@ function clean(value, max = 2000) {
 }
 
 function quoteStatusLabel(status = 'received') {
-  const labels = {
-    received: 'Order ontvangen',
-    creating_quote: 'Offerte wordt aangemaakt',
-    quote_sent: 'Offerte verstuurd',
-    paid: 'Betaling voltooid',
-    print_queue: 'Print in queue',
-    ready_to_ship: 'Print is klaar voor verzending',
-    shipped: 'Print is verzonden',
-    delivered: 'Print is geleverd',
-  };
+  const labels = { received: 'Order ontvangen', creating_quote: 'Offerte wordt aangemaakt', quote_sent: 'Offerte verstuurd', accepted: 'Offerte akkoord', paid: 'Betaling voltooid', print_queue: 'Print in queue', ready_to_ship: 'Print is klaar voor verzending', shipped: 'Print is verzonden', delivered: 'Print is geleverd' };
   return labels[status] || labels.received;
 }
 
@@ -92,16 +81,10 @@ function isShopifyAccessDenied(error) {
 
 async function getShopifyAdminToken() {
   if (config.shopifyToken) return config.shopifyToken;
-  if (!config.shopifyClientId || !config.shopifyClientSecret) {
-    throw new Error('Shopify token ontbreekt. Vul SHOPIFY_ADMIN_ACCESS_TOKEN of SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET in.');
-  }
+  if (!config.shopifyClientId || !config.shopifyClientSecret) throw new Error('Shopify token ontbreekt. Vul SHOPIFY_ADMIN_ACCESS_TOKEN of SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET in.');
   const now = Date.now();
   if (cachedAdminToken && cachedAdminTokenExpiresAt > now + 60_000) return cachedAdminToken;
-  const response = await fetch(`https://${config.shop}/admin/oauth/access_token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grant_type: 'client_credentials', client_id: config.shopifyClientId, client_secret: config.shopifyClientSecret }),
-  });
+  const response = await fetch(`https://${config.shop}/admin/oauth/access_token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant_type: 'client_credentials', client_id: config.shopifyClientId, client_secret: config.shopifyClientSecret }) });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.access_token) throw new Error(`Shopify client credentials token ophalen mislukt: ${JSON.stringify(body)}`);
   cachedAdminToken = body.access_token;
@@ -111,11 +94,7 @@ async function getShopifyAdminToken() {
 
 async function shopifyGraphQL(query, variables = {}) {
   const token = await getShopifyAdminToken();
-  const response = await fetch(`https://${config.shop}/admin/api/${config.shopifyVersion}/graphql.json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
-    body: JSON.stringify({ query, variables }),
-  });
+  const response = await fetch(`https://${config.shop}/admin/api/${config.shopifyVersion}/graphql.json`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token }, body: JSON.stringify({ query, variables }) });
   const body = await response.json();
   if (!response.ok || body.errors) throw new Error(`Shopify API error: ${JSON.stringify(body.errors || body)}`);
   return body.data;
@@ -130,9 +109,7 @@ async function createCustomer({ name, email, phone }) {
   const parts = name.split(/\s+/).filter(Boolean);
   const firstName = parts.shift() || name;
   const lastName = parts.join(' ');
-  const data = await shopifyGraphQL(`mutation CustomerCreate($input: CustomerInput!) { customerCreate(input: $input) { customer { id email firstName lastName } userErrors { field message } } }`, {
-    input: { email, phone: phone || null, firstName, lastName, tags: ['pr3nt-offerte'], emailMarketingConsent: { marketingState: 'NOT_SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } },
-  });
+  const data = await shopifyGraphQL(`mutation CustomerCreate($input: CustomerInput!) { customerCreate(input: $input) { customer { id email firstName lastName } userErrors { field message } } }`, { input: { email, phone: phone || null, firstName, lastName, tags: ['pr3nt-offerte'], emailMarketingConsent: { marketingState: 'NOT_SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } } });
   const errors = data.customerCreate.userErrors;
   if (errors.length) throw new Error(errors.map(e => e.message).join(', '));
   return data.customerCreate.customer;
@@ -156,11 +133,7 @@ async function findOrCreateCustomer(input) {
 async function createQuoteMetaobject(quote) {
   if (!config.metaobjectsEnabled) return null;
   const fields = [
-    { key: 'quote_id', value: quote.id }, { key: 'status', value: quote.status }, { key: 'status_label', value: quoteStatusLabel(quote.status) },
-    { key: 'customer_id', value: quote.customerId || '' }, { key: 'name', value: quote.name }, { key: 'email', value: quote.email },
-    { key: 'phone', value: quote.phone }, { key: 'material', value: quote.material }, { key: 'color', value: quote.color },
-    { key: 'rush', value: quote.rush }, { key: 'note', value: quote.note || '' }, { key: 'file_name', value: quote.fileOriginalName },
-    { key: 'file_url', value: quote.fileUrl }, { key: 'created_at', value: quote.createdAt },
+    { key: 'quote_id', value: quote.id }, { key: 'status', value: quote.status }, { key: 'status_label', value: quoteStatusLabel(quote.status) }, { key: 'customer_id', value: quote.customerId || '' }, { key: 'name', value: quote.name }, { key: 'email', value: quote.email }, { key: 'phone', value: quote.phone }, { key: 'material', value: quote.material }, { key: 'color', value: quote.color }, { key: 'rush', value: quote.rush }, { key: 'note', value: quote.note || '' }, { key: 'file_name', value: quote.fileOriginalName }, { key: 'file_url', value: quote.fileUrl }, { key: 'created_at', value: quote.createdAt },
   ];
   const data = await shopifyGraphQL(`mutation CreateQuoteMetaobject($metaobject: MetaobjectCreateInput!) { metaobjectCreate(metaobject: $metaobject) { metaobject { id handle type } userErrors { field message code } } }`, { metaobject: { type: config.metaobjectType, handle: quote.id, fields } });
   const errors = data.metaobjectCreate.userErrors;
@@ -177,22 +150,13 @@ async function saveQuoteLocally(quote) {
 }
 
 function transporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.transip.email',
-    port: Number(process.env.SMTP_PORT || 465),
-    secure: String(process.env.SMTP_SECURE || 'true') === 'true',
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
+  return nodemailer.createTransport({ host: process.env.SMTP_HOST || 'smtp.transip.email', port: Number(process.env.SMTP_PORT || 465), secure: String(process.env.SMTP_SECURE || 'true') === 'true', auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
 }
 
 function adminEmailHtml(quote) {
   const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  const rows = [
-    ['Quote ID', quote.id], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone], ['Materiaal', quote.material],
-    ['Kleur', quote.color], ['Spoed', quote.rush], ['Bestand', quote.fileOriginalName], ['Download', quote.fileUrl], ['Open aanvraag', adminUrl],
-    ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-'],
-  ];
+  const rows = [['Quote ID', quote.id], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Bestand', quote.fileOriginalName], ['Download', quote.fileUrl], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
   if (quote.customerNote) rows.push(['Klantkoppeling', quote.customerNote]);
   if (quote.metaobjectError) rows.push(['Shopify waarschuwing', quote.metaobjectError]);
   return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820"><h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1><p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p><p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open in pr3nt Dashboard</a></p><table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">${rows.map(([label, value]) => `<tr><td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td><td style="border-bottom:1px solid #eee">${value || '-'}</td></tr>`).join('')}</table></div>`;
@@ -233,20 +197,13 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
     const safeOriginalName = uploadedFile.originalname.replace(/[^a-zA-Z0-9._-]/g, '-');
     const finalFileName = `${quoteId}-${safeOriginalName}`;
     await import('node:fs/promises').then(fs => fs.rename(uploadedFile.path, path.join(config.uploadDir, finalFileName)));
-    const quote = {
-      id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(),
-      name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80),
-      material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee',
-      note: clean(req.body.note, 3000), messages: [], fileOriginalName: uploadedFile.originalname, fileStoredName: finalFileName, fileExtension: ext,
-      fileUrl: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}`,
-    };
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], fileOriginalName: uploadedFile.originalname, fileStoredName: finalFileName, fileExtension: ext, fileUrl: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` };
     if (!quote.name || !quote.email || !quote.phone || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
     const customer = await findOrCreateCustomer(quote);
     if (customer) quote.customerId = customer.id;
     else { quote.customerId = ''; quote.customerNote = config.customersEnabled ? 'Klant kon niet automatisch worden gekoppeld.' : 'Klant wordt handmatig aangemaakt in Shopify.'; }
     if (config.metaobjectsEnabled) {
-      try { const metaobject = await createQuoteMetaobject(quote); quote.metaobjectId = metaobject?.id || ''; }
-      catch (error) { quote.metaobjectError = error.message; console.warn(error.message); }
+      try { const metaobject = await createQuoteMetaobject(quote); quote.metaobjectId = metaobject?.id || ''; } catch (error) { quote.metaobjectError = error.message; console.warn(error.message); }
     } else quote.metaobjectId = '';
     await saveQuoteLocally(quote);
     await sendEmails(quote);
