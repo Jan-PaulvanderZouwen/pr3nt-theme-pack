@@ -89,10 +89,7 @@ function portalUrl(quote) {
 }
 
 function applyAutomaticStatus(quote) {
-  if (['print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status)) {
-    if (quote.trackingCode && quote.status !== 'delivered') quote.status = 'shipped';
-    return;
-  }
+  if (['print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status)) return;
   if (quote.trackingCode) {
     quote.status = 'shipped';
     return;
