@@ -56,11 +56,7 @@ const upload = multer({
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-}));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors({ origin: config.allowedOrigin, methods: ['POST', 'GET', 'OPTIONS'] }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -163,7 +159,8 @@ function adminEmailHtml(quote) {
 }
 
 function customerEmailHtml(quote) {
-  return `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#101820"><h1>Je offerte-aanvraag is ontvangen</h1><p>Hoi ${quote.name},</p><p>We hebben je 3D-bestand ontvangen. We controleren het model en sturen je daarna een duidelijke offerte.</p><p><strong>Samenvatting</strong><br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand: ${quote.fileOriginalName}</p><p>Je betaalt pas nadat je de offerte hebt goedgekeurd.</p><p>Groet,<br>pr3nt.nl</p></div>`;
+  const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
+  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb"><div style="padding:28px;background:#101820;color:#ffffff"><div style="font-size:24px;font-weight:900;letter-spacing:-.04em">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:32px;line-height:1.05">Je aanvraag is ontvangen</h1><p style="margin:0;color:#d7dde0;font-size:16px">We gaan je 3D-bestand bekijken en zetten de volgende stap klaar in je portaal.</p></div><div style="padding:28px"><p style="font-size:16px;line-height:1.6">Hoi ${quote.name},</p><p style="font-size:16px;line-height:1.6">Je 3D-print aanvraag is goed binnengekomen. Via je persoonlijke portaal kun je de status volgen, je offerte bekijken, berichten sturen en later je verzending volgen.</p><p style="margin:24px 0"><a href="${portalUrl}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">Open mijn klantportaal</a></p><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin-top:18px"><strong>Samenvatting</strong><br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand: ${quote.fileOriginalName}</div><p style="font-size:14px;color:#667085;line-height:1.5;margin-top:22px">Werkt de knop niet? Kopieer deze link naar je browser:<br><span style="word-break:break-all">${portalUrl}</span></p><p style="font-size:16px;line-height:1.6">Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
 async function sendEmails(quote) {
@@ -171,7 +168,7 @@ async function sendEmails(quote) {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER;
   const to = process.env.MAIL_TO || 'bestellingen@pr3nt.nl';
   await mailer.sendMail({ from, to, replyTo: quote.email, subject: `Nieuwe offerte-aanvraag van ${quote.name}`, html: adminEmailHtml(quote) });
-  await mailer.sendMail({ from, to: quote.email, subject: 'Je offerte-aanvraag bij pr3nt.nl is ontvangen', html: customerEmailHtml(quote) });
+  await mailer.sendMail({ from, to: quote.email, subject: 'Je pr3nt-aanvraag is ontvangen · volg je project in je portaal', html: customerEmailHtml(quote) });
 }
 
 app.get('/health', (_req, res) => {
@@ -207,7 +204,7 @@ app.post('/api/quote', upload.single('file'), async (req, res) => {
     } else quote.metaobjectId = '';
     await saveQuoteLocally(quote);
     await sendEmails(quote);
-    res.json({ ok: true, quoteId, redirect: config.successUrl });
+    res.json({ ok: true, quoteId, redirect: config.successUrl, portalUrl: `${config.baseUrl}/portal/${quote.portalToken}` });
   } catch (error) {
     console.error(error);
     res.status(400).json({ ok: false, error: error.message || 'De aanvraag kon niet worden verwerkt.' });
