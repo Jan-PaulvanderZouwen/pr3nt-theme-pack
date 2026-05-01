@@ -14,6 +14,7 @@ import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalFixRoutes } from './portalfixes.js';
 import { registerPortalUxLiteRoutes } from './portalux-lite.js';
+import { registerPortalDomFixRoutes } from './portaldomfix.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -179,6 +180,7 @@ app.get('/health', (_req, res) => {
 });
 
 registerAdminRoutes(app);
+registerPortalDomFixRoutes(app);
 registerPortalUxLiteRoutes(app);
 registerPortalFixRoutes(app);
 registerSelfServiceRoutes(app);
