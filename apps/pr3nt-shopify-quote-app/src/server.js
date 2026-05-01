@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
 import { registerPortalRoutes } from './portal.js';
+import { registerSelfServiceRoutes } from './selfservice.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,6 +177,7 @@ app.get('/health', (_req, res) => {
 });
 
 registerAdminRoutes(app);
+registerSelfServiceRoutes(app);
 registerPortalRoutes(app);
 
 app.get('/files/:quoteId/:fileName', async (req, res) => {
