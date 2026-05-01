@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -8,8 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
+const uploadDir = path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
+const archiveRetentionDays = Number(process.env.QUOTE_ARCHIVE_RETENTION_DAYS || 30);
 
 const statuses = [
   ['received', 'Order ontvangen'],
@@ -72,6 +74,7 @@ function quoteTotal(quote) {
 }
 
 function statusLabel(status) {
+  if (status === 'archived') return 'Gearchiveerd';
   return statuses.find(([value]) => value === status)?.[1] || 'Order ontvangen';
 }
 
@@ -89,33 +92,61 @@ function portalUrl(quote) {
 }
 
 function applyAutomaticStatus(quote) {
-  if (['print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status)) return;
-  if (quote.trackingCode) {
-    quote.status = 'shipped';
-    return;
-  }
-  if (quote.paidAt || quote.status === 'paid') {
-    quote.status = 'paid';
-    return;
-  }
-  if (quote.acceptedAt || quote.status === 'accepted') {
-    quote.status = 'accepted';
-    return;
-  }
-  if (quoteTotal(quote) > 0) {
-    quote.status = 'quote_sent';
-    return;
-  }
+  if (quote.archivedAt || ['print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status)) return;
+  if (quote.trackingCode) return void (quote.status = 'shipped');
+  if (quote.paidAt || quote.status === 'paid') return void (quote.status = 'paid');
+  if (quote.acceptedAt || quote.status === 'accepted') return void (quote.status = 'accepted');
+  if (quoteTotal(quote) > 0) return void (quote.status = 'quote_sent');
   quote.status = quote.status || 'received';
 }
 
-async function readQuotes() {
-  try {
-    const quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));
-    return Array.isArray(quotes) ? quotes : [];
-  } catch {
-    return [];
+function archiveDeleteDate(archivedAt = new Date().toISOString()) {
+  const date = new Date(archivedAt);
+  date.setDate(date.getDate() + archiveRetentionDays);
+  return date.toISOString();
+}
+
+function quoteStoredFileNames(quote) {
+  const names = new Set();
+  if (quote.fileStoredName) names.add(quote.fileStoredName);
+  if (Array.isArray(quote.files)) {
+    quote.files.forEach((file) => {
+      if (file?.storedName) names.add(file.storedName);
+    });
   }
+  return [...names].filter(Boolean);
+}
+
+async function deleteQuoteFiles(quote) {
+  await Promise.all(quoteStoredFileNames(quote).map((fileName) => unlink(path.join(uploadDir, fileName)).catch(() => {})));
+}
+
+async function purgeExpiredArchives(quotes) {
+  const now = Date.now();
+  const keep = [];
+  let changed = false;
+  for (const quote of quotes) {
+    if (quote.archivedAt && new Date(quote.deleteAfter || archiveDeleteDate(quote.archivedAt)).getTime() <= now) {
+      await deleteQuoteFiles(quote);
+      changed = true;
+    } else {
+      keep.push(quote);
+    }
+  }
+  return { quotes: keep, changed };
+}
+
+async function readQuotes() {
+  let quotes = [];
+  try {
+    quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));
+    if (!Array.isArray(quotes)) quotes = [];
+  } catch {
+    quotes = [];
+  }
+  const purged = await purgeExpiredArchives(quotes);
+  if (purged.changed) await writeQuotes(purged.quotes);
+  return purged.quotes;
 }
 
 async function writeQuotes(quotes) {
@@ -141,15 +172,10 @@ function quoteEmailHtml(quote) {
 }
 
 async function notifyCustomerQuoteSent(quote) {
-  if (!quote.email || quote.quoteSentAt || quoteTotal(quote) <= 0) return;
+  if (!quote.email || quote.quoteSentAt || quoteTotal(quote) <= 0 || quote.archivedAt) return;
   const mailer = transporter();
   const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-  await mailer.sendMail({
-    from,
-    to: quote.email,
-    subject: 'Je offerte van pr3nt.nl staat klaar',
-    html: quoteEmailHtml(quote),
-  });
+  await mailer.sendMail({ from, to: quote.email, subject: 'Je offerte van pr3nt.nl staat klaar', html: quoteEmailHtml(quote) });
   quote.quoteSentAt = new Date().toISOString();
   quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
   quote.messages.push({ from: 'pr3nt', text: 'De offerte is verstuurd naar je e-mailadres.', createdAt: quote.quoteSentAt });
@@ -168,7 +194,7 @@ function requireAdmin(req, res, next) {
 
 function renderPage(title, body) {
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · pr3nt Dashboard</title><style>
-    :root{--bg:#f6f6f7;--card:#fff;--ink:#202223;--muted:#6d7175;--line:#e1e3e5;--green:#00d084;--dark:#111827;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}a{color:#2c6ecb;text-decoration:none}.shell{max-width:1320px;margin:0 auto;padding:22px}.topbar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}.brand{font-weight:950;font-size:24px;letter-spacing:-.04em;color:#101820}.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 0 rgba(0,0,0,.04),0 10px 28px rgba(0,0,0,.05);padding:20px}.login-card{max-width:430px;margin:80px auto}.stack{display:grid;gap:12px}.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.compact-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.info-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fafafa}.info-card small{display:block;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.info-card strong{display:block;margin-top:4px}input,select,textarea{width:100%;border:1px solid #c9cccf;border-radius:10px;padding:10px 12px;font:inherit;background:#fff}textarea{min-height:100px}label span{display:block;font-weight:750;margin-bottom:5px}.button{border:0;border-radius:10px;background:var(--dark);color:#fff;padding:10px 14px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px}.button.green{background:var(--green);color:#082115}.button.ghost{background:#fff;color:var(--ink);border:1px solid #c9cccf}.button.icon{width:38px;min-height:38px;padding:0;border-radius:999px}.button.subtle{background:#f1f2f3;color:#202223}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.stat strong{display:block;font-size:24px}.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#f1f2f3;padding:5px 10px;font-size:12px;font-weight:800}.badge.green{background:#e9fbf2;color:#087443}.rush{background:#fff4e5;color:#8a4b00}.detail-grid{display:grid;grid-template-columns:1fr 390px;gap:18px}.file-link{display:block;margin:6px 0}.notice{padding:12px 14px;border-radius:14px;background:#ecfdf3;border:1px solid #bbf7d0;color:#166534;margin-bottom:14px}.message{padding:12px;border-radius:12px;background:#f6f6f7;border:1px solid var(--line)}.quote-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0}.quote-lines{display:grid;gap:10px}.quote-line{display:grid;grid-template-columns:1.15fr 1.25fr .55fr .65fr 40px;gap:8px;align-items:end;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fafafa}.quote-line.is-empty{display:none}.total{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line);font-weight:950;font-size:20px}.total small{display:block;font-weight:600;font-size:12px;color:var(--muted)}details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center}details>summary::-webkit-details-marker{display:none}.summary-title{font-size:18px;font-weight:900}.edit-pill{border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#fff;font-weight:800}@media(max-width:850px){.grid,.detail-grid,.three,.quote-line,.compact-grid{grid-template-columns:1fr}.shell{padding:14px}table{font-size:14px}.button.icon{width:100%}}
+    :root{--bg:#f6f6f7;--card:#fff;--ink:#202223;--muted:#6d7175;--line:#e1e3e5;--green:#00d084;--dark:#111827;--red:#d72c0d;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}a{color:#2c6ecb;text-decoration:none}.shell{max-width:1320px;margin:0 auto;padding:22px}.topbar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}.brand{font-weight:950;font-size:24px;letter-spacing:-.04em;color:#101820}.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 0 rgba(0,0,0,.04),0 10px 28px rgba(0,0,0,.05);padding:20px}.login-card{max-width:430px;margin:80px auto}.stack{display:grid;gap:12px}.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.compact-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.info-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fafafa}.info-card small{display:block;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.info-card strong{display:block;margin-top:4px}input,select,textarea{width:100%;border:1px solid #c9cccf;border-radius:10px;padding:10px 12px;font:inherit;background:#fff}textarea{min-height:100px}label span{display:block;font-weight:750;margin-bottom:5px}.button{border:0;border-radius:10px;background:var(--dark);color:#fff;padding:10px 14px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px}.button.green{background:var(--green);color:#082115}.button.ghost{background:#fff;color:var(--ink);border:1px solid #c9cccf}.button.danger{background:#fff1f0;color:var(--red);border:1px solid #fed3d1}.button.icon{width:38px;min-height:38px;padding:0;border-radius:999px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.stat strong{display:block;font-size:24px}.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#f1f2f3;padding:5px 10px;font-size:12px;font-weight:800}.badge.green{background:#e9fbf2;color:#087443}.badge.red{background:#fff1f0;color:#d72c0d}.rush{background:#fff4e5;color:#8a4b00}.detail-grid{display:grid;grid-template-columns:1fr 390px;gap:18px}.file-link{display:block;margin:6px 0}.notice{padding:12px 14px;border-radius:14px;background:#ecfdf3;border:1px solid #bbf7d0;color:#166534;margin-bottom:14px}.message{padding:12px;border-radius:12px;background:#f6f6f7;border:1px solid var(--line)}.quote-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0}.quote-lines{display:grid;gap:10px}.quote-line{display:grid;grid-template-columns:1.15fr 1.25fr .55fr .65fr 40px;gap:8px;align-items:end;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fafafa}.quote-line.is-empty{display:none}.total{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line);font-weight:950;font-size:20px}.total small{display:block;font-weight:600;font-size:12px;color:var(--muted)}details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center}details>summary::-webkit-details-marker{display:none}.summary-title{font-size:18px;font-weight:900}.edit-pill{border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#fff;font-weight:800}.danger-zone{border-color:#fed3d1;background:#fffafa}@media(max-width:850px){.grid,.detail-grid,.three,.quote-line,.compact-grid{grid-template-columns:1fr}.shell{padding:14px}table{font-size:14px}.button.icon{width:100%}}
   </style></head><body><main class="shell"><div class="topbar"><a class="brand" href="/admin">pr3nt Client Dashboard</a><div class="toolbar"><a class="button ghost" href="/admin">← Klantenoverzicht</a></div></div>${body}</main><script>
     const quoteTemplate=${JSON.stringify(quoteTemplate)};
     function parseMoney(value){var n=Number(String(value||'0').replace(',','.'));return Number.isFinite(n)?n:0}
@@ -204,19 +230,28 @@ function renderQuoteLineInputs(quote) {
 }
 
 function renderAdminList(quotes) {
-  const total = quotes.length;
-  const open = quotes.filter((q) => !['delivered', 'shipped'].includes(q.status)).length;
-  const quoteSent = quotes.filter((q) => q.status === 'quote_sent').length;
-  const paid = quotes.filter((q) => q.status === 'paid').length;
-  const rows = quotes.map((quote) => `<tr><td><strong>${escapeHtml(quote.name)}</strong><br><span class="muted">${escapeHtml(quote.email)}</span></td><td>${escapeHtml(quote.material)} · ${escapeHtml(quote.color)}${quote.rush === 'Ja' ? '<br><span class="badge rush">Spoed</span>' : ''}</td><td><span class="badge ${quote.status === 'accepted' || quote.status === 'paid' ? 'green' : ''}">${escapeHtml(statusLabel(quote.status))}</span></td><td>${quoteTotal(quote) ? `€ ${fmt(quoteTotal(quote))}` : '-'}</td><td>${escapeHtml(new Date(quote.createdAt || Date.now()).toLocaleDateString('nl-NL'))}</td><td><a class="button ghost" href="/admin/quotes/${encodeURIComponent(quote.id)}">Openen</a></td></tr>`).join('');
-  return renderPage('Aanvragen', `<div class="grid"><div class="card stat"><span class="muted">Totaal</span><strong>${total}</strong></div><div class="card stat"><span class="muted">Actief</span><strong>${open}</strong></div><div class="card stat"><span class="muted">Offerte verstuurd</span><strong>${quoteSent}</strong></div><div class="card stat"><span class="muted">Betaald</span><strong>${paid}</strong></div></div><section class="card"><div class="toolbar"><div><h1 style="margin:0">Klantenoverzicht</h1><p class="muted" style="margin:4px 0 0">Alle offerte-aanvragen en actieve projecten.</p></div></div><div class="table-wrap"><table><thead><tr><th>Klant</th><th>Print</th><th>Status</th><th>Offerte</th><th>Datum</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="muted">Nog geen aanvragen gevonden.</td></tr>'}</tbody></table></div></section>`);
+  const activeQuotes = quotes.filter((quote) => !quote.archivedAt);
+  const archived = quotes.length - activeQuotes.length;
+  const total = activeQuotes.length;
+  const open = activeQuotes.filter((q) => !['delivered', 'shipped'].includes(q.status)).length;
+  const quoteSent = activeQuotes.filter((q) => q.status === 'quote_sent').length;
+  const paid = activeQuotes.filter((q) => q.status === 'paid').length;
+  const rows = activeQuotes.map((quote) => `<tr><td><strong>${escapeHtml(quote.name)}</strong><br><span class="muted">${escapeHtml(quote.email)}</span></td><td>${escapeHtml(quote.material)} · ${escapeHtml(quote.color)}${quote.rush === 'Ja' ? '<br><span class="badge rush">Spoed</span>' : ''}</td><td><span class="badge ${quote.status === 'accepted' || quote.status === 'paid' ? 'green' : ''}">${escapeHtml(statusLabel(quote.status))}</span></td><td>${quoteTotal(quote) ? `€ ${fmt(quoteTotal(quote))}` : '-'}</td><td>${escapeHtml(new Date(quote.createdAt || Date.now()).toLocaleDateString('nl-NL'))}</td><td><a class="button ghost" href="/admin/quotes/${encodeURIComponent(quote.id)}">Openen</a></td></tr>`).join('');
+  return renderPage('Aanvragen', `<div class="grid"><div class="card stat"><span class="muted">Totaal</span><strong>${total}</strong></div><div class="card stat"><span class="muted">Actief</span><strong>${open}</strong></div><div class="card stat"><span class="muted">Offerte verstuurd</span><strong>${quoteSent}</strong></div><div class="card stat"><span class="muted">Betaald</span><strong>${paid}</strong></div></div><section class="card"><div class="toolbar"><div><h1 style="margin:0">Klantenoverzicht</h1><p class="muted" style="margin:4px 0 0">Alle offerte-aanvragen en actieve projecten.</p></div></div><div class="table-wrap"><table><thead><tr><th>Klant</th><th>Print</th><th>Status</th><th>Offerte</th><th>Datum</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="muted">Nog geen aanvragen gevonden.</td></tr>'}</tbody></table></div><p class="muted" style="margin:18px 0 0;font-size:12px"><a href="/admin/archive">Archief bekijken</a>${archived ? ` · ${archived} aanvraag/aanvragen in archief` : ''}</p></section>`);
+}
+
+function renderArchiveList(quotes) {
+  const archivedQuotes = quotes.filter((quote) => quote.archivedAt);
+  const rows = archivedQuotes.map((quote) => `<tr><td><strong>${escapeHtml(quote.name || 'Gearchiveerde aanvraag')}</strong><br><span class="muted">${escapeHtml(quote.email || '')}</span></td><td>${escapeHtml(quote.id)}</td><td>${escapeHtml(new Date(quote.archivedAt).toLocaleDateString('nl-NL'))}</td><td>${escapeHtml(new Date(quote.deleteAfter || archiveDeleteDate(quote.archivedAt)).toLocaleDateString('nl-NL'))}</td></tr>`).join('');
+  return renderPage('Archief', `<section class="card"><div class="toolbar"><div><h1 style="margin:0">Archief</h1><p class="muted">Gearchiveerde aanvragen worden na ${archiveRetentionDays} dagen automatisch definitief verwijderd, inclusief bestanden.</p></div><a class="button ghost" href="/admin">Terug</a></div><div class="table-wrap"><table><thead><tr><th>Klant</th><th>Aanvraag</th><th>Gearchiveerd</th><th>Verwijderen op</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="muted">Het archief is leeg.</td></tr>'}</tbody></table></div></section>`);
 }
 
 function renderQuoteDetail(quote, saved = false) {
   ensurePortalToken(quote);
   applyAutomaticStatus(quote);
   const pUrl = portalUrl(quote);
-  return renderPage(`Aanvraag ${quote.id}`, `${saved ? '<div class="notice">Aanvraag bijgewerkt.</div>' : ''}<div class="toolbar"><div><h1 style="margin:0">Project van ${escapeHtml(quote.name || 'klant')}</h1><p class="muted" style="margin:4px 0 0">${escapeHtml(quote.id)} · <span class="badge">${escapeHtml(statusLabel(quote.status))}</span></p></div><div class="toolbar"><a class="button ghost" href="/admin">← Overzicht</a><a class="button ghost" href="${escapeHtml(pUrl)}" target="_blank">Klantportaal</a></div></div><div class="detail-grid"><section class="stack"><div class="card"><div class="compact-grid"><div class="info-card"><small>Klant</small><strong>${escapeHtml(quote.name || '-')}</strong><span class="muted">${escapeHtml(quote.email || '')}</span></div><div class="info-card"><small>Telefoon</small><strong>${escapeHtml(quote.phone || '-')}</strong></div><div class="info-card"><small>Print</small><strong>${escapeHtml(quote.material || '-')} · ${escapeHtml(quote.color || '-')}</strong><span class="muted">Spoed: ${escapeHtml(quote.rush || 'Nee')}</span></div><div class="info-card"><small>Totaal</small><strong>€ ${fmt(quoteTotal(quote))}</strong></div></div></div><details class="card"><summary><span class="summary-title">Algemene gegevens</span><span class="edit-pill">✎ Bewerken</span></summary><div class="three" style="margin-top:16px"><label><span>Naam</span><input name="name" form="quote-form" value="${escapeHtml(quote.name || '')}"></label><label><span>E-mail</span><input name="email" form="quote-form" value="${escapeHtml(quote.email || '')}"></label><label><span>Telefoon</span><input name="phone" form="quote-form" value="${escapeHtml(quote.phone || '')}"></label><label><span>Materiaal</span><input name="material" form="quote-form" value="${escapeHtml(quote.material || '')}"></label><label><span>Kleur</span><input name="color" form="quote-form" value="${escapeHtml(quote.color || '')}"></label><label><span>Spoed</span><select name="rush" form="quote-form"><option value="Nee" ${quote.rush !== 'Ja' ? 'selected' : ''}>Nee</option><option value="Ja" ${quote.rush === 'Ja' ? 'selected' : ''}>Ja</option></select></label></div><label style="display:block;margin-top:12px"><span>Opmerking klant</span><textarea name="note" form="quote-form">${escapeHtml(quote.note || '')}</textarea></label></details><div class="card"><h2>Offerte-regels</h2>${renderQuoteLineInputs(quote)}<div class="total"><span><small>Automatisch berekend</small>Totaal offerte</span><span data-quote-total>€ ${fmt(quoteTotal(quote))}</span></div></div><div class="card"><h2>Bestand(en)</h2>${quoteFilesHtml(quote)}</div><div class="card"><h2>Berichten</h2>${renderMessages(quote)}<label style="display:block;margin-top:12px"><span>Nieuw bericht aan klant</span><textarea name="newMessage" form="quote-form"></textarea></label></div></section><aside class="card"><form id="quote-form" class="stack" method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}"><h2 style="margin-top:0">Beheer</h2><p class="muted">Bij opslaan van een offerte wordt de klant automatisch gemaild. Na akkoord ziet de klant de betaalknop.</p><label><span>Status overschrijven</span><select name="status">${statusOptions(quote.status)}</select></label><label><span>Shopify betaallink</span><input name="paymentUrl" value="${escapeHtml(quote.paymentUrl || '')}"></label><label><span>Track & trace</span><input name="trackingCode" value="${escapeHtml(quote.trackingCode || '')}"></label><label><span>Shopify klant-ID</span><input name="customerId" value="${escapeHtml(quote.customerId || '')}"></label><label><span>Interne notitie</span><textarea name="internalNote">${escapeHtml(quote.internalNote || '')}</textarea></label><button class="button green" type="submit">Opslaan en klant informeren</button><a class="button ghost" href="${escapeHtml(pUrl)}" target="_blank">Klantportaal openen</a><input readonly value="${escapeHtml(pUrl)}"><a class="button ghost" href="/admin">Terug naar overzicht</a></form></aside></div>`);
+  const deleteForm = `<section class="card danger-zone"><h2 style="margin-top:0">Verwijderen</h2><p class="muted">Deze knop verplaatst de aanvraag naar het archief. Na ${archiveRetentionDays} dagen worden klantdata en bestanden automatisch definitief verwijderd.</p><form method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}/delete" onsubmit="return confirm('Weet je zeker dat je deze aanvraag wilt verwijderen? De aanvraag wordt ${archiveRetentionDays} dagen gearchiveerd en daarna definitief verwijderd, inclusief bestanden.')"><button class="button danger" type="submit">Verwijderen</button></form></section>`;
+  return renderPage(`Aanvraag ${quote.id}`, `${saved ? '<div class="notice">Aanvraag bijgewerkt.</div>' : ''}<div class="toolbar"><div><h1 style="margin:0">Project van ${escapeHtml(quote.name || 'klant')}</h1><p class="muted" style="margin:4px 0 0">${escapeHtml(quote.id)} · <span class="badge">${escapeHtml(statusLabel(quote.status))}</span></p></div><div class="toolbar"><a class="button ghost" href="/admin">← Overzicht</a><a class="button ghost" href="${escapeHtml(pUrl)}" target="_blank">Klantportaal</a></div></div><div class="detail-grid"><section class="stack"><div class="card"><div class="compact-grid"><div class="info-card"><small>Klant</small><strong>${escapeHtml(quote.name || '-')}</strong><span class="muted">${escapeHtml(quote.email || '')}</span></div><div class="info-card"><small>Telefoon</small><strong>${escapeHtml(quote.phone || '-')}</strong></div><div class="info-card"><small>Print</small><strong>${escapeHtml(quote.material || '-')} · ${escapeHtml(quote.color || '-')}</strong><span class="muted">Spoed: ${escapeHtml(quote.rush || 'Nee')}</span></div><div class="info-card"><small>Totaal</small><strong>€ ${fmt(quoteTotal(quote))}</strong></div></div></div><details class="card"><summary><span class="summary-title">Algemene gegevens</span><span class="edit-pill">✎ Bewerken</span></summary><div class="three" style="margin-top:16px"><label><span>Naam</span><input name="name" form="quote-form" value="${escapeHtml(quote.name || '')}"></label><label><span>E-mail</span><input name="email" form="quote-form" value="${escapeHtml(quote.email || '')}"></label><label><span>Telefoon</span><input name="phone" form="quote-form" value="${escapeHtml(quote.phone || '')}"></label><label><span>Materiaal</span><input name="material" form="quote-form" value="${escapeHtml(quote.material || '')}"></label><label><span>Kleur</span><input name="color" form="quote-form" value="${escapeHtml(quote.color || '')}"></label><label><span>Spoed</span><select name="rush" form="quote-form"><option value="Nee" ${quote.rush !== 'Ja' ? 'selected' : ''}>Nee</option><option value="Ja" ${quote.rush === 'Ja' ? 'selected' : ''}>Ja</option></select></label></div><label style="display:block;margin-top:12px"><span>Opmerking klant</span><textarea name="note" form="quote-form">${escapeHtml(quote.note || '')}</textarea></label></details><div class="card"><h2>Offerte-regels</h2>${renderQuoteLineInputs(quote)}<div class="total"><span><small>Automatisch berekend</small>Totaal offerte</span><span data-quote-total>€ ${fmt(quoteTotal(quote))}</span></div></div><div class="card"><h2>Bestand(en)</h2>${quoteFilesHtml(quote)}</div><div class="card"><h2>Berichten</h2>${renderMessages(quote)}<label style="display:block;margin-top:12px"><span>Nieuw bericht aan klant</span><textarea name="newMessage" form="quote-form"></textarea></label></div>${deleteForm}</section><aside class="card"><form id="quote-form" class="stack" method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}"><h2 style="margin-top:0">Beheer</h2><p class="muted">Bij opslaan van een offerte wordt de klant automatisch gemaild. Na akkoord ziet de klant de betaalknop.</p><label><span>Status overschrijven</span><select name="status">${statusOptions(quote.status)}</select></label><label><span>Shopify betaallink</span><input name="paymentUrl" value="${escapeHtml(quote.paymentUrl || '')}"></label><label><span>Track & trace</span><input name="trackingCode" value="${escapeHtml(quote.trackingCode || '')}"></label><label><span>Shopify klant-ID</span><input name="customerId" value="${escapeHtml(quote.customerId || '')}"></label><label><span>Interne notitie</span><textarea name="internalNote">${escapeHtml(quote.internalNote || '')}</textarea></label><button class="button green" type="submit">Opslaan en klant informeren</button><a class="button ghost" href="${escapeHtml(pUrl)}" target="_blank">Klantportaal openen</a><input readonly value="${escapeHtml(pUrl)}"><a class="button ghost" href="/admin">Terug naar overzicht</a></form></aside></div>`);
 }
 
 export function registerAdminRoutes(app) {
@@ -225,9 +260,14 @@ export function registerAdminRoutes(app) {
     res.send(renderAdminList(quotes));
   });
 
+  app.get('/admin/archive', requireAdmin, async (_req, res) => {
+    const quotes = await readQuotes();
+    res.send(renderArchiveList(quotes));
+  });
+
   app.get('/admin/quotes/:id', requireAdmin, async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => item.id === req.params.id);
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
     if (!quote) return res.status(404).send(renderPage('Niet gevonden', '<section class="card"><h1>Aanvraag niet gevonden</h1><a class="button" href="/admin">Terug</a></section>'));
     ensurePortalToken(quote);
     applyAutomaticStatus(quote);
@@ -235,9 +275,25 @@ export function registerAdminRoutes(app) {
     res.send(renderQuoteDetail(quote, req.query.saved === '1'));
   });
 
-  app.post('/admin/quotes/:id', requireAdmin, async (req, res) => {
+  app.post('/admin/quotes/:id/delete', requireAdmin, async (req, res) => {
     const quotes = await readQuotes();
     const quote = quotes.find((item) => item.id === req.params.id);
+    if (!quote) return res.status(404).send('Aanvraag niet gevonden');
+    const now = new Date().toISOString();
+    quote.archivedAt = now;
+    quote.deleteAfter = archiveDeleteDate(now);
+    quote.previousStatus = quote.status;
+    quote.status = 'archived';
+    quote.portalToken = `archived-${randomUUID()}`;
+    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+    quote.messages.push({ from: 'pr3nt', text: 'Aanvraag is verwijderd en 30 dagen gearchiveerd.', createdAt: now });
+    await writeQuotes(quotes);
+    res.redirect('/admin?deleted=1');
+  });
+
+  app.post('/admin/quotes/:id', requireAdmin, async (req, res) => {
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
     ensurePortalToken(quote);
     quote.name = clean(req.body.name, 200);
