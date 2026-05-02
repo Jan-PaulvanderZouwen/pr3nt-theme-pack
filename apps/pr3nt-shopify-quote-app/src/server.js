@@ -15,6 +15,7 @@ import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalFixRoutes } from './portalfixes.js';
 import { registerPortalUxLiteRoutes } from './portalux-lite.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
+import { registerStatusMailRoutes } from './statusmails.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -179,6 +180,7 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled, metaobjectsEnabled: config.metaobjectsEnabled });
 });
 
+registerStatusMailRoutes(app);
 registerAdminRoutes(app);
 registerPortalDomFixRoutes(app);
 registerPortalUxLiteRoutes(app);
