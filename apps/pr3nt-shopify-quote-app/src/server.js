@@ -12,8 +12,6 @@ import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
 import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
-import { registerPortalFixRoutes } from './portalfixes.js';
-import { registerPortalUxLiteRoutes } from './portalux-lite.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
 import { registerStatusMailRoutes } from './statusmails.js';
 
@@ -180,11 +178,12 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled, metaobjectsEnabled: config.metaobjectsEnabled });
 });
 
+// Statusmail middleware must run before admin routes so it can detect changes after admin saves.
 registerStatusMailRoutes(app);
 registerAdminRoutes(app);
+
+// Customer portal routes. Keep the final portal DOM layer before the base portal renderer.
 registerPortalDomFixRoutes(app);
-registerPortalUxLiteRoutes(app);
-registerPortalFixRoutes(app);
 registerSelfServiceRoutes(app);
 registerPortalRoutes(app);
 
