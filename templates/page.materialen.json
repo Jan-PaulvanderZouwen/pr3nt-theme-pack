@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Het juiste materiaal voor jouw print",
+            "text": "<p>De materiaalkeuze bepaalt voor een groot deel hoe jouw 3D-print eruitziet, aanvoelt en gebruikt kan worden. Daarom werkt pr3nt bewust met PLA en PETG: twee betrouwbare materialen die geschikt zijn voor veel hobbyprojecten, prototypes en functionele onderdelen.</p><p>Je hoeft zelf geen technische keuze te maken als je twijfelt. Vertel waarvoor je het onderdeel wilt gebruiken, dan adviseren we welk materiaal het meest logisch is.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "PLA of PETG kiezen",
+            "text": "Beide materialen hebben hun eigen sterke punten. Hieronder zie je wanneer welk materiaal meestal het beste past.",
+            "card_1_title": "PLA",
+            "card_1_text": "Geschikt voor decoratieve onderdelen, prototypes, hobbyprints, modelbouw en prints waarbij een strakke uitstraling belangrijk is.",
+            "card_2_title": "PETG",
+            "card_2_text": "Sterker en praktischer voor functionele onderdelen zoals houders, adapters, beugels en onderdelen die meer moeten kunnen hebben.",
+            "card_3_title": "Kleur op aanvraag",
+            "card_3_text": "Geef je gewenste kleur door bij de aanvraag. De exacte tint hangt af van beschikbare filamenten, maar we denken graag mee."
+          }
+        },
+        "pla": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Wanneer kies je voor PLA?",
+            "text": "<p>PLA is vaak de beste keuze voor zichtmodellen, decoratie, eenvoudige onderdelen en hobbyprojecten. Het materiaal print strak en is daardoor populair voor prototypes, modelbouw, bureau-accessoires, gaming-accessoires en onderdelen die vooral netjes moeten ogen.</p><p>Voor toepassingen met veel warmte, langdurige belasting of intensief buitengebruik is PLA minder geschikt. In dat geval kijken we liever naar PETG.</p>"
+          }
+        },
+        "petg": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Wanneer kies je voor PETG?",
+            "text": "<p>PETG is een goede keuze wanneer je print sterker of functioneler moet zijn. Denk aan montagebeugels, houders, adapters, clips, hulpstukken of onderdelen die vaker worden gebruikt.</p><p>Het materiaal is wat taaier dan PLA en daardoor geschikt voor praktische toepassingen. Voor bedrijven is PETG vaak interessant bij testopstellingen, kleine series of onderdelen die snel beschikbaar moeten zijn.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Twijfel je over het materiaal?",
+            "text": "Upload je bestand en omschrijf waarvoor je het onderdeel wilt gebruiken. Dan nemen we het materiaaladvies mee in de offerte.",
+            "button_label": "Upload je bestand",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "pla", "petg", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Materiaalkeuze",
+        "heading": "3D print materialen: PLA en PETG",
+        "intro": "Kies het juiste materiaal voor jouw 3D-print. Pr3nt helpt je met PLA en PETG voor hobbyprints, prototypes en functionele onderdelen.",
+        "cta_label": "Vraag materiaaladvies aan",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
