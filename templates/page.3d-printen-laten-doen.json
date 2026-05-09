@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "3D printen zonder gedoe",
+            "text": "<p>Wil je een onderdeel, prototype of hobbyproject laten 3D-printen? Bij pr3nt upload je jouw bestand, kies je het gewenste materiaal en ontvang je eerst een duidelijke offerte. Zo weet je vooraf waar je aan toe bent, zonder verrassingen achteraf.</p><p>We helpen zowel hobbyisten als professionele partijen. Denk aan modelbouw, vervangende onderdelen, handige hulpstukken, prototypes, kleine series of praktische onderdelen die nergens standaard te koop zijn.</p>"
+          }
+        },
+        "audience": {
+          "type": "cards",
+          "settings": {
+            "heading": "Voor hobbyisten, makers en bedrijven",
+            "text": "Iedere aanvraag wordt bekeken op printbaarheid, materiaalkeuze en afwerking. Daardoor blijft de kwaliteit beter dan bij volledig automatische prijsberekeningen.",
+            "card_1_title": "Hobbyisten",
+            "card_1_text": "Laat onderdelen printen voor modelbouw, gaming, reparaties, decoratie of creatieve projecten.",
+            "card_2_title": "Makers en ontwerpers",
+            "card_2_text": "Test snel een idee met een fysiek prototype, behuizing, houder, adapter of montagehulp.",
+            "card_3_title": "Professionele partijen",
+            "card_3_text": "Gebruik 3D-printen voor functionele onderdelen, kleine oplages, testmodellen en praktische oplossingen op maat."
+          }
+        },
+        "process": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Hoe werkt 3D printen bij pr3nt?",
+            "text": "<p>Je uploadt een 3D-bestand in STL, 3MF, OBJ, STEP of STP. Daarna controleren wij het model en beoordelen we onder andere het formaat, de wanddikte, het materiaalverbruik, de printtijd en eventuele support. Op basis daarvan ontvang je een offerte.</p><p>Pas na jouw akkoord gaan we printen. Dat maakt het proces eerlijker: een 3D-model kan er eenvoudig uitzien, maar in de praktijk veel printtijd of support nodig hebben. Door handmatig te controleren voorkomen we onduidelijke prijzen en teleurstellingen.</p>"
+          }
+        },
+        "materials": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Printen in PLA of PETG",
+            "text": "<p>Voor de meeste decoratieve prints, hobbyprojecten en prototypes is PLA een goede keuze. Het print strak, is geschikt voor veel toepassingen en is beschikbaar in veel kleuren.</p><p>PETG is sterker en praktischer voor functionele onderdelen. Denk aan houders, adapters, beugels of onderdelen die iets meer moeten kunnen hebben. Twijfel je tussen PLA en PETG? Dan denken we met je mee op basis van jouw toepassing.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Upload je 3D-bestand en ontvang een offerte",
+            "text": "Stuur je model naar pr3nt. We controleren het bestand en geven je een duidelijke prijs voordat je betaalt.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "audience", "process", "materials", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "3D printservice Nederland",
+        "heading": "3D printen laten doen",
+        "intro": "Laat jouw 3D-bestand printen door pr3nt. Voor hobbyprojecten, prototypes, vervangende onderdelen en professionele toepassingen in PLA of PETG.",
+        "cta_label": "Vraag offerte aan",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
