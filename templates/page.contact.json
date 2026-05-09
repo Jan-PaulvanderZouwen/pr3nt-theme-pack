@@ -1,3 +1,12 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
   "sections": {
     "main": {
@@ -7,51 +16,66 @@
           "type": "text_block",
           "settings": {
             "heading": "Neem contact op met pr3nt",
-            "text": "<p>Heb je een vraag over een 3D-print, materiaalkeuze, bestand of lopende offerte? Stuur gerust een bericht. We denken graag mee, of het nu gaat om een hobbyproject, een vervangend onderdeel of een professionele toepassing.</p><p>Wil je direct weten wat jouw print kost? Upload dan je 3D-bestand via het offerteformulier. Dan kunnen we je model beoordelen en een duidelijke prijs sturen.</p>"
+            "text": "<p>Heb je een vraag over een 3D-print, materiaalkeuze, bestand of lopende offerte? Stuur gerust een bericht. We denken graag mee, of het nu gaat om een hobbyproject, een vervangend onderdeel of een professionele toepassing.</p><p>We zijn telefonisch beperkt bereikbaar, we bellen je zo spoedig mogelijk terug als je een voicemail inspreekt.</p>"
           }
         },
         "cards": {
           "type": "cards",
           "settings": {
-            "heading": "Waarmee kunnen we helpen?",
-            "text": "Voor veel vragen is een korte omschrijving al genoeg. Bij technische vragen helpt een bestand of foto vaak mee.",
+            "heading": "Zit je vraag hier tussen?",
+            "text": "vind snel een antwoord op jouw vraag.",
             "card_1_title": "Offerte aanvragen",
-            "card_1_text": "Upload je 3D-bestand en ontvang een prijs op basis van materiaal, printtijd en controle van je model.",
+            "card_1_text": "Je kan gemakkelijk een offerte aanvragne via het offerteformulier. Op deze manier hebben we alle info die we nodig hebben om te starten!",
             "card_2_title": "Materiaaladvies",
             "card_2_text": "Twijfel je tussen PLA en PETG? Vertel waarvoor je de print wilt gebruiken, dan denken we mee.",
             "card_3_title": "Zakelijke aanvragen",
-            "card_3_text": "Voor prototypes, functionele onderdelen of kleine series kun je jouw project kort toelichten."
+            "card_3_text": "Heb je een zakelijke aanvraag en wil je graag een BTW-afctuur ontvangen? Deze kan je aanvragen via een bericht of zet het in de opmerkingen, dan uploaden we jouw factuur in jouw persoonlijke portaal."
           }
         },
         "details": {
           "type": "text_block",
           "settings": {
             "heading": "Contactgegevens",
-            "text": "<p><strong>E-mail:</strong> <a href=\"mailto:info@pr3nt.nl\">info@pr3nt.nl</a><br><strong>Telefoon:</strong> <a href=\"tel:+31644944038\">0644944038</a><br><strong>Adres:</strong> Schoolstraat 41, 6744WS Ederveen</p><p>Voor offerte-aanvragen raden we aan om altijd het 3D-bestand mee te sturen via het uploadformulier. Dan kunnen we sneller en nauwkeuriger reageren.</p>"
+            "text": "<p><strong>E-mail:</strong> <a href=\"mailto:info@pr3nt.nl\">info@pr3nt.nl</a><br/><strong>Telefoon:</strong> <a href=\"tel:+31644944038\">0644944038</a><br/><strong>Adres:</strong> Schoolstraat 41, 6744WS Ederveen</p><p>We zijn telefonisch beperkt bereikbaar, we bellen je zo spoedig mogelijk terug als je een voicemail inspreekt.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Printen bij Pr3nt?",
+            "text": "Met een bestand kunnen we direct beoordelen wat er nodig is en een passende offerte maken.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
           }
         }
       },
-      "block_order": ["intro", "cards", "details"],
+      "block_order": [
+        "intro",
+        "cards",
+        "details",
+        "cta"
+      ],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
         "content_padding_y": 72,
-        "eyebrow": "Contact",
-        "heading": "Contact met pr3nt",
-        "intro": "Vragen over 3D printen, materialen, bestanden of een lopende offerte? Neem contact op of upload direct je bestand.",
-        "cta_label": "Vraag offerte aan",
+        "eyebrow": "Klantenservice",
+        "heading": "Neem contact op",
+        "intro": "Vragen over jouw print, materialen, bestanden of een lopende offerte? Neem gemakkelijk contact op!",
+        "cta_label": "Naar contactformulier",
         "cta_link": "/#upload"
       }
     },
-    "contact_form": {
+    "pr3nt_contact_form_DYWF4D": {
       "type": "pr3nt-contact-form",
+      "name": "pr3nt contactformulier",
       "settings": {
-        "padding_y": 72,
+        "padding_y": 52,
         "eyebrow": "Stuur een bericht",
         "heading": "Vraag stellen aan pr3nt",
         "text": "Heb je een algemene vraag, wil je materiaaladvies of gaat het om een lopende aanvraag? Vul het formulier in en we reageren zo snel mogelijk.",
         "info_1_title": "Voor offertes",
-        "info_1_text": "Wil je een prijs voor een print? Upload dan liever direct je 3D-bestand via het offerteformulier op de homepage.",
+        "info_1_text": "Wil je een prijs voor een print? Upload dan direct je 3D-bestand via het offerteformulier op de homepage.",
         "info_2_title": "Voor zakelijke aanvragen",
         "info_2_text": "Voor prototypes, kleine series of functionele onderdelen kun je jouw toepassing kort omschrijven. Dan denken we gericht mee.",
         "form_heading": "Contactformulier",
@@ -62,5 +86,8 @@
       }
     }
   },
-  "order": ["main", "contact_form"]
+  "order": [
+    "main",
+    "pr3nt_contact_form_DYWF4D"
+  ]
 }
