@@ -12,23 +12,127 @@
     "sections": {
       "pr3nt-header": {
         "type": "pr3nt-header",
+        "blocks": {
+          "nav_home": {
+            "type": "nav_item",
+            "settings": {
+              "label": "Home",
+              "link": "/"
+            }
+          },
+          "nav_service": {
+            "type": "nav_item",
+            "settings": {
+              "label": "3D printen",
+              "link": "/pages/3d-printen-laten-doen"
+            }
+          },
+          "nav_materials": {
+            "type": "nav_item",
+            "settings": {
+              "label": "Materialen",
+              "link": "/pages/materialen"
+            }
+          },
+          "nav_prices": {
+            "type": "nav_item",
+            "settings": {
+              "label": "Prijzen",
+              "link": "/pages/prijzen"
+            }
+          },
+          "nav_guidelines": {
+            "type": "nav_item",
+            "settings": {
+              "label": "Bestanden",
+              "link": "/pages/bestandsrichtlijnen"
+            }
+          },
+          "nav_contact": {
+            "type": "nav_item",
+            "settings": {
+              "label": "Contact",
+              "link": "/pages/contact"
+            }
+          }
+        },
+        "block_order": [
+          "nav_home",
+          "nav_service",
+          "nav_materials",
+          "nav_prices",
+          "nav_guidelines",
+          "nav_contact"
+        ],
         "settings": {
           "logo_mark": "3",
           "logo_text": "pr3nt",
           "logo_subtitle": "3D-printservice",
           "logo_link": "/",
           "cta_label": "Offerte aanvragen",
-          "cta_link": "#upload"
+          "cta_link": "/#upload"
         }
       },
       "pr3nt-footer": {
         "type": "pr3nt-footer",
+        "blocks": {
+          "footer_quote": {
+            "type": "link",
+            "settings": {
+              "label": "Offerte aanvragen",
+              "link": "/#upload"
+            }
+          },
+          "footer_service": {
+            "type": "link",
+            "settings": {
+              "label": "3D printen laten doen",
+              "link": "/pages/3d-printen-laten-doen"
+            }
+          },
+          "footer_materials": {
+            "type": "link",
+            "settings": {
+              "label": "Materialen",
+              "link": "/pages/materialen"
+            }
+          },
+          "footer_prices": {
+            "type": "link",
+            "settings": {
+              "label": "Prijzen",
+              "link": "/pages/prijzen"
+            }
+          },
+          "footer_guidelines": {
+            "type": "link",
+            "settings": {
+              "label": "Bestandsrichtlijnen",
+              "link": "/pages/bestandsrichtlijnen"
+            }
+          },
+          "footer_contact": {
+            "type": "link",
+            "settings": {
+              "label": "Contact",
+              "link": "/pages/contact"
+            }
+          }
+        },
+        "block_order": [
+          "footer_quote",
+          "footer_service",
+          "footer_materials",
+          "footer_prices",
+          "footer_guidelines",
+          "footer_contact"
+        ],
         "settings": {
           "logo_mark": "3",
           "logo_text": "pr3nt",
           "logo_subtitle": "3D-printservice",
           "logo_link": "/",
-          "description": "Voor hobbyisten, makers en iedereen die snel een onderdeel of prototype wil laten 3D-printen.",
+          "description": "3D-printservice voor hobbyisten, makers en professionele partijen. Upload je bestand en ontvang een duidelijke offerte voor jouw onderdeel, prototype of kleine serie.",
           "contact_heading": "Contact",
           "email": "info@pr3nt.nl",
           "phone": "0644944038",
