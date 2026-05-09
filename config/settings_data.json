@@ -38,7 +38,7 @@
             "type": "nav_item",
             "settings": {
               "label": "Prijzen",
-              "link": "/pages/prijzen"
+              "link": "/pages/proces-en-kosten"
             }
           },
           "nav_guidelines": {
