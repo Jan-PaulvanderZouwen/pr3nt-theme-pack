@@ -29,18 +29,9 @@
             "heading": "Contactgegevens",
             "text": "<p><strong>E-mail:</strong> <a href=\"mailto:info@pr3nt.nl\">info@pr3nt.nl</a><br><strong>Telefoon:</strong> <a href=\"tel:+31644944038\">0644944038</a><br><strong>Adres:</strong> Schoolstraat 41, 6744WS Ederveen</p><p>Voor offerte-aanvragen raden we aan om altijd het 3D-bestand mee te sturen via het uploadformulier. Dan kunnen we sneller en nauwkeuriger reageren.</p>"
           }
-        },
-        "cta": {
-          "type": "highlight",
-          "settings": {
-            "heading": "Snelste route: upload je bestand",
-            "text": "Met een bestand kunnen we direct beoordelen wat er nodig is en een passende offerte maken.",
-            "button_label": "Offerte aanvragen",
-            "button_link": "/#upload"
-          }
         }
       },
-      "block_order": ["intro", "cards", "details", "cta"],
+      "block_order": ["intro", "cards", "details"],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
@@ -51,7 +42,25 @@
         "cta_label": "Vraag offerte aan",
         "cta_link": "/#upload"
       }
+    },
+    "contact_form": {
+      "type": "pr3nt-contact-form",
+      "settings": {
+        "padding_y": 72,
+        "eyebrow": "Stuur een bericht",
+        "heading": "Vraag stellen aan pr3nt",
+        "text": "Heb je een algemene vraag, wil je materiaaladvies of gaat het om een lopende aanvraag? Vul het formulier in en we reageren zo snel mogelijk.",
+        "info_1_title": "Voor offertes",
+        "info_1_text": "Wil je een prijs voor een print? Upload dan liever direct je 3D-bestand via het offerteformulier op de homepage.",
+        "info_2_title": "Voor zakelijke aanvragen",
+        "info_2_text": "Voor prototypes, kleine series of functionele onderdelen kun je jouw toepassing kort omschrijven. Dan denken we gericht mee.",
+        "form_heading": "Contactformulier",
+        "button_label": "Bericht versturen",
+        "form_note": "Voor bestanden gebruik je het offerteformulier. Via dit formulier kun je nog geen 3D-bestanden meesturen.",
+        "success_heading": "Bedankt voor je bericht.",
+        "success_text": "We hebben je bericht ontvangen en nemen contact met je op."
+      }
     }
   },
-  "order": ["main"]
+  "order": ["main", "contact_form"]
 }
