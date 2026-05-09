@@ -11,61 +11,59 @@
       </div>
     </div>
 
-    <div class="p-form-shell" style="background:transparent;border-color:rgba(16,24,32,.08);box-shadow:var(--p-shadow);padding:0">
-      <div class="p-form" style="border:1px solid rgba(16,24,32,.08)">
-        {% form 'contact', id: 'Pr3ntContactForm' %}
-          {% if form.posted_successfully? %}
-            <div class="p-success">
-              <strong>{{ section.settings.success_heading }}</strong>
-              <p style="margin:8px 0 0;color:rgba(255,255,255,.72)">{{ section.settings.success_text }}</p>
-            </div>
-          {% endif %}
-
-          {% if form.errors %}
-            <div class="p-error is-visible">
-              Controleer de ingevulde velden en probeer het opnieuw.
-            </div>
-          {% endif %}
-
-          <div class="p-contact-group">
-            <p class="p-contact-group-title">{{ section.settings.form_heading }}</p>
-
-            <label class="p-field">
-              <span>Naam</span>
-              <input type="text" name="contact[name]" value="{% if form.name %}{{ form.name }}{% endif %}" autocomplete="name" placeholder="Je naam" required>
-            </label>
-
-            <label class="p-field" style="margin-top:14px">
-              <span>E-mailadres</span>
-              <input type="email" name="contact[email]" value="{% if form.email %}{{ form.email }}{% endif %}" autocomplete="email" placeholder="jij@example.nl" required>
-            </label>
-
-            <label class="p-field" style="margin-top:14px">
-              <span>Telefoonnummer <small style="font-weight:700;color:rgba(16,24,32,.45)">(optioneel)</small></span>
-              <input type="tel" name="contact[phone]" value="{% if form.phone %}{{ form.phone }}{% endif %}" autocomplete="tel" placeholder="Bijv. 06 12 34 56 78">
-            </label>
-
-            <label class="p-field" style="margin-top:14px">
-              <span>Waar gaat je vraag over?</span>
-              <select name="contact[onderwerp]" style="width:100%;border:1px solid rgba(16,24,32,.1);background:var(--p-cream);border-radius:14px;padding:13px 14px;outline:none;color:var(--p-dark)">
-                <option>Algemene vraag</option>
-                <option>Vraag over materiaal</option>
-                <option>Vraag over een offerte</option>
-                <option>Zakelijke aanvraag</option>
-                <option>Vraag over een lopende bestelling</option>
-              </select>
-            </label>
-
-            <label class="p-field" style="margin-top:14px">
-              <span>Bericht</span>
-              <textarea name="contact[body]" placeholder="Vertel kort waar je vraag over gaat. Bij technische vragen helpt het om toepassing, materiaalwens of maatvoering te noemen." required>{% if form.body %}{{ form.body }}{% endif %}</textarea>
-            </label>
-
-            <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px">{{ section.settings.button_label }}</button>
-            <p class="p-form-note">{{ section.settings.form_note }}</p>
+    <div class="p-form" style="border:1px solid rgba(16,24,32,.08);box-shadow:var(--p-shadow)">
+      {% form 'contact', id: 'Pr3ntContactForm' %}
+        {% if form.posted_successfully? %}
+          <div class="p-success">
+            <strong>{{ section.settings.success_heading }}</strong>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,.72)">{{ section.settings.success_text }}</p>
           </div>
-        {% endform %}
-      </div>
+        {% endif %}
+
+        {% if form.errors %}
+          <div class="p-error is-visible">
+            Controleer de ingevulde velden en probeer het opnieuw.
+          </div>
+        {% endif %}
+
+        <div class="p-contact-group">
+          <p class="p-contact-group-title">{{ section.settings.form_heading }}</p>
+
+          <label class="p-field">
+            <span>Naam</span>
+            <input type="text" name="contact[name]" value="{% if form.name %}{{ form.name }}{% endif %}" autocomplete="name" placeholder="Je naam" required>
+          </label>
+
+          <label class="p-field" style="margin-top:14px">
+            <span>E-mailadres</span>
+            <input type="email" name="contact[email]" value="{% if form.email %}{{ form.email }}{% endif %}" autocomplete="email" placeholder="jij@example.nl" required>
+          </label>
+
+          <label class="p-field" style="margin-top:14px">
+            <span>Telefoonnummer <small style="font-weight:700;color:rgba(16,24,32,.45)">(optioneel)</small></span>
+            <input type="tel" name="contact[phone]" value="{% if form.phone %}{{ form.phone }}{% endif %}" autocomplete="tel" placeholder="Bijv. 06 12 34 56 78">
+          </label>
+
+          <label class="p-field" style="margin-top:14px">
+            <span>Waar gaat je vraag over?</span>
+            <select name="contact[onderwerp]" style="width:100%;border:1px solid rgba(16,24,32,.1);background:var(--p-cream);border-radius:14px;padding:13px 14px;outline:none;color:var(--p-dark)">
+              <option>Algemene vraag</option>
+              <option>Vraag over materiaal</option>
+              <option>Vraag over een offerte</option>
+              <option>Zakelijke aanvraag</option>
+              <option>Vraag over een lopende bestelling</option>
+            </select>
+          </label>
+
+          <label class="p-field" style="margin-top:14px">
+            <span>Bericht</span>
+            <textarea name="contact[body]" placeholder="Vertel kort waar je vraag over gaat. Bij technische vragen helpt het om toepassing, materiaalwens of maatvoering te noemen." required>{% if form.body %}{{ form.body }}{% endif %}</textarea>
+          </label>
+
+          <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px">{{ section.settings.button_label }}</button>
+          <p class="p-form-note">{{ section.settings.form_note }}</p>
+        </div>
+      {% endform %}
     </div>
   </div>
 </section>
