@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Eerlijke prijzen op basis van jouw 3D-bestand",
+            "text": "<p>De prijs van een 3D-print hangt af van meer dan alleen het formaat. Gewicht, printtijd, materiaal, support, wanddikte en de gewenste afwerking spelen allemaal mee. Daarom werkt pr3nt met een duidelijke offerte in plaats van een automatische prijs die later toch niet blijkt te kloppen.</p><p>Je uploadt je bestand, wij controleren het model en daarna ontvang je een prijsvoorstel. Je betaalt pas nadat je akkoord bent met de offerte.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "Waaruit bestaat de prijs?",
+            "text": "We houden de prijsopbouw zo transparant mogelijk, zodat je begrijpt waar je voor betaalt.",
+            "card_1_title": "Materiaalverbruik",
+            "card_1_text": "Het gewicht van de print en het gekozen materiaal bepalen een belangrijk deel van de prijs.",
+            "card_2_title": "Printtijd",
+            "card_2_text": "Een groot of gedetailleerd model kan langer printen, ook als het op het eerste gezicht eenvoudig lijkt.",
+            "card_3_title": "Controle en verwerking",
+            "card_3_text": "We controleren je bestand, beoordelen de printbaarheid en maken de print netjes klaar voor verzending."
+          }
+        },
+        "why_quote": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Waarom niet direct afrekenen?",
+            "text": "<p>Bij 3D printen kan een vaste online prijs misleidend zijn. Een model kan extra support nodig hebben, te dunne wanden bevatten of op een andere manier geprint moeten worden dan verwacht. Ook kan de printoriëntatie invloed hebben op sterkte, uitstraling en printtijd.</p><p>Door ieder bestand eerst te controleren, krijg je een realistischer voorstel. Dat is eerlijker voor hobbyisten die een klein onderdeel willen laten printen én voor professionele partijen die willen weten waar ze aan toe zijn.</p>"
+          }
+        },
+        "examples": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Voorbeelden van opdrachten",
+            "text": "<p>Een kleine houder, sleutelhanger of accessoire valt meestal lager uit dan een groot prototype of functioneel onderdeel. Een onderdeel met veel details, hogere sterkte-eisen of lange printtijd kan duurder zijn.</p><p>Wil je snel weten wat jouw print ongeveer kost? Upload dan het bestand met een korte omschrijving. Dan ontvang je een offerte op basis van jouw echte model.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Ontvang een duidelijke prijs voor jouw print",
+            "text": "Upload je 3D-bestand en ontvang een offerte op basis van materiaal, printtijd en controle van je model.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "why_quote", "examples", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Transparante prijzen",
+        "heading": "Wat kost 3D printen?",
+        "intro": "De prijs van jouw 3D-print hangt af van materiaal, gewicht, printtijd en modelcontrole. Bij pr3nt ontvang je eerst een duidelijke offerte.",
+        "cta_label": "Bereken via offerte",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
