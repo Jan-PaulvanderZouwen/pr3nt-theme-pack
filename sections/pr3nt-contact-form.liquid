@@ -1,18 +1,18 @@
 <section class="p-section white" style="--py:{{ section.settings.padding_y }}px">
-  <div class="p-wrap p-grid-2 p-align-start">
+  <div class="p-wrap p-grid-2 p-align-start" style="gap:28px">
     <div>
       {% if section.settings.eyebrow != blank %}<p class="p-eyebrow">{{ section.settings.eyebrow }}</p>{% endif %}
       <h2 class="p-title-sm">{{ section.settings.heading }}</h2>
       {% if section.settings.text != blank %}<p class="p-copy">{{ section.settings.text }}</p>{% endif %}
 
-      <div style="margin-top:28px" class="p-stack">
+      <div style="margin-top:22px" class="p-stack">
         <div class="p-card"><div class="p-card-body"><h3 class="p-card-title">{{ section.settings.info_1_title }}</h3><p class="p-card-text">{{ section.settings.info_1_text }}</p></div></div>
         <div class="p-card"><div class="p-card-body"><h3 class="p-card-title">{{ section.settings.info_2_title }}</h3><p class="p-card-text">{{ section.settings.info_2_text }}</p></div></div>
       </div>
     </div>
 
-    <div class="p-form-shell" style="background:rgba(16,24,32,.06);border-color:rgba(16,24,32,.08);box-shadow:var(--p-shadow)">
-      <div class="p-form">
+    <div class="p-form-shell" style="background:transparent;border-color:rgba(16,24,32,.08);box-shadow:var(--p-shadow);padding:0">
+      <div class="p-form" style="border:1px solid rgba(16,24,32,.08)">
         {% form 'contact', id: 'Pr3ntContactForm' %}
           {% if form.posted_successfully? %}
             <div class="p-success">
