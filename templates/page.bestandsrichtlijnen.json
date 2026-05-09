@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Zo lever je jouw 3D-bestand goed aan",
+            "text": "<p>Een goed aangeleverd bestand zorgt voor een betere print en een snellere offerte. Bij pr3nt kun je bestanden uploaden als STL, 3MF, OBJ, STEP of STP. We controleren altijd of het model geschikt is om te printen.</p><p>Je hoeft geen expert te zijn. Ook als je twijfelt of jouw bestand goed is, kun je het gewoon insturen. Wij kijken mee en laten weten wat er eventueel nodig is.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "Waar letten we op?",
+            "text": "Bij de controle kijken we naar praktische punten die invloed hebben op kwaliteit, sterkte en prijs.",
+            "card_1_title": "Formaat",
+            "card_1_text": "Het maximale printformaat is 255 × 255 × 255 mm. Grotere modellen moeten soms worden opgesplitst.",
+            "card_2_title": "Wanddikte",
+            "card_2_text": "Te dunne delen kunnen kwetsbaar zijn of mislukken tijdens het printen. We controleren dit voor je.",
+            "card_3_title": "Support en details",
+            "card_3_text": "Overhangende delen, fijne details en printoriëntatie kunnen invloed hebben op printtijd en afwerking."
+          }
+        },
+        "formats": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Welke bestanden kun je uploaden?",
+            "text": "<p>Je kunt STL, 3MF, OBJ, STEP en STP uploaden. STL en 3MF worden vaak gebruikt voor 3D-printen. STEP en STP zijn handig wanneer een ontwerp uit CAD-software komt en nog beoordeeld moet worden.</p><p>Heb je meerdere bestanden voor één project? Geef dit dan duidelijk aan in je opmerking. Dan bekijken we de aanvraag als geheel.</p>"
+          }
+        },
+        "tips": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Tips voor een betere offerte",
+            "text": "<p>Omschrijf kort waarvoor het onderdeel bedoeld is. Moet het vooral mooi zijn, of juist sterk en functioneel? Geef ook je gewenste kleur, materiaalvoorkeur en eventuele maatvoering door als dat belangrijk is.</p><p>Voor professionele toepassingen helpt het om extra context te geven, zoals montageplek, belasting of gewenste pasvorm. Zo kunnen we beter meedenken over materiaal en printoriëntatie.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Bestand klaar? Upload het voor controle",
+            "text": "Stuur je 3D-bestand in. We controleren de printbaarheid en sturen je daarna een duidelijke offerte.",
+            "button_label": "Bestand uploaden",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "formats", "tips", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Bestand aanleveren",
+        "heading": "Bestandsrichtlijnen voor 3D printen",
+        "intro": "Lees welke 3D-bestanden je kunt uploaden en waar we op letten bij de controle van jouw model.",
+        "cta_label": "Upload je bestand",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
