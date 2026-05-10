@@ -1,0 +1,65 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Duidelijke afspraken vooraf",
+            "text": "<p>Bij pr3nt werken we met offertes voor 3D-printopdrachten. Je uploadt je bestand, wij controleren het model en je ontvangt een prijsvoorstel. Pas na jouw akkoord starten we met printen.</p><p>Deze pagina beschrijft de belangrijkste voorwaarden rondom aanvragen, offertes, maatwerk, levering en verantwoordelijkheid. Voor specifieke afspraken in een offerte geldt altijd wat daarin is afgesproken.</p>"
+          }
+        },
+        "quote": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Offertes en akkoord",
+            "text": "<p>Een offerte is gebaseerd op het aangeleverde bestand, de gewenste specificaties en onze beoordeling van printtijd, materiaalverbruik en printbaarheid. We starten de productie pas nadat je akkoord bent gegaan met de offerte.</p><p>Als na beoordeling blijkt dat een bestand niet goed printbaar is, nemen we contact op of geven we advies over mogelijke aanpassingen.</p>"
+          }
+        },
+        "files": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Aangeleverde bestanden",
+            "text": "<p>De klant is verantwoordelijk voor het aanleveren van het juiste ontwerp, de juiste maatvoering en eventuele functionele eisen. Wij controleren de printbaarheid, maar kunnen niet garanderen dat een onderdeel geschikt is voor iedere toepassing als die toepassing niet vooraf duidelijk is omschreven.</p><p>Geef daarom altijd aan waarvoor het onderdeel wordt gebruikt, zeker bij functionele of zakelijke onderdelen.</p>"
+          }
+        },
+        "custom": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Maatwerkproducten",
+            "text": "<p>3D-prints worden vaak speciaal gemaakt op basis van jouw bestand, materiaalkeuze, kleurwens en toepassing. Daardoor gaat het meestal om maatwerk. Maatwerkproducten kunnen doorgaans niet worden geretourneerd wanneer ze volgens afspraak zijn geproduceerd.</p><p>Wanneer er aantoonbaar iets misgaat in productie, verpakking of verzending, zoeken we naar een passende oplossing.</p>"
+          }
+        },
+        "delivery": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Levering en planning",
+            "text": "<p>We communiceren de verwachte verwerking en verzending zo duidelijk mogelijk. De werkelijke planning kan afhankelijk zijn van printduur, materiaal, complexiteit en drukte. Bij spoedaanvragen beoordelen we vooraf of de gewenste planning haalbaar is.</p><p>Verzendkosten worden opgenomen in de offerte of vooraf gecommuniceerd.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Vragen over voorwaarden of maatwerk?",
+            "text": "Neem contact op voordat je een aanvraag indient. Dan kunnen we vooraf duidelijkheid geven.",
+            "button_label": "Contact opnemen",
+            "button_link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": ["intro", "quote", "files", "custom", "delivery", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Beleid",
+        "heading": "Algemene voorwaarden",
+        "intro": "Lees de belangrijkste afspraken rondom offertes, maatwerk, 3D-bestanden, productie en levering bij pr3nt.",
+        "cta_label": "Contact opnemen",
+        "cta_link": "/pages/contact"
+      }
+    }
+  },
+  "order": ["main"]
+}
