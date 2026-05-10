@@ -1,8 +1,39 @@
 <header class="p-header">
   <div class="p-header-wrap">
-    <a href="{{ section.settings.logo_link | default: routes.root_url }}" class="p-logo"><span class="p-logo-mark">{{ section.settings.logo_mark }}</span><span><span class="p-logo-title">{{ section.settings.logo_text }}</span><span class="p-logo-subtitle">{{ section.settings.logo_subtitle }}</span></span></a>
-    <nav class="p-nav" aria-label="Hoofdnavigatie">{% for block in section.blocks %}<a href="{{ block.settings.link }}" {{ block.shopify_attributes }}>{{ block.settings.label }}</a>{% endfor %}</nav>
+    <a href="{{ section.settings.logo_link | default: routes.root_url }}" class="p-logo">
+      <span class="p-logo-mark">{{ section.settings.logo_mark }}</span>
+      <span>
+        <span class="p-logo-title">{{ section.settings.logo_text }}</span>
+        <span class="p-logo-subtitle">{{ section.settings.logo_subtitle }}</span>
+      </span>
+    </a>
+
+    {% if section.settings.menu != blank %}
+      <nav class="p-nav" aria-label="Hoofdnavigatie">
+        {% for link in section.settings.menu.links %}
+          <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title }}</a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+
     <a href="{{ section.settings.cta_link }}" class="p-btn p-btn-dark">{{ section.settings.cta_label }}</a>
   </div>
 </header>
-{% schema %}{"name":"pr3nt header","settings":[{"type":"text","id":"logo_mark","label":"Logo icoon","default":"3"},{"type":"text","id":"logo_text","label":"Logo tekst","default":"pr3nt"},{"type":"text","id":"logo_subtitle","label":"Logo ondertitel","default":"3D-printservice"},{"type":"text","id":"logo_link","label":"Logo link","default":"/"},{"type":"text","id":"cta_label","label":"CTA tekst","default":"Offerte aanvragen"},{"type":"text","id":"cta_link","label":"CTA link","default":"#upload"}],"blocks":[{"type":"nav_item","name":"Navigatielink","settings":[{"type":"text","id":"label","label":"Label","default":"Link"},{"type":"text","id":"link","label":"Link","default":"#"}]}],"presets":[{"name":"pr3nt header","blocks":[{"type":"nav_item","settings":{"label":"Home","link":"/"}},{"type":"nav_item","settings":{"label":"Hoe werkt het?","link":"#hoe"}},{"type":"nav_item","settings":{"label":"Prijzen","link":"#prijzen"}},{"type":"nav_item","settings":{"label":"Voorbeelden","link":"#inspiratie"}},{"type":"nav_item","settings":{"label":"FAQ","link":"#faq"}},{"type":"nav_item","settings":{"label":"Contact","link":"#contact"}}]}]}{% endschema %}
+
+{% schema %}
+{
+  "name": "pr3nt header",
+  "settings": [
+    {"type":"text","id":"logo_mark","label":"Logo icoon","default":"3"},
+    {"type":"text","id":"logo_text","label":"Logo tekst","default":"pr3nt"},
+    {"type":"text","id":"logo_subtitle","label":"Logo ondertitel","default":"3D-printservice"},
+    {"type":"text","id":"logo_link","label":"Logo link","default":"/"},
+    {"type":"link_list","id":"menu","label":"Hoofdmenu","default":"main-menu"},
+    {"type":"text","id":"cta_label","label":"CTA tekst","default":"Offerte aanvragen"},
+    {"type":"text","id":"cta_link","label":"CTA link","default":"/#upload"}
+  ],
+  "presets": [
+    {"name":"pr3nt header"}
+  ]
+}
+{% endschema %}
