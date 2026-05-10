@@ -56,18 +56,26 @@
           }
         }
       },
-      "block_order": ["intro", "cards", "workflow", "materials", "cta"],
+      "block_order": [
+        "intro",
+        "cards",
+        "workflow",
+        "materials",
+        "cta"
+      ],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
         "content_padding_y": 72,
         "eyebrow": "Zakelijk 3D printen",
         "heading": "3D printen voor bedrijven",
-        "intro": "Voor prototypes, functionele onderdelen, hulpstukken en kleine series. Pr3nt helpt bedrijven snel aan een duidelijke offerte en bruikbare 3D-print.",
-        "cta_label": "Start zakelijke aanvraag",
-        "cta_link": "/#upload"
+        "intro": "Voor iedere toepassing kunnen we iets printen. Vraag een gratis consult aan zodat we samen kunnen checken of uw project tot een mooi resultaat kunnen leiden.",
+        "cta_label": "Neem contact op",
+        "cta_link": "https://pr3nt.nl/pages/contact#shopify-section-template--28802467692927__pr3nt_contact_form_DYWF4D"
       }
     }
   },
-  "order": ["main"]
+  "order": [
+    "main"
+  ]
 }
