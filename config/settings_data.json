@@ -24,7 +24,7 @@
             "type": "nav_item",
             "settings": {
               "label": "3D printen",
-              "link": "/pages/3d-printen-laten-doen"
+              "link": "pages/3d-printen"
             }
           },
           "nav_materials": {
