@@ -282,10 +282,10 @@
       ],
       "settings": {
         "padding_y": 76,
-        "eyebrow": "Transparante prijzen",
-        "heading": "Transpirant rekenen",
+        "eyebrow": "Op pr3nt kan je rekenen",
+        "heading": "Check wat het kost",
         "text": "Je ontvangt een offerte nadat het model is gecontroleerd. Zo voorkom je verrassingen door supportmateriaal, printoriëntatie, wanddikte of lange printtijd.",
-        "example_heading": "Gemiddeld voorbeeld",
+        "example_heading": "Gemiddelde print",
         "example_text": "Een print van 75 gram en 5 uur printtijd zou volgens de formule uitkomen op ongeveer €28,30. De echte prijs hangt af van het geslicete model.",
         "example_button_label": "Upload voor offerte",
         "example_button_link": "#upload"
@@ -386,7 +386,7 @@
         "video_embed_url": "",
         "video_file_url": "https://cdn.shopify.com/videos/c/o/v/184db68ee3aa4f52a3f115d4f3b9367a.mp4",
         "video_height": 360,
-        "eyebrow": "Bekijk hoe het werkt",
+        "eyebrow": "Even een vo",
         "heading": "In 1 minuut zie je hoe uploaden, beoordelen en printen werkt.",
         "text": "Upload je bestand, wij controleren het model en sturen je een offerte. Na akkoord printen we je onderdeel en verzenden we het netjes verpakt naar je toe."
       }
