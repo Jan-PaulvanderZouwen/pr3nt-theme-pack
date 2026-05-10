@@ -1,4 +1,4 @@
-<header class="p-header">
+<header class="p-header" data-p-header>
   <div class="p-header-wrap">
     <a href="{{ section.settings.logo_link | default: routes.root_url }}" class="p-logo">
       <span class="p-logo-mark">{{ section.settings.logo_mark }}</span>
@@ -16,8 +16,27 @@
       </nav>
     {% endif %}
 
-    <a href="{{ section.settings.cta_link }}" class="p-btn p-btn-dark">{{ section.settings.cta_label }}</a>
+    <div class="p-header-actions">
+      <a href="{{ section.settings.cta_link }}" class="p-btn p-btn-dark p-header-cta">{{ section.settings.cta_label }}</a>
+      {% if section.settings.menu != blank %}
+        <button type="button" class="p-menu-toggle" data-p-menu-toggle aria-expanded="false" aria-controls="Pr3ntMobileMenu">
+          <span class="p-menu-toggle-label">Menu</span>
+          <span class="p-menu-icon" aria-hidden="true"><span></span><span></span></span>
+        </button>
+      {% endif %}
+    </div>
   </div>
+
+  {% if section.settings.menu != blank %}
+    <div class="p-mobile-menu" id="Pr3ntMobileMenu" data-p-mobile-menu hidden>
+      <div class="p-mobile-menu-inner">
+        {% for link in section.settings.menu.links %}
+          <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title }}</a>
+        {% endfor %}
+        <a href="{{ section.settings.cta_link }}" class="p-btn p-btn-primary">{{ section.settings.cta_label }}</a>
+      </div>
+    </div>
+  {% endif %}
 </header>
 
 {% schema %}
