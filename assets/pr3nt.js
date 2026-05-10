@@ -18,6 +18,39 @@
     return Array.prototype.slice.call(fileInput && fileInput.files ? fileInput.files : []);
   }
 
+  function initMobileMenu(scope){
+    var root = scope || document;
+    var headers = root.querySelectorAll('[data-p-header]:not([data-p-menu-ready])');
+    headers.forEach(function(header){
+      header.setAttribute('data-p-menu-ready','true');
+      var toggle = header.querySelector('[data-p-menu-toggle]');
+      var menu = header.querySelector('[data-p-mobile-menu]');
+      if(!toggle || !menu) return;
+
+      function closeMenu(){
+        menu.hidden = true;
+        toggle.setAttribute('aria-expanded','false');
+      }
+
+      function openMenu(){
+        menu.hidden = false;
+        toggle.setAttribute('aria-expanded','true');
+      }
+
+      toggle.addEventListener('click', function(){
+        if(menu.hidden){ openMenu(); } else { closeMenu(); }
+      });
+
+      menu.querySelectorAll('a').forEach(function(link){
+        link.addEventListener('click', closeMenu);
+      });
+
+      document.addEventListener('keydown', function(event){
+        if(event.key === 'Escape') closeMenu();
+      });
+    });
+  }
+
   async function submitToQuoteEndpoint(form, fields){
     var endpoint = form.getAttribute('data-p-endpoint');
     if(!endpoint){
@@ -189,6 +222,12 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded',function(){initForms(document)});
-  document.addEventListener('shopify:section:load',function(e){initForms(e.target)});
+  document.addEventListener('DOMContentLoaded',function(){
+    initMobileMenu(document);
+    initForms(document);
+  });
+  document.addEventListener('shopify:section:load',function(e){
+    initMobileMenu(e.target);
+    initForms(e.target);
+  });
 })();
