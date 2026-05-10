@@ -1,0 +1,57 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Verzending van jouw 3D-print",
+            "text": "<p>Na akkoord op de offerte plannen we jouw print in. Zodra het onderdeel klaar is, wordt het netjes verpakt en verzonden naar het opgegeven adres. We houden je op de hoogte van de status, zodat je weet waar je aan toe bent.</p><p>De standaard verzendtijd is afhankelijk van de printduur, planning en afwerking. Op de website communiceren we standaard verzending binnen 3 dagen na akkoord. Bij spoed is verzending in veel gevallen binnen 2 dagen mogelijk.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "Wat kun je verwachten?",
+            "text": "Iedere print wordt eerst gecontroleerd voordat deze wordt ingepakt.",
+            "card_1_title": "Netjes verpakt",
+            "card_1_text": "We verpakken je print zorgvuldig, zodat kwetsbare details zo goed mogelijk beschermd zijn tijdens transport.",
+            "card_2_title": "Statusupdates",
+            "card_2_text": "Bij aanvragen via het offerteformulier kun je projectgegevens en statusinformatie volgen via je eigen portaal.",
+            "card_3_title": "Spoed mogelijk",
+            "card_3_text": "Heb je het onderdeel snel nodig? Geef dit aan bij je aanvraag, dan kijken we of spoed mogelijk is."
+          }
+        },
+        "costs": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Verzendkosten",
+            "text": "<p>De verzendkosten worden meegenomen in je offerte. Voor standaardzendingen rekenen we op dit moment met verzending vanaf €6,55. Bij afwijkende formaten, kwetsbare onderdelen of meerdere prints kan de uiteindelijke verzending afwijken.</p><p>Je ziet de kosten altijd vooraf in de offerte. Er wordt dus niets geprint of verzonden zonder jouw akkoord.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Vraag een offerte aan voor jouw print",
+            "text": "Upload je bestand en ontvang een duidelijke prijs inclusief verwerking en verzending.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "costs", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Beleid",
+        "heading": "Verzending",
+        "intro": "Lees hoe pr3nt jouw 3D-print verwerkt, verpakt en verzendt na akkoord op de offerte.",
+        "cta_label": "Offerte aanvragen",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
