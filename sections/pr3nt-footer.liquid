@@ -1,2 +1,67 @@
-<footer class="p-footer" id="contact"><div class="p-wrap"><div class="p-footer-grid"><div><a href="{{ section.settings.logo_link | default: routes.root_url }}" class="p-logo"><span class="p-logo-mark" style="background:var(--p-green);color:var(--p-dark)">{{ section.settings.logo_mark }}</span><span><strong style="font-size:26px;color:#fff">{{ section.settings.logo_text }}</strong><br><small style="color:rgba(255,255,255,.5)">{{ section.settings.logo_subtitle }}</small></span></a><p style="line-height:1.7;max-width:360px">{{ section.settings.description }}</p></div><div><h3 style="color:#fff;margin:0">{{ section.settings.contact_heading }}</h3><div class="p-footer-links"><a href="mailto:{{ section.settings.email }}">{{ section.settings.email }}</a><a href="tel:{{ section.settings.phone_link }}">{{ section.settings.phone }}</a><span>{{ section.settings.address_line_1 }}<br>{{ section.settings.address_line_2 }}</span></div></div><div><h3 style="color:#fff;margin:0">{{ section.settings.links_heading }}</h3><div class="p-footer-links">{% for block in section.blocks %}<a href="{{ block.settings.link }}" {{ block.shopify_attributes }}>{{ block.settings.label }}</a>{% endfor %}</div></div></div><div class="p-footer-bottom"><span>{{ section.settings.copyright }}</span><span>{{ section.settings.bottom_text }}</span></div></div></footer>
-{% schema %}{"name":"pr3nt footer","settings":[{"type":"text","id":"logo_mark","label":"Logo icoon","default":"3"},{"type":"text","id":"logo_text","label":"Logo tekst","default":"pr3nt"},{"type":"text","id":"logo_subtitle","label":"Logo ondertitel","default":"3D-printservice"},{"type":"text","id":"logo_link","label":"Logo link","default":"/"},{"type":"textarea","id":"description","label":"Beschrijving","default":"Voor hobbyisten, makers en iedereen die snel een onderdeel of prototype wil laten 3D-printen."},{"type":"text","id":"contact_heading","label":"Contact titel","default":"Contact"},{"type":"text","id":"email","label":"E-mail","default":"info@pr3nt.nl"},{"type":"text","id":"phone","label":"Telefoon","default":"0644944038"},{"type":"text","id":"phone_link","label":"Telefoon link","default":"+31644944038"},{"type":"text","id":"address_line_1","label":"Adresregel 1","default":"Schoolstraat 41"},{"type":"text","id":"address_line_2","label":"Adresregel 2","default":"6744WS Ederveen"},{"type":"text","id":"links_heading","label":"Links titel","default":"Snel naar"},{"type":"text","id":"copyright","label":"Copyright","default":"© 2026 pr3nt.nl"},{"type":"text","id":"bottom_text","label":"Onderste tekst","default":"Upload. Offerte. Print. Verzending."}],"blocks":[{"type":"link","name":"Footer link","settings":[{"type":"text","id":"label","label":"Label","default":"Link"},{"type":"text","id":"link","label":"Link","default":"#"}]}],"presets":[{"name":"pr3nt footer","blocks":[{"type":"link","settings":{"label":"Offerte aanvragen","link":"#upload"}},{"type":"link","settings":{"label":"Prijzen","link":"#prijzen"}},{"type":"link","settings":{"label":"Voorbeelden","link":"#inspiratie"}},{"type":"link","settings":{"label":"FAQ","link":"#faq"}}]}]}{% endschema %}
+<footer class="p-footer" id="contact">
+  <div class="p-wrap">
+    <div class="p-footer-grid">
+      <div>
+        <a href="{{ section.settings.logo_link | default: routes.root_url }}" class="p-logo">
+          <span class="p-logo-mark" style="background:var(--p-green);color:var(--p-dark)">{{ section.settings.logo_mark }}</span>
+          <span>
+            <strong style="font-size:26px;color:#fff">{{ section.settings.logo_text }}</strong><br>
+            <small style="color:rgba(255,255,255,.5)">{{ section.settings.logo_subtitle }}</small>
+          </span>
+        </a>
+        <p style="line-height:1.7;max-width:360px">{{ section.settings.description }}</p>
+      </div>
+
+      <div>
+        <h3 style="color:#fff;margin:0">{{ section.settings.contact_heading }}</h3>
+        <div class="p-footer-links">
+          <a href="mailto:{{ section.settings.email }}">{{ section.settings.email }}</a>
+          <a href="tel:{{ section.settings.phone_link }}">{{ section.settings.phone }}</a>
+          <span>{{ section.settings.address_line_1 }}<br>{{ section.settings.address_line_2 }}</span>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="color:#fff;margin:0">{{ section.settings.links_heading }}</h3>
+        {% if section.settings.menu != blank %}
+          <nav class="p-footer-links" aria-label="Footernavigatie">
+            {% for link in section.settings.menu.links %}
+              <a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title }}</a>
+            {% endfor %}
+          </nav>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="p-footer-bottom">
+      <span>{{ section.settings.copyright }}</span>
+      <span>{{ section.settings.bottom_text }}</span>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "pr3nt footer",
+  "settings": [
+    {"type":"text","id":"logo_mark","label":"Logo icoon","default":"3"},
+    {"type":"text","id":"logo_text","label":"Logo tekst","default":"pr3nt"},
+    {"type":"text","id":"logo_subtitle","label":"Logo ondertitel","default":"3D-printservice"},
+    {"type":"text","id":"logo_link","label":"Logo link","default":"/"},
+    {"type":"textarea","id":"description","label":"Beschrijving","default":"3D-printservice voor hobbyisten, makers en professionele partijen. Upload je bestand en ontvang een duidelijke offerte voor jouw onderdeel, prototype of kleine serie."},
+    {"type":"text","id":"contact_heading","label":"Contact titel","default":"Contact"},
+    {"type":"text","id":"email","label":"E-mail","default":"info@pr3nt.nl"},
+    {"type":"text","id":"phone","label":"Telefoon","default":"0644944038"},
+    {"type":"text","id":"phone_link","label":"Telefoon link","default":"+31644944038"},
+    {"type":"text","id":"address_line_1","label":"Adresregel 1","default":"Schoolstraat 41"},
+    {"type":"text","id":"address_line_2","label":"Adresregel 2","default":"6744WS Ederveen"},
+    {"type":"text","id":"links_heading","label":"Links titel","default":"Snel naar"},
+    {"type":"link_list","id":"menu","label":"Footermenu","default":"footer"},
+    {"type":"text","id":"copyright","label":"Copyright","default":"© 2026 pr3nt.nl"},
+    {"type":"text","id":"bottom_text","label":"Onderste tekst","default":"Upload. Offerte. Print. Verzending."}
+  ],
+  "presets": [
+    {"name":"pr3nt footer"}
+  ]
+}
+{% endschema %}
