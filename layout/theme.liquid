@@ -6,8 +6,90 @@
   <meta name="theme-color" content="#101820">
   <link rel="canonical" href="{{ canonical_url }}">
   <link rel="icon" type="image/svg+xml" href="{{ 'favicon.svg' | asset_url }}">
+
   <title>{{ page_title }}{% if current_tags %} – {{ current_tags | join: ', ' }}{% endif %}{% unless page_title contains shop.name %} – {{ shop.name }}{% endunless %}</title>
-  {% if page_description %}<meta name="description" content="{{ page_description | escape }}">{% endif %}
+  {% if page_description %}
+    <meta name="description" content="{{ page_description | escape }}">
+  {% else %}
+    <meta name="description" content="3D printservice voor hobbyisten, makers en bedrijven. Upload je 3D-bestand en ontvang een duidelijke offerte voor prototypes, onderdelen en kleine series.">
+  {% endif %}
+
+  <meta property="og:site_name" content="{{ shop.name | escape }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:title" content="{{ page_title | escape }}{% unless page_title contains shop.name %} – {{ shop.name | escape }}{% endunless %}">
+  <meta property="og:type" content="{% if request.page_type == 'product' %}product{% else %}website{% endif %}">
+  {% if page_description %}
+    <meta property="og:description" content="{{ page_description | escape }}">
+  {% else %}
+    <meta property="og:description" content="Laat jouw 3D-bestand printen door pr3nt. Voor hobbyprojecten, prototypes, functionele onderdelen en zakelijke toepassingen.">
+  {% endif %}
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ page_title | escape }}{% unless page_title contains shop.name %} – {{ shop.name | escape }}{% endunless %}">
+  {% if page_description %}
+    <meta name="twitter:description" content="{{ page_description | escape }}">
+  {% else %}
+    <meta name="twitter:description" content="3D printservice voor hobbyisten, makers en bedrijven. Upload je bestand en ontvang een duidelijke offerte.">
+  {% endif %}
+
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "@id": {{ shop.url | append: '#organization' | json }},
+      "name": "pr3nt",
+      "url": {{ shop.url | json }},
+      "description": "3D printservice voor hobbyisten, makers en bedrijven. Pr3nt print prototypes, vervangende onderdelen, functionele onderdelen en kleine series in PLA en PETG.",
+      "email": "info@pr3nt.nl",
+      "telephone": "+31644944038",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Schoolstraat 41",
+        "postalCode": "6744WS",
+        "addressLocality": "Ederveen",
+        "addressCountry": "NL"
+      },
+      "areaServed": "NL",
+      "priceRange": "€€",
+      "sameAs": []
+    }
+  </script>
+
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": {{ shop.url | append: '#website' | json }},
+      "url": {{ shop.url | json }},
+      "name": {{ shop.name | json }},
+      "publisher": {
+        "@id": {{ shop.url | append: '#organization' | json }}
+      }
+    }
+  </script>
+
+  {% unless request.page_type == 'index' %}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": {{ shop.url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ page_title | json }},
+            "item": {{ canonical_url | json }}
+          }
+        ]
+      }
+    </script>
+  {% endunless %}
+
   {{ content_for_header }}
   {{ 'pr3nt.css' | asset_url | stylesheet_tag }}
   {{ 'pr3nt-form-polish.css' | asset_url | stylesheet_tag }}
