@@ -1,0 +1,56 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Hoe pr3nt met je gegevens omgaat",
+            "text": "<p>Wanneer je een offerte aanvraagt, contact opneemt of een bestelling laat uitvoeren, verwerken we gegevens die nodig zijn om je aanvraag te beoordelen en uit te voeren. Denk aan naam, e-mailadres, telefoonnummer, projectinformatie, bestanden en verzendgegevens.</p><p>We gebruiken je gegevens alleen voor het behandelen van je aanvraag, communicatie over je project, uitvoering van de opdracht en administratie.</p>"
+          }
+        },
+        "data": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Welke gegevens verwerken we?",
+            "text": "<p>We kunnen onder andere je naam, e-mailadres, telefoonnummer, adresgegevens, geüploade bestanden, projectomschrijving, materiaalkeuze, offertegegevens en bestelstatus verwerken.</p><p>Bij contact via de website verwerken we de gegevens die je zelf invult in het contactformulier. Bij offerte-aanvragen verwerken we de gegevens die nodig zijn om je model te controleren en een offerte te maken.</p>"
+          }
+        },
+        "why": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Waarvoor gebruiken we deze gegevens?",
+            "text": "<p>We gebruiken gegevens om offertes te maken, vragen te beantwoorden, bestellingen uit te voeren, statusupdates te sturen, verzending te regelen en onze administratie bij te houden.</p><p>Geüploade 3D-bestanden worden gebruikt om de printbaarheid, materiaalkeuze, printtijd en prijs te beoordelen.</p>"
+          }
+        },
+        "sharing": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Delen met derden",
+            "text": "<p>We delen gegevens alleen wanneer dat nodig is voor onze dienstverlening, bijvoorbeeld met Shopify, e-maildiensten, hosting, betaalproviders of verzendpartijen. We verkopen je gegevens niet aan derden.</p><p>Voor technische verwerking maken we gebruik van systemen die nodig zijn om de webshop, offerteomgeving en communicatie goed te laten werken.</p>"
+          }
+        },
+        "rights": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Je rechten",
+            "text": "<p>Je kunt contact opnemen als je wilt weten welke gegevens we van je hebben, als je gegevens wilt laten corrigeren of als je een verzoek wilt doen tot verwijdering, voor zover dat binnen wettelijke en administratieve verplichtingen mogelijk is.</p><p>Stuur hiervoor een bericht naar <a href=\"mailto:info@pr3nt.nl\">info@pr3nt.nl</a>.</p>"
+          }
+        }
+      },
+      "block_order": ["intro", "data", "why", "sharing", "rights"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Beleid",
+        "heading": "Privacybeleid",
+        "intro": "Lees welke gegevens pr3nt verwerkt bij offerte-aanvragen, contactformulieren en bestellingen.",
+        "cta_label": "Contact opnemen",
+        "cta_link": "/pages/contact"
+      }
+    }
+  },
+  "order": ["main"]
+}
