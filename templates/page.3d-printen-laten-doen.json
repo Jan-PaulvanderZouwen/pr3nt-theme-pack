@@ -43,7 +43,7 @@
           "type": "text_block",
           "settings": {
             "heading": "Printen in PLA of PETG",
-            "text": "<p>Voor de meeste decoratieve prints, hobbyprojecten en prototypes is PLA een goede keuze. Het print strak, is geschikt voor veel toepassingen en is beschikbaar in veel kleuren.</p><p>PETG is sterker en praktischer voor functionele onderdelen. Denk aan houders, adapters, beugels of onderdelen die iets meer moeten kunnen hebben. Twijfel je tussen PLA en PETG? Dan denken we met je mee op basis van jouw toepassing.</p>"
+            "text": "<p>Voor de meeste decoratieve prints, hobbyprojecten en prototypes is PLA een goede keuze. Het print strak, is geschikt voor veel toepassingen en is beschikbaar in veel kleuren.</p><p>PETG is sterker en praktischer voor functionele onderdelen. Denk aan houders, adapters, beugels of onderdelen die iets meer moeten kunnen hebben. Twijfel je tussen PLA en PETG? Dan denken we met je mee op basis van jouw toepassing.</p><p>Overige materialen kunnen op aanvraag worden geprint, vermeld hierbij ook de toepassing zodat we de printinstellingen hierop kunnen toepassen het het product naar toepassing kunnen testten.</p>"
           }
         },
         "cta": {
@@ -56,18 +56,26 @@
           }
         }
       },
-      "block_order": ["intro", "audience", "process", "materials", "cta"],
+      "block_order": [
+        "intro",
+        "audience",
+        "process",
+        "materials",
+        "cta"
+      ],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
         "content_padding_y": 72,
         "eyebrow": "3D printservice Nederland",
-        "heading": "3D printen laten doen",
+        "heading": "Print ieder idee",
         "intro": "Laat jouw 3D-bestand printen door pr3nt. Voor hobbyprojecten, prototypes, vervangende onderdelen en professionele toepassingen in PLA of PETG.",
-        "cta_label": "Vraag offerte aan",
-        "cta_link": "/#upload"
+        "cta_label": "",
+        "cta_link": ""
       }
     }
   },
-  "order": ["main"]
+  "order": [
+    "main"
+  ]
 }
