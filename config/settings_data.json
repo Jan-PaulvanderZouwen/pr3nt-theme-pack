@@ -24,58 +24,6 @@
       },
       "pr3nt-footer": {
         "type": "pr3nt-footer",
-        "blocks": {
-          "footer_quote": {
-            "type": "link",
-            "settings": {
-              "label": "Offerte aanvragen",
-              "link": "/#upload"
-            }
-          },
-          "footer_service": {
-            "type": "link",
-            "settings": {
-              "label": "3D printen laten doen",
-              "link": "/pages/3d-printen-laten-doen"
-            }
-          },
-          "footer_materials": {
-            "type": "link",
-            "settings": {
-              "label": "Materialen",
-              "link": "/pages/materialen"
-            }
-          },
-          "footer_prices": {
-            "type": "link",
-            "settings": {
-              "label": "Prijzen",
-              "link": "/pages/prijzen"
-            }
-          },
-          "footer_guidelines": {
-            "type": "link",
-            "settings": {
-              "label": "Bestandsrichtlijnen",
-              "link": "/pages/bestandsrichtlijnen"
-            }
-          },
-          "footer_contact": {
-            "type": "link",
-            "settings": {
-              "label": "Contact",
-              "link": "/pages/contact"
-            }
-          }
-        },
-        "block_order": [
-          "footer_quote",
-          "footer_service",
-          "footer_materials",
-          "footer_prices",
-          "footer_guidelines",
-          "footer_contact"
-        ],
         "settings": {
           "logo_mark": "3",
           "logo_text": "pr3nt",
@@ -89,6 +37,7 @@
           "address_line_1": "Schoolstraat 41",
           "address_line_2": "6744WS Ederveen",
           "links_heading": "Snel naar",
+          "menu": "footer",
           "copyright": "© 2026 pr3nt.nl",
           "bottom_text": "Upload. Offerte. Print. Verzending."
         }
