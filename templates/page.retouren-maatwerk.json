@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Retouren bij maatwerk 3D-prints",
+            "text": "<p>De meeste opdrachten bij pr3nt worden speciaal voor jou geprint op basis van een aangeleverd bestand, gewenste kleur, materiaal en toepassing. Daardoor gaat het vaak om maatwerk. Voor maatwerkproducten geldt dat retourneren meestal niet mogelijk is, tenzij er iets aantoonbaar mis is gegaan aan onze kant.</p><p>Daarom werken we altijd met een offerte vooraf. Je ontvangt eerst een prijs en toelichting voordat we starten met printen.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "Zo houden we het duidelijk",
+            "text": "We willen vooraf helder zijn over verwachtingen, kwaliteit en verantwoordelijkheid.",
+            "card_1_title": "Offerte vóór productie",
+            "card_1_text": "We starten pas nadat je akkoord bent met de offerte en de gekozen specificaties.",
+            "card_2_title": "Controle van je bestand",
+            "card_2_text": "We controleren printbaarheid, maar het ontwerp en de maatvoering blijven afhankelijk van het aangeleverde model.",
+            "card_3_title": "Oplossingsgericht",
+            "card_3_text": "Is er iets misgegaan tijdens productie of verzending? Neem contact op, dan kijken we naar een passende oplossing."
+          }
+        },
+        "what_if": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Wat als er iets niet klopt?",
+            "text": "<p>Neem zo snel mogelijk contact op als je print beschadigd is aangekomen of duidelijk afwijkt van wat is afgesproken. Stuur bij voorkeur foto’s mee, zodat we kunnen beoordelen wat er aan de hand is.</p><p>Als de fout bij productie, verpakking of verzending ligt, zoeken we naar een redelijke oplossing. Denk aan herstel, opnieuw printen of een andere passende afhandeling.</p>"
+          }
+        },
+        "not_covered": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Wanneer is retour meestal niet mogelijk?",
+            "text": "<p>Retourneren is meestal niet mogelijk wanneer het product correct volgens jouw opdracht is geprint, maar achteraf toch niet past, anders gebruikt wordt dan omschreven of gebaseerd is op een onjuist aangeleverd ontwerp.</p><p>Twijfel je over maatvoering, materiaal of sterkte? Geef dit dan vooraf duidelijk aan in je aanvraag. Dan kunnen we beter meedenken voordat de print wordt gestart.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Vraag vooraf advies bij twijfel",
+            "text": "Omschrijf de toepassing van je onderdeel bij je aanvraag. Dan kunnen we beter adviseren over materiaal, printbaarheid en verwachtingen.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "what_if", "not_covered", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Beleid",
+        "heading": "Retouren en maatwerk",
+        "intro": "Lees hoe pr3nt omgaat met maatwerk 3D-prints, retouren en oplossingen wanneer er iets niet klopt.",
+        "cta_label": "Neem contact op",
+        "cta_link": "/pages/contact"
+      }
+    }
+  },
+  "order": ["main"]
+}
