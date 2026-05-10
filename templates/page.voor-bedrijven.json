@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-seo-page",
+      "blocks": {
+        "intro": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Praktisch 3D printen voor bedrijven",
+            "text": "<p>Heb je snel een prototype, montagehulp, adapter, behuizing of klein onderdeel nodig? Pr3nt helpt bedrijven met praktische 3D-prints zonder ingewikkeld traject. Je uploadt je bestand, wij controleren het model en je ontvangt een duidelijke offerte voordat je akkoord geeft.</p><p>We richten ons op kleine en overzichtelijke opdrachten waarbij snelheid, duidelijkheid en meedenken belangrijk zijn. Geen groot industrieel proces, maar gewoon snel een bruikbaar onderdeel of testmodel in handen.</p>"
+          }
+        },
+        "cards": {
+          "type": "cards",
+          "settings": {
+            "heading": "Waarvoor gebruiken bedrijven pr3nt?",
+            "text": "3D printen is handig wanneer je snel iets tastbaars wilt testen, vervangen of verbeteren.",
+            "card_1_title": "Prototypes",
+            "card_1_text": "Test een ontwerp fysiek voordat je verder investeert in productie, matrijzen of grotere oplages.",
+            "card_2_title": "Functionele onderdelen",
+            "card_2_text": "Laat houders, adapters, afstandhouders, clips, beugels of hulpstukken printen voor praktisch gebruik.",
+            "card_3_title": "Kleine series",
+            "card_3_text": "Geschikt voor kleine oplages, testsets of onderdelen die je niet standaard kunt inkopen."
+          }
+        },
+        "workflow": {
+          "type": "text_block",
+          "settings": {
+            "heading": "Duidelijk proces, korte lijnen",
+            "text": "<p>Voor zakelijke aanvragen wil je snel weten of iets haalbaar is, wat het kost en wanneer het klaar kan zijn. Daarom controleren we je bestand handmatig en geven we waar nodig advies over materiaal, wanddikte, oriëntatie en printbaarheid.</p><p>Na akkoord op de offerte starten we met printen. Via het portaal kun je projectgegevens en statusinformatie inzien. Zo blijft het overzichtelijk, ook wanneer je meerdere aanvragen hebt lopen.</p>"
+          }
+        },
+        "materials": {
+          "type": "text_block",
+          "settings": {
+            "heading": "PLA en PETG voor zakelijke toepassingen",
+            "text": "<p>PLA is geschikt voor zichtmodellen, testvormen en prototypes waarbij maatvoering en uitstraling belangrijk zijn. PETG is vaak logischer voor functionele onderdelen die sterker of praktischer moeten zijn.</p><p>Twijfel je over het materiaal? Beschrijf kort hoe het onderdeel gebruikt wordt. Dan nemen we het advies mee in de offerte.</p>"
+          }
+        },
+        "cta": {
+          "type": "highlight",
+          "settings": {
+            "heading": "Zakelijke 3D-printaanvraag starten",
+            "text": "Upload je bestand en beschrijf kort de toepassing. We beoordelen het model en sturen een duidelijke offerte.",
+            "button_label": "Offerte aanvragen",
+            "button_link": "/#upload"
+          }
+        }
+      },
+      "block_order": ["intro", "cards", "workflow", "materials", "cta"],
+      "settings": {
+        "dark_hero": true,
+        "padding_y": 76,
+        "content_padding_y": 72,
+        "eyebrow": "Zakelijk 3D printen",
+        "heading": "3D printen voor bedrijven",
+        "intro": "Voor prototypes, functionele onderdelen, hulpstukken en kleine series. Pr3nt helpt bedrijven snel aan een duidelijke offerte en bruikbare 3D-print.",
+        "cta_label": "Start zakelijke aanvraag",
+        "cta_link": "/#upload"
+      }
+    }
+  },
+  "order": ["main"]
+}
