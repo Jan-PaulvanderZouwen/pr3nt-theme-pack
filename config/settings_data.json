@@ -12,63 +12,12 @@
     "sections": {
       "pr3nt-header": {
         "type": "pr3nt-header",
-        "blocks": {
-          "nav_home": {
-            "type": "nav_item",
-            "settings": {
-              "label": "Home",
-              "link": "/"
-            }
-          },
-          "nav_service": {
-            "type": "nav_item",
-            "settings": {
-              "label": "3D printen",
-              "link": "pages/3d-printen"
-            }
-          },
-          "nav_materials": {
-            "type": "nav_item",
-            "settings": {
-              "label": "Materialen",
-              "link": "/pages/materialen"
-            }
-          },
-          "nav_prices": {
-            "type": "nav_item",
-            "settings": {
-              "label": "Prijzen",
-              "link": "/pages/proces-en-kosten"
-            }
-          },
-          "nav_guidelines": {
-            "type": "nav_item",
-            "settings": {
-              "label": "Bestanden",
-              "link": "/pages/bestandsrichtlijnen"
-            }
-          },
-          "nav_contact": {
-            "type": "nav_item",
-            "settings": {
-              "label": "Contact",
-              "link": "/pages/contact"
-            }
-          }
-        },
-        "block_order": [
-          "nav_home",
-          "nav_service",
-          "nav_materials",
-          "nav_prices",
-          "nav_guidelines",
-          "nav_contact"
-        ],
         "settings": {
           "logo_mark": "3",
           "logo_text": "pr3nt",
           "logo_subtitle": "3D-printservice",
           "logo_link": "/",
+          "menu": "main-menu",
           "cta_label": "Offerte aanvragen",
           "cta_link": "/#upload"
         }
