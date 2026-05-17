@@ -3,6 +3,17 @@
     return document.getElementById('offerte-formulier') || document.querySelector('[data-pr3nt-form]');
   }
 
+  function headerOffset(){
+    var header = document.querySelector('[data-p-header], .p-header');
+    var height = header ? header.getBoundingClientRect().height : 0;
+    return Math.ceil(height + 18);
+  }
+
+  function scrollToElement(target){
+    var top = target.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
   function scrollToQuoteForm(event){
     var href = event.currentTarget.getAttribute('href') || '';
     if(href !== '#upload' && href !== '/#upload' && href !== '#offerte-formulier' && href !== '/#offerte-formulier') return;
@@ -11,11 +22,11 @@
     if(!target) return;
 
     event.preventDefault();
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToElement(target);
 
     var firstInput = target.querySelector('input[type="file"], input, button, textarea, select');
     if(firstInput){
-      window.setTimeout(function(){ firstInput.focus({ preventScroll: true }); }, 450);
+      window.setTimeout(function(){ firstInput.focus({ preventScroll: true }); }, 550);
     }
   }
 
