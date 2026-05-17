@@ -1,0 +1,195 @@
+/* Mobile refinements for Pr3nt */
+
+.p-hero-kicker {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.14);
+  font-weight: 800;
+}
+
+[id="offerte-formulier"] {
+  scroll-margin-top: 84px;
+}
+
+@media (max-width: 640px) {
+  .p-wrap {
+    width: min(100% - 34px, 1180px);
+  }
+
+  .p-hero-kicker {
+    white-space: nowrap;
+    font-size: 12.5px;
+    line-height: 1.15;
+    padding: 9px 12px;
+    letter-spacing: -.01em;
+  }
+
+  .p-section.dark .p-grid-2 {
+    gap: 30px;
+  }
+
+  .p-stack > div:not(.p-card):not(.p-highlight) > .p-title-sm,
+  .p-stack > div:not(.p-card):not(.p-highlight) > .p-copy {
+    padding-inline: 20px;
+  }
+
+  .p-stack > div:not(.p-card):not(.p-highlight) > .p-grid-3 {
+    margin-top: 20px !important;
+  }
+
+  .p-form-shell {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .p-form {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .p-form-head {
+    gap: 14px;
+  }
+
+  .p-form-title {
+    font-size: 22px;
+  }
+
+  .p-form-kicker {
+    font-size: 11.5px;
+    line-height: 1.25;
+  }
+
+  .p-iconbox {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    flex-shrink: 0;
+  }
+
+  .p-step-tabs {
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .p-step-tab {
+    padding: 13px 14px;
+    border-radius: 17px;
+  }
+
+  .p-step-tab small {
+    display: none;
+  }
+
+  .p-step-tab strong {
+    margin-top: 0;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .p-form-step {
+    margin-top: 14px;
+  }
+
+  .p-upload {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    text-align: left;
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .p-upload > span:first-child {
+    grid-row: 1 / span 2;
+    font-size: 24px !important;
+    margin-top: 0;
+  }
+
+  .p-upload strong {
+    margin-top: 0;
+    font-size: 17px;
+    line-height: 1.25;
+  }
+
+  .p-upload-help {
+    margin-top: 0 !important;
+    font-size: 13.5px !important;
+    line-height: 1.35;
+  }
+
+  .p-upload-button {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    margin-top: 10px !important;
+    width: 100%;
+  }
+
+  .p-field-grid {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .p-field {
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  .p-field span {
+    margin-bottom: 7px;
+    font-size: 13.5px;
+  }
+
+  .p-field input,
+  .p-field textarea,
+  .p-field select {
+    padding: 11px 12px !important;
+    border-radius: 13px !important;
+    min-height: 46px;
+  }
+
+  .p-field textarea {
+    min-height: 88px;
+  }
+
+  .p-choice {
+    padding: 11px;
+    border-radius: 13px;
+  }
+
+  .p-rush {
+    margin-top: 10px;
+    padding: 13px;
+    border-radius: 17px;
+  }
+
+  [data-p-next],
+  [data-p-submit] {
+    margin-top: 12px !important;
+  }
+
+  .p-summary {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  .p-contact-group-title {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 390px) {
+  .p-hero-kicker {
+    font-size: 11.5px;
+    padding-inline: 10px;
+  }
+}
