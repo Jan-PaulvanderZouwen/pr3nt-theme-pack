@@ -208,10 +208,8 @@
         var rushText = rushInput.value === 'Ja' ? 'spoed' : 'standaard';
         var fileSummary = fileText();
         var detailSummary = materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText;
-        summary.innerHTML = '<strong style="font-weight:900;display:inline;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">' + escapeHtml(fileSummary) + '</strong> <span style="color:rgba(16,24,32,.55);font-size:13px;white-space:nowrap">· ' + escapeHtml(detailSummary) + '</span>';
+        summary.innerHTML = '<strong style="display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2">' + escapeHtml(fileSummary) + '</strong><span style="display:block;margin-top:2px;color:rgba(16,24,32,.55);font-size:12.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(detailSummary) + '</span>';
         summary.style.overflow = 'hidden';
-        summary.style.whiteSpace = 'nowrap';
-        summary.style.textOverflow = 'ellipsis';
         summary.title = chosenFiles.map(function (file) { return file.name; }).join(', ') + ' · ' + detailSummary;
         if (fileNameInput) fileNameInput.value = chosenFiles.map(function (file) { return file.name; }).join(', ');
       }
