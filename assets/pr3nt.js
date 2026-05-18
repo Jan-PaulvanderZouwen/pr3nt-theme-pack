@@ -193,9 +193,13 @@
 
       function updateSummary() {
         if (!summary) return;
-        var rushText = rushInput.value === 'Ja' ? 'spoed · 2 dagen verzending' : 'standaard · 3 dagen verzending';
-        summary.innerHTML = '<strong>' + fileText() + '</strong> <span>· ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText + '</span>';
-        if (fileNameInput) fileNameInput.value = filesOf(fileInput).map(function (file) { return file.name; }).join(', ');
+        var chosenFiles = filesOf(fileInput);
+        var rushText = rushInput.value === 'Ja' ? 'spoed' : 'standaard';
+        var fileSummary = fileText();
+        var detailSummary = materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText;
+        summary.textContent = fileSummary + ' · ' + detailSummary;
+        summary.title = chosenFiles.map(function (file) { return file.name; }).join(', ') + ' · ' + detailSummary;
+        if (fileNameInput) fileNameInput.value = chosenFiles.map(function (file) { return file.name; }).join(', ');
       }
 
       function updateHeader() {
