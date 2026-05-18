@@ -1,33 +1,43 @@
-<section class="p-section dark" id="upload" style="--py:{{ section.settings.padding_y }}px">
+<section class="p-section dark" id="prijzen" style="--py:{{ section.settings.padding_y }}px">
   <div class="p-wrap p-grid-2">
     <div>
       <p class="p-eyebrow">{{ section.settings.eyebrow }}</p>
       <h2 class="p-title-sm">{{ section.settings.heading }}</h2>
       <p class="p-copy">{{ section.settings.text }}</p>
-      <div style="margin-top:28px;border-radius:24px;background:rgba(255,255,255,.1);padding:20px;border:1px solid rgba(255,255,255,.1)">
-        {% for block in section.blocks %}
-          <div class="p-price-row" {{ block.shopify_attributes }}><span>{{ block.settings.label }}</span><strong>{{ block.settings.value }}</strong></div>
-        {% endfor %}
-      </div>
+      {% if section.settings.button_label != blank %}
+        <div class="p-button-row">
+          <a href="{{ section.settings.button_link }}" class="p-btn p-btn-primary">{{ section.settings.button_label }}</a>
+        </div>
+      {% endif %}
     </div>
-    <div class="p-form-shell" id="offerte-formulier">
-      {% render 'pr3nt-quote-form', supported_formats: section.settings.supported_formats, form_id: 'Pr3ntQuoteSectionForm', quote_endpoint_url: section.settings.quote_endpoint_url %}
+
+    <div class="p-price-box">
+      {% for block in section.blocks %}
+        <div class="p-price-row" {{ block.shopify_attributes }}>
+          <span>{{ block.settings.label }}</span>
+          <strong>{{ block.settings.value }}</strong>
+        </div>
+      {% endfor %}
     </div>
   </div>
 </section>
 
 {% schema %}
 {
-  "name":"pr3nt offerteblok",
-  "settings":[
+  "name": "pr3nt prijsuitleg",
+  "settings": [
     {"type":"range","id":"padding_y","label":"Verticale ruimte","min":40,"max":140,"step":4,"default":76},
     {"type":"text","id":"eyebrow","label":"Label","default":"Offerte aanvragen"},
-    {"type":"text","id":"heading","label":"Titel","default":"Upload je bestand, wij doen de berekening."},
-    {"type":"textarea","id":"text","label":"Tekst","default":"Een 3D-bestand kun je niet betrouwbaar omzetten naar een definitieve prijs zonder slicen en controle. Daarom vraag je hier een offerte aan. Verzending duurt standaard 3 dagen. Met spoed is dat 2 dagen."},
-    {"type":"text","id":"supported_formats","label":"Ondersteunde formaten","default":"STL, 3MF, OBJ, STEP of STP"},
-    {"type":"text","id":"quote_endpoint_url","label":"Offerte-app endpoint URL","info":"Plak hier de Cloudflare Worker URL, bijvoorbeeld https://pr3nt-quote-endpoint.account.workers.dev"}
+    {"type":"text","id":"heading","label":"Titel","default":"Upload je bestand, wij rekenen het uit."},
+    {"type":"textarea","id":"text","label":"Tekst","default":"Een 3D-bestand kun je niet betrouwbaar automatisch prijzen zonder het eerst te controleren. Support, wanddikte, printoriëntatie, materiaalverbruik en printtijd bepalen de uiteindelijke prijs. Daarom ontvang je bij pr3nt altijd eerst een offerte."},
+    {"type":"text","id":"button_label","label":"Knoptekst","default":"Offerte aanvragen"},
+    {"type":"text","id":"button_link","label":"Knoplink","default":"#offerte-formulier"}
   ],
-  "blocks":[{"type":"price","name":"Prijsregel","settings":[{"type":"text","id":"label","label":"Label","default":"Kosten"},{"type":"text","id":"value","label":"Waarde","default":"€0,00"}]}],
-  "presets":[{"name":"pr3nt offerteblok","blocks":[{"type":"price","settings":{"label":"Vaste kosten","value":"€17,55"}},{"type":"price","settings":{"label":"Filament","value":"€0,12 per gram"}},{"type":"price","settings":{"label":"Printtijd","value":"€0,35 per uur"}},{"type":"price","settings":{"label":"Spoed","value":"+ €4,50 · 2 dagen verzending"}}]}]
+  "blocks": [
+    {"type":"price","name":"Prijsregel","settings":[{"type":"text","id":"label","label":"Label","default":"Kosten"},{"type":"text","id":"value","label":"Waarde","default":"€0,00"}]}
+  ],
+  "presets": [
+    {"name":"pr3nt prijsuitleg","blocks":[{"type":"price","settings":{"label":"Vaste kosten","value":"€17,55"}},{"type":"price","settings":{"label":"Filament","value":"€0,12 per gram"}},{"type":"price","settings":{"label":"Printtijd","value":"€0,35 per uur"}},{"type":"price","settings":{"label":"Spoed","value":"+ €4,50 · 2 dagen verzending"}}]}
+  ]
 }
 {% endschema %}
