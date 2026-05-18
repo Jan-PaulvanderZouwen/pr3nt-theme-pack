@@ -20,11 +20,11 @@
 
     <div class="p-form-step" data-p-step="1">
       <label class="p-upload">
-        <span style="font-size:30px">⬆</span>
+        <span style="font-size:30px">↑</span>
         <strong data-p-file-label>Sleep je 3D-bestand hierheen</strong>
         <span class="p-upload-help">Ondersteund: {{ supported_formats | default: 'STL, 3MF, OBJ, STEP of STP' }}</span>
         <span class="p-btn p-btn-dark p-upload-button">Bestand kiezen</span>
-        <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp" data-p-file>
+        <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp" data-p-file multiple>
       </label>
       <div class="p-error" data-p-file-error>Upload een geldig 3D-bestand.</div>
 
@@ -58,13 +58,13 @@
         <p class="p-contact-group-title">Contactgegevens</p>
         <label class="p-field"><span>E-mailadres</span><input type="email" placeholder="jij@example.nl" required data-p-email></label>
         <label class="p-field"><span>Naam</span><input type="text" placeholder="Je naam" required data-p-name></label>
-        <label class="p-field"><span>Telefoonnummer</span><input type="tel" placeholder="Bijv. 06 12 34 56 78" required data-p-phone></label>
+        <label class="p-field"><span>Telefoonnummer <small>(optioneel)</small></span><input type="tel" placeholder="Bijv. 06 12 34 56 78" data-p-phone></label>
       </div>
 
       <label class="p-field" style="margin-top:14px"><span>Opmerking over je print</span><textarea placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
-      <div class="p-error" data-p-bridge-error>De offerte-app is nog niet gekoppeld. Vul de endpoint URL in bij deze sectie.</div>
+      <div class="p-error" data-p-bridge-error>De aanvraag kon niet worden verstuurd. Controleer de koppeling en probeer het opnieuw.</div>
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
   </form>
