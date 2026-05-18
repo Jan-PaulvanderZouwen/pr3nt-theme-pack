@@ -64,6 +64,14 @@
       <label class="p-field" style="margin-top:12px"><span>Opmerking over je print</span><textarea style="min-height:96px" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
+      <div class="p-upload-progress" data-p-upload-progress hidden>
+        <div class="p-mini-printer" aria-hidden="true"><span></span><i></i><b></b></div>
+        <div class="p-upload-progress-copy">
+          <strong data-p-upload-status>Bestanden uploaden...</strong>
+          <span data-p-upload-percent>0%</span>
+        </div>
+        <div class="p-upload-progress-bar"><span data-p-upload-bar style="width:0%"></span></div>
+      </div>
       <div class="p-error" data-p-bridge-error>De aanvraag kon niet worden verstuurd. Controleer de koppeling en probeer het opnieuw.</div>
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
