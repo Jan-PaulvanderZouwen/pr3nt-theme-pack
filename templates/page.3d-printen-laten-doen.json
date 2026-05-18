@@ -15,7 +15,7 @@
         "intro": {
           "type": "text_block",
           "settings": {
-            "heading": "Vaak binnen 3 dagen na akkoord verzonden",
+            "heading": "Binnen 3 dagen na akkoord verzonden",
             "text": "<p>Wil je een onderdeel, prototype of hobbyproject laten 3D-printen? Bij pr3nt upload je jouw bestand, kies je het gewenste materiaal en ontvang je eerst een duidelijke offerte. Zo weet je vooraf waar je aan toe bent, zonder verrassingen achteraf.</p><p>We helpen zowel hobbyisten als professionele partijen. Denk aan modelbouw, vervangende onderdelen, handige hulpstukken, prototypes, kleine series of praktische onderdelen die nergens standaard te koop zijn.</p>"
           }
         },
@@ -56,7 +56,13 @@
           }
         }
       },
-      "block_order": ["intro", "audience", "process", "materials", "cta"],
+      "block_order": [
+        "intro",
+        "audience",
+        "process",
+        "materials",
+        "cta"
+      ],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
@@ -69,5 +75,7 @@
       }
     }
   },
-  "order": ["main"]
+  "order": [
+    "main"
+  ]
 }
