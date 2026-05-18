@@ -1,4 +1,20 @@
 <div class="p-form">
+  <style>
+    .p-upload-progress{margin-top:14px;padding:14px;border-radius:18px;background:#fff;border:1px solid rgba(16,24,32,.08);display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;box-shadow:0 10px 28px rgba(16,24,32,.04)}
+    .p-upload-progress[hidden]{display:none!important}
+    .p-mini-printer{position:relative;width:62px;height:48px;border-radius:14px;background:#101820;overflow:hidden}
+    .p-mini-printer span{position:absolute;left:8px;right:8px;top:10px;height:4px;border-radius:999px;background:rgba(255,255,255,.7)}
+    .p-mini-printer i{position:absolute;top:6px;left:10px;width:18px;height:16px;border-radius:6px;background:#00d084;animation:pQuotePrinterHead 1.35s infinite alternate ease-in-out}
+    .p-mini-printer b{position:absolute;left:18px;right:18px;bottom:10px;height:8px;border-radius:8px 8px 3px 3px;background:#00d084;animation:pQuotePrintGrow 1.35s infinite alternate ease-in-out}
+    .p-upload-progress-copy{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;min-width:0}
+    .p-upload-progress-copy strong{font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .p-upload-progress-copy span{color:rgba(16,24,32,.55);font-size:13px;font-weight:900}
+    .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:9px;overflow:hidden}
+    .p-upload-progress-bar span{display:block;height:100%;width:0;background:#00d084;border-radius:inherit;transition:width .18s ease}
+    @keyframes pQuotePrinterHead{from{left:9px}to{left:34px}}
+    @keyframes pQuotePrintGrow{from{height:4px}to{height:16px}}
+    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}}
+  </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
