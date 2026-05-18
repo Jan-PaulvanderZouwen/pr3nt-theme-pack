@@ -1,207 +1,269 @@
-(function(){
-  function showBridgeError(form, message){
-    var error = form.querySelector('[data-p-bridge-error]');
-    if(error){
-      error.textContent = message;
-      error.classList.add('is-visible');
-    } else {
-      alert(message);
-    }
+(function () {
+  var menuKeydownReady = false;
+
+  function filesOf(input) {
+    return Array.prototype.slice.call(input && input.files ? input.files : []);
   }
 
-  function hideBridgeError(form){
-    var error = form.querySelector('[data-p-bridge-error]');
-    if(error) error.classList.remove('is-visible');
+  function showError(form, message) {
+    var box = form.querySelector('[data-p-bridge-error]');
+    if (!box) return;
+    box.textContent = message;
+    box.classList.add('is-visible');
   }
 
-  function selectedFiles(fileInput){
-    return Array.prototype.slice.call(fileInput && fileInput.files ? fileInput.files : []);
+  function hideError(form) {
+    var box = form.querySelector('[data-p-bridge-error]');
+    if (box) box.classList.remove('is-visible');
   }
 
-  function initMobileMenu(scope){
+  function getHeaderOffset() {
+    var header = document.querySelector('[data-p-header]');
+    return Math.ceil((header ? header.getBoundingClientRect().height : 0) + 18);
+  }
+
+  function scrollToQuote() {
+    var target = document.querySelector('[data-pr3nt-quote-target]') || document.getElementById('offerte-formulier') || document.querySelector('[data-pr3nt-form]');
+    if (!target) return;
+    var top = target.getBoundingClientRect().top + window.pageYOffset - getHeaderOffset();
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
+  function initQuoteAnchors(scope) {
     var root = scope || document;
-    var headers = root.querySelectorAll('[data-p-header]:not([data-p-menu-ready])');
-    headers.forEach(function(header){
-      header.setAttribute('data-p-menu-ready','true');
+    root.querySelectorAll('a[href="#upload"], a[href="/#upload"], a[href="#offerte-formulier"], a[href="/#offerte-formulier"]').forEach(function (link) {
+      if (link.dataset.pQuoteAnchorReady) return;
+      link.dataset.pQuoteAnchorReady = 'true';
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        scrollToQuote();
+      });
+    });
+  }
+
+  function initMobileMenu(scope) {
+    var root = scope || document;
+    root.querySelectorAll('[data-p-header]:not([data-p-menu-ready])').forEach(function (header) {
+      header.dataset.pMenuReady = 'true';
       var toggle = header.querySelector('[data-p-menu-toggle]');
       var menu = header.querySelector('[data-p-mobile-menu]');
-      if(!toggle || !menu) return;
+      if (!toggle || !menu) return;
 
-      function closeMenu(){
+      function close() {
         menu.hidden = true;
-        toggle.setAttribute('aria-expanded','false');
+        toggle.setAttribute('aria-expanded', 'false');
+        document.documentElement.classList.remove('p-menu-open');
       }
 
-      function openMenu(){
+      function open() {
         menu.hidden = false;
-        toggle.setAttribute('aria-expanded','true');
+        toggle.setAttribute('aria-expanded', 'true');
+        document.documentElement.classList.add('p-menu-open');
       }
 
-      toggle.addEventListener('click', function(){
-        if(menu.hidden){ openMenu(); } else { closeMenu(); }
+      toggle.addEventListener('click', function () {
+        menu.hidden ? open() : close();
       });
 
-      menu.querySelectorAll('a').forEach(function(link){
-        link.addEventListener('click', closeMenu);
-      });
-
-      document.addEventListener('keydown', function(event){
-        if(event.key === 'Escape') closeMenu();
+      menu.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', close);
       });
     });
+
+    if (!menuKeydownReady) {
+      menuKeydownReady = true;
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('[data-p-mobile-menu]').forEach(function (menu) { menu.hidden = true; });
+        document.querySelectorAll('[data-p-menu-toggle]').forEach(function (toggle) { toggle.setAttribute('aria-expanded', 'false'); });
+        document.documentElement.classList.remove('p-menu-open');
+      });
+    }
   }
 
-  async function submitToQuoteEndpoint(form, fields){
+  async function submitQuote(form, fields) {
     var endpoint = form.getAttribute('data-p-endpoint');
-    if(!endpoint){
-      throw new Error('Vul eerst de webhook URL in bij “Offerte-app endpoint URL”.');
+    if (!endpoint) throw new Error('De offerte-app is nog niet gekoppeld.');
+
+    var chosenFiles = filesOf(fields.fileInput);
+    var data = new FormData();
+    chosenFiles.forEach(function (file) { data.append('file', file); });
+    data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
+    data.append('color', fields.color);
+    data.append('material', fields.material);
+    data.append('name', fields.name);
+    data.append('email', fields.email);
+    data.append('phone', fields.phone || '');
+    data.append('note', fields.note || '');
+    data.append('rush', fields.rush || 'Nee');
+
+    var response = await fetch(endpoint, { method: 'POST', body: data });
+    if (!response.ok) throw new Error('De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+
+    var type = response.headers.get('content-type') || '';
+    if (type.indexOf('application/json') !== -1) {
+      var json = await response.json().catch(function () { return {}; });
+      if (json && json.ok === false) throw new Error(json.error || 'De aanvraag kon niet worden verstuurd.');
+      return json || {};
     }
-
-    var body = new FormData();
-    selectedFiles(fields.fileInput).forEach(function(file){ body.append('file', file); });
-    body.append('file_name', selectedFiles(fields.fileInput).map(function(file){ return file.name; }).join(', '));
-    body.append('color', fields.color);
-    body.append('material', fields.material);
-    body.append('name', fields.name);
-    body.append('email', fields.email);
-    body.append('phone', fields.phone);
-    body.append('note', fields.note || '');
-    body.append('rush', fields.rush || 'Nee');
-
-    var response = await fetch(endpoint, {
-      method: 'POST',
-      body: body
-    });
-
-    if(!response.ok){
-      throw new Error('De aanvraag kon niet worden verstuurd. Controleer de webhook URL.');
-    }
-
-    var contentType = response.headers.get('content-type') || '';
-    if(contentType.indexOf('application/json') !== -1){
-      var data = await response.json().catch(function(){ return {}; });
-      if(data && data.ok === false){
-        throw new Error(data.error || 'De aanvraag kon niet worden verstuurd.');
-      }
-      return data || {};
-    }
-
     return { ok: true, redirect: '/pages/offerte-aanvraag-ontvangen' };
   }
 
-  function initForms(scope){
-    var root=scope||document;
-    var forms=root.querySelectorAll('[data-pr3nt-form]:not([data-pr3nt-ready])');
-    var allowed=['stl','3mf','obj','step','stp'];
+  function initForms(scope) {
+    var root = scope || document;
+    var allowed = ['stl', '3mf', 'obj', 'step', 'stp'];
 
-    forms.forEach(function(form){
-      form.setAttribute('data-pr3nt-ready','true');
-      var step=1;
-      var pending=false;
-      var fileInput=form.querySelector('[data-p-file]'), fileLabel=form.querySelector('[data-p-file-label]'), fileError=form.querySelector('[data-p-file-error]');
-      var nextButton=form.querySelector('[data-p-next]'), submitButton=form.querySelector('[data-p-submit]');
-      var stepOne=form.querySelector('[data-p-step="1"]'), stepTwo=form.querySelector('[data-p-step="2"]');
-      var tabs=form.querySelectorAll('[data-p-tab]');
-      var materialInput=form.querySelector('[data-p-material-input]'), materialButtons=form.querySelectorAll('[data-p-material]');
-      var rushInput=form.querySelector('[data-p-rush-input]'), rushButton=form.querySelector('[data-p-rush]');
-      var colorInput=form.querySelector('[data-p-color]'), nameInput=form.querySelector('[data-p-name]'), emailInput=form.querySelector('[data-p-email]'), phoneInput=form.querySelector('[data-p-phone]'), noteInput=form.querySelector('[data-p-note]');
-      var summary=form.querySelector('[data-p-summary]'), fileNameInput=form.querySelector('[data-p-file-name]');
-      var formTitle=form.querySelector('[data-p-form-title]'), stepIcon=form.querySelector('[data-p-step-icon]');
+    root.querySelectorAll('[data-pr3nt-form]:not([data-pr3nt-ready])').forEach(function (form) {
+      form.dataset.pr3ntReady = 'true';
+      var step = 1;
+      var pending = false;
+      var fileInput = form.querySelector('[data-p-file]');
+      var fileLabel = form.querySelector('[data-p-file-label]');
+      var fileError = form.querySelector('[data-p-file-error]');
+      var nextButton = form.querySelector('[data-p-next]');
+      var submitButton = form.querySelector('[data-p-submit]');
+      var stepOne = form.querySelector('[data-p-step="1"]');
+      var stepTwo = form.querySelector('[data-p-step="2"]');
+      var tabs = form.querySelectorAll('[data-p-tab]');
+      var materialInput = form.querySelector('[data-p-material-input]');
+      var materialButtons = form.querySelectorAll('[data-p-material]');
+      var rushInput = form.querySelector('[data-p-rush-input]');
+      var rushButton = form.querySelector('[data-p-rush]');
+      var colorInput = form.querySelector('[data-p-color]');
+      var nameInput = form.querySelector('[data-p-name]');
+      var emailInput = form.querySelector('[data-p-email]');
+      var phoneInput = form.querySelector('[data-p-phone]');
+      var noteInput = form.querySelector('[data-p-note]');
+      var summary = form.querySelector('[data-p-summary]');
+      var fileNameInput = form.querySelector('[data-p-file-name]');
+      var formTitle = form.querySelector('[data-p-form-title]');
+      var stepIcon = form.querySelector('[data-p-step-icon]');
 
-      function validFile(file){ if(!file||!file.name)return false; return allowed.indexOf(file.name.split('.').pop().toLowerCase())!==-1; }
-      function validFiles(){ var files=selectedFiles(fileInput); return files.length>0 && files.every(validFile); }
-      function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim()); }
-      function validPhone(v){ return /^\+?[0-9]{8,15}$/.test(String(v||'').replace(/[\s().-]/g,'')); }
-      function stepOneOk(){ return fileInput && validFiles() && colorInput && colorInput.value.trim().length>=2; }
-      function allOk(){ return stepOneOk() && nameInput.value.trim().length>=2 && validEmail(emailInput.value) && validPhone(phoneInput.value); }
-
-      function fileSummaryText(){
-        var files=selectedFiles(fileInput);
-        if(!files.length) return 'Geen bestand gekozen';
-        if(files.length===1) return files[0].name;
-        return files.length + ' bestanden gekozen';
+      function validFile(file) {
+        if (!file || !file.name) return false;
+        return allowed.indexOf(file.name.split('.').pop().toLowerCase()) !== -1;
       }
 
-      function updateSummary(){
-        if(!summary)return;
-        var fileName=fileSummaryText();
-        var rushText=rushInput.value==='Ja'?'spoed · 2 dagen verzending':'standaard · 3 dagen verzending';
-        summary.innerHTML='<strong>'+fileName+'</strong> <span>· '+materialInput.value+' · '+(colorInput.value||'kleur niet ingevuld')+' · '+rushText+'</span>';
-        if(fileNameInput) fileNameInput.value=selectedFiles(fileInput).map(function(file){ return file.name; }).join(', ');
+      function validFiles() {
+        var chosenFiles = filesOf(fileInput);
+        return chosenFiles.length > 0 && chosenFiles.every(validFile);
       }
 
-      function updateHeader(){
-        if(formTitle) formTitle.textContent = step===1 ? 'Materiaal & bestand' : 'Gegevens';
-        if(stepIcon) stepIcon.textContent = String(step);
+      function validEmail(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
       }
 
-      function setPending(isPending){
-        pending = isPending;
-        if(submitButton){
-          submitButton.disabled = isPending || !allOk();
-          submitButton.textContent = isPending ? 'Bestand uploaden en aanvraag versturen...' : 'Offerte aanvragen';
-        }
+      function validPhone(value) {
+        var cleaned = String(value || '').replace(/[\s().-]/g, '');
+        return cleaned === '' || /^\+?[0-9]{8,15}$/.test(cleaned);
       }
 
-      function update(){
-        if(nextButton)nextButton.disabled=!stepOneOk();
-        if(submitButton && !pending)submitButton.disabled=!allOk();
+      function fileText() {
+        var chosenFiles = filesOf(fileInput);
+        if (!chosenFiles.length) return 'Geen bestand gekozen';
+        return chosenFiles.length === 1 ? chosenFiles[0].name : chosenFiles.length + ' bestanden gekozen';
+      }
+
+      function stepOneOk() {
+        return validFiles() && colorInput && colorInput.value.trim().length >= 2;
+      }
+
+      function formOk() {
+        return stepOneOk() && nameInput.value.trim().length >= 2 && validEmail(emailInput.value) && validPhone(phoneInput.value);
+      }
+
+      function updateSummary() {
+        if (!summary) return;
+        var rushText = rushInput.value === 'Ja' ? 'spoed · 2 dagen verzending' : 'standaard · 3 dagen verzending';
+        summary.innerHTML = '<strong>' + fileText() + '</strong> <span>· ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText + '</span>';
+        if (fileNameInput) fileNameInput.value = filesOf(fileInput).map(function (file) { return file.name; }).join(', ');
+      }
+
+      function updateHeader() {
+        if (formTitle) formTitle.textContent = step === 1 ? 'Materiaal & bestand' : 'Gegevens';
+        if (stepIcon) stepIcon.textContent = String(step);
+      }
+
+      function update() {
+        if (nextButton) nextButton.disabled = !stepOneOk();
+        if (submitButton && !pending) submitButton.disabled = !formOk();
         updateHeader();
         updateSummary();
       }
 
-      function setStep(n){
-        if(n===2&&!stepOneOk())return;
-        step=n;
-        if(stepOne)stepOne.hidden=step!==1;
-        if(stepTwo)stepTwo.hidden=step!==2;
-        tabs.forEach(function(b){b.classList.toggle('is-active',Number(b.dataset.pTab)===step)});
+      function setStep(nextStep) {
+        if (nextStep === 2 && !stepOneOk()) return;
+        step = nextStep;
+        if (stepOne) stepOne.hidden = step !== 1;
+        if (stepTwo) stepTwo.hidden = step !== 2;
+        tabs.forEach(function (tab) { tab.classList.toggle('is-active', Number(tab.dataset.pTab) === step); });
         update();
       }
 
-      if(fileInput) fileInput.addEventListener('change',function(){
-        var files=selectedFiles(fileInput);
-        if(!files.length){ fileLabel.textContent='Sleep je 3D-bestanden hierheen'; fileError.classList.remove('is-visible'); update(); return; }
-        if(!files.every(validFile)){ fileInput.value=''; fileLabel.textContent='Sleep je 3D-bestanden hierheen'; fileError.classList.add('is-visible'); update(); return; }
-        fileLabel.textContent=fileSummaryText();
-        fileError.classList.remove('is-visible');
-        update();
-      });
-
-      materialButtons.forEach(function(btn){
-        btn.addEventListener('click',function(){
-          materialButtons.forEach(function(i){i.classList.remove('is-active')});
-          btn.classList.add('is-active');
-          materialInput.value=btn.dataset.pMaterial;
+      if (fileInput) {
+        fileInput.addEventListener('change', function () {
+          var chosenFiles = filesOf(fileInput);
+          if (!chosenFiles.length) {
+            fileLabel.textContent = 'Sleep je 3D-bestand hierheen';
+            fileError.classList.remove('is-visible');
+            update();
+            return;
+          }
+          if (!chosenFiles.every(validFile)) {
+            fileInput.value = '';
+            fileLabel.textContent = 'Sleep je 3D-bestand hierheen';
+            fileError.classList.add('is-visible');
+            update();
+            return;
+          }
+          fileLabel.textContent = fileText();
+          fileError.classList.remove('is-visible');
           update();
-        })
+        });
+      }
+
+      materialButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          materialButtons.forEach(function (item) { item.classList.remove('is-active'); });
+          button.classList.add('is-active');
+          materialInput.value = button.dataset.pMaterial;
+          update();
+        });
       });
 
-      if(rushButton) rushButton.addEventListener('click',function(){
-        var active=rushButton.classList.toggle('is-active');
-        rushInput.value=active?'Ja':'Nee';
-        var t=rushButton.querySelector('[data-p-rush-text]');
-        if(t)t.textContent=active?'+ €4,50 · 2 dagen verzending':'Standaard · 3 dagen verzending';
-        update();
+      if (rushButton) {
+        rushButton.addEventListener('click', function () {
+          var active = rushButton.classList.toggle('is-active');
+          rushInput.value = active ? 'Ja' : 'Nee';
+          var text = rushButton.querySelector('[data-p-rush-text]');
+          if (text) text.textContent = active ? '+ €4,50 · 2 dagen verzending' : 'Standaard · 3 dagen verzending';
+          update();
+        });
+      }
+
+      [colorInput, nameInput, emailInput, phoneInput, noteInput].forEach(function (input) {
+        if (input) input.addEventListener('input', update);
       });
+      tabs.forEach(function (tab) { tab.addEventListener('click', function () { setStep(Number(tab.dataset.pTab)); }); });
+      if (nextButton) nextButton.addEventListener('click', function () { setStep(2); });
+      var change = form.querySelector('[data-p-change]');
+      if (change) change.addEventListener('click', function () { setStep(1); });
 
-      [colorInput,nameInput,emailInput,phoneInput,noteInput].forEach(function(i){ if(i)i.addEventListener('input',update); });
-      tabs.forEach(function(b){b.addEventListener('click',function(){setStep(Number(b.dataset.pTab))})});
-      if(nextButton)nextButton.addEventListener('click',function(){setStep(2)});
-      var change=form.querySelector('[data-p-change]'); if(change)change.addEventListener('click',function(){setStep(1)});
-
-      form.addEventListener('submit',async function(e){
-        e.preventDefault();
-        if(!allOk()){
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (!formOk() || pending) {
           update();
           return;
         }
-        if(pending) return;
-        hideBridgeError(form);
-        setPending(true);
+        pending = true;
+        hideError(form);
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Aanvraag versturen...';
+        }
 
         try {
-          var result = await submitToQuoteEndpoint(form, {
+          var result = await submitQuote(form, {
             fileInput: fileInput,
             color: colorInput.value,
             material: materialInput.value,
@@ -212,9 +274,11 @@
             rush: rushInput.value
           });
           window.location.href = result.redirect || '/pages/offerte-aanvraag-ontvangen';
-        } catch(error) {
-          setPending(false);
-          showBridgeError(form, error.message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+        } catch (error) {
+          pending = false;
+          if (submitButton) submitButton.textContent = 'Offerte aanvragen';
+          showError(form, error.message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+          update();
         }
       });
 
@@ -222,12 +286,15 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded',function(){
+  document.addEventListener('DOMContentLoaded', function () {
     initMobileMenu(document);
+    initQuoteAnchors(document);
     initForms(document);
   });
-  document.addEventListener('shopify:section:load',function(e){
-    initMobileMenu(e.target);
-    initForms(e.target);
+
+  document.addEventListener('shopify:section:load', function (event) {
+    initMobileMenu(event.target);
+    initQuoteAnchors(event.target);
+    initForms(event.target);
   });
 })();
