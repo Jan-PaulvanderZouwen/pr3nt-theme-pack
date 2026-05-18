@@ -116,7 +116,6 @@
     var data = new FormData();
     chosenFiles.forEach(function (file) {
       data.append('file', file);
-      data.append('files[]', file);
     });
     data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
     data.append('color', fields.color);
