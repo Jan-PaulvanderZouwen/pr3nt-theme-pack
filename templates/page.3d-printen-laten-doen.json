@@ -15,7 +15,7 @@
         "intro": {
           "type": "text_block",
           "settings": {
-            "heading": "Binnen 3 dagen jouw print bezorgd",
+            "heading": "Vaak binnen 3 dagen na akkoord verzonden",
             "text": "<p>Wil je een onderdeel, prototype of hobbyproject laten 3D-printen? Bij pr3nt upload je jouw bestand, kies je het gewenste materiaal en ontvang je eerst een duidelijke offerte. Zo weet je vooraf waar je aan toe bent, zonder verrassingen achteraf.</p><p>We helpen zowel hobbyisten als professionele partijen. Denk aan modelbouw, vervangende onderdelen, handige hulpstukken, prototypes, kleine series of praktische onderdelen die nergens standaard te koop zijn.</p>"
           }
         },
@@ -43,7 +43,7 @@
           "type": "text_block",
           "settings": {
             "heading": "Printen in PLA of PETG",
-            "text": "<p>Voor de meeste decoratieve prints, hobbyprojecten en prototypes is PLA een goede keuze. Het print strak, is geschikt voor veel toepassingen en is beschikbaar in veel kleuren.</p><p>PETG is sterker en praktischer voor functionele onderdelen. Denk aan houders, adapters, beugels of onderdelen die iets meer moeten kunnen hebben. Twijfel je tussen PLA en PETG? Dan denken we met je mee op basis van jouw toepassing.</p><p>Overige materialen kunnen op aanvraag worden geprint, vermeld hierbij ook de toepassing zodat we de printinstellingen hierop kunnen toepassen het het product naar toepassing kunnen testten.</p>"
+            "text": "<p>Voor de meeste decoratieve prints, hobbyprojecten en prototypes is PLA een goede keuze. Het print strak, is geschikt voor veel toepassingen en is beschikbaar in veel kleuren.</p><p>PETG is sterker en praktischer voor functionele onderdelen. Denk aan houders, adapters, beugels of onderdelen die iets meer moeten kunnen hebben. Twijfel je tussen PLA en PETG? Dan denken we met je mee op basis van jouw toepassing.</p><p>Andere materialen kunnen op aanvraag worden bekeken. Vermeld dan duidelijk waarvoor het onderdeel gebruikt wordt, zodat we kunnen beoordelen of het materiaal en de printinstellingen passen bij de toepassing.</p>"
           }
         },
         "cta": {
@@ -52,17 +52,11 @@
             "heading": "Upload je 3D-bestand en ontvang een offerte",
             "text": "Stuur je model naar pr3nt. We controleren het bestand en geven je een duidelijke prijs voordat je betaalt.",
             "button_label": "Offerte aanvragen",
-            "button_link": "/#upload"
+            "button_link": "/#offerte-formulier"
           }
         }
       },
-      "block_order": [
-        "intro",
-        "audience",
-        "process",
-        "materials",
-        "cta"
-      ],
+      "block_order": ["intro", "audience", "process", "materials", "cta"],
       "settings": {
         "dark_hero": true,
         "padding_y": 76,
@@ -75,7 +69,5 @@
       }
     }
   },
-  "order": [
-    "main"
-  ]
+  "order": ["main"]
 }
