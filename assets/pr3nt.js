@@ -22,21 +22,37 @@
     return Math.ceil((header ? header.getBoundingClientRect().height : 0) + 18);
   }
 
+  function quoteTarget() {
+    return document.querySelector('[data-pr3nt-quote-target]') || document.getElementById('offerte-formulier');
+  }
+
   function scrollToQuote() {
-    var target = document.querySelector('[data-pr3nt-quote-target]') || document.getElementById('offerte-formulier') || document.querySelector('[data-pr3nt-form]');
-    if (!target) return;
+    var target = quoteTarget();
+    if (!target) return false;
     var top = target.getBoundingClientRect().top + window.pageYOffset - getHeaderOffset();
     window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    return true;
   }
 
   function initQuoteAnchors(scope) {
     var root = scope || document;
-    root.querySelectorAll('a[href="#upload"], a[href="/#upload"], a[href="#offerte-formulier"], a[href="/#offerte-formulier"]').forEach(function (link) {
+    var selector = 'a[href="#upload"], a[href="/#upload"], a[href="#offerte-formulier"], a[href="/#offerte-formulier"]';
+
+    root.querySelectorAll(selector).forEach(function (link) {
       if (link.dataset.pQuoteAnchorReady) return;
       link.dataset.pQuoteAnchorReady = 'true';
+
       link.addEventListener('click', function (event) {
+        var hasLocalQuoteForm = !!quoteTarget();
+
+        if (hasLocalQuoteForm) {
+          event.preventDefault();
+          scrollToQuote();
+          return;
+        }
+
         event.preventDefault();
-        scrollToQuote();
+        window.location.href = '/#offerte-formulier';
       });
     });
   }
@@ -87,7 +103,10 @@
 
     var chosenFiles = filesOf(fields.fileInput);
     var data = new FormData();
-    chosenFiles.forEach(function (file) { data.append('file', file); });
+    chosenFiles.forEach(function (file) {
+      data.append('file', file);
+      data.append('files[]', file);
+    });
     data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
     data.append('color', fields.color);
     data.append('material', fields.material);
