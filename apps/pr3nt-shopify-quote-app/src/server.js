@@ -14,6 +14,7 @@ import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
 import { registerStatusMailRoutes } from './statusmails.js';
+import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -182,10 +183,12 @@ function customerEmailHtml(quote) {
 
 async function sendEmails(quote) {
   const mailer = transporter();
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+  const from = mailFrom();
   const to = process.env.MAIL_TO || 'bestellingen@pr3nt.nl';
-  await mailer.sendMail({ from, to, replyTo: quote.email, subject: `Nieuwe offerte-aanvraag van ${quote.name}`, html: adminEmailHtml(quote) });
-  await mailer.sendMail({ from, to: quote.email, subject: 'Je pr3nt-aanvraag is ontvangen · volg je project in je portaal', html: customerEmailHtml(quote) });
+  const adminHtml = adminEmailHtml(quote);
+  const customerHtml = customerEmailHtml(quote);
+  await mailer.sendMail(transactionalMailOptions({ from, to, replyTo: quote.email, subject: `Nieuwe offerte-aanvraag van ${quote.name}`, html: adminHtml, entityRefId: `pr3nt-admin-${quote.id}` }));
+  await mailer.sendMail(transactionalMailOptions({ from, to: quote.email, replyTo: to, subject: 'Je pr3nt-aanvraag is ontvangen', html: customerHtml, entityRefId: `pr3nt-customer-${quote.id}` }));
 }
 
 app.get('/health', (_req, res) => {
