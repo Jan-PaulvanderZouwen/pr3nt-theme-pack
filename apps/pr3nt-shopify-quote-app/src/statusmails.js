@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
+import { registerContactRoutes } from './contactroutes.js';
 import { registerPortalFileCarouselRoutes } from './portalfilecarousel.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,6 +87,7 @@ function sendLater(quote, title, message, cta) {
 }
 
 export function registerStatusMailRoutes(app) {
+  registerContactRoutes(app);
   registerPortalFileCarouselRoutes(app);
 
   app.use('/admin/quotes/:id', async (req, res, next) => {
