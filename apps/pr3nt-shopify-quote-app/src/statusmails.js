@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
+import { registerPortalFileCarouselRoutes } from './portalfilecarousel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +86,8 @@ function sendLater(quote, title, message, cta) {
 }
 
 export function registerStatusMailRoutes(app) {
+  registerPortalFileCarouselRoutes(app);
+
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'POST') return next();
     const before = findQuote(await readQuotes(), req.params.id);
