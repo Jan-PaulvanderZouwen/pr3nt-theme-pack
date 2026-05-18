@@ -77,7 +77,7 @@
       "serviceType": "3D printen op aanvraag",
       "provider": {"@id": {{ shop.url | append: '#organization' | json }}},
       "areaServed": "NL",
-      "description": "3D printen van hobbyprojecten, prototypes, vervangende onderdelen, functionele onderdelen en kleine series in PLA en PETG."
+      "description": "3D printen van hobbyprojecten, prototypes, vervangende onderdelen en kleine series in PLA en PETG."
     }
   </script>
 
@@ -96,7 +96,6 @@
 
   {{ content_for_header }}
   {{ 'pr3nt.css' | asset_url | stylesheet_tag }}
-  {{ 'pr3nt-form-spacing.css' | asset_url | stylesheet_tag }}
   <script src="{{ 'pr3nt.js' | asset_url }}" defer></script>
 </head>
 <body>
