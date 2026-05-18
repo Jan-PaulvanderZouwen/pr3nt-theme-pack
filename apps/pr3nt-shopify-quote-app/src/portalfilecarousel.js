@@ -85,14 +85,14 @@ function script(files) {
     function esc(value){return String(value||'').replace(/[&<>\"]/g,function(match){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[match];});}
     function findPreviewCard(){return Array.from(document.querySelectorAll('.card')).find(function(card){return /3D model preview|3d model preview|model preview/i.test(card.textContent||'');});}
     function clearViewer(mount){if(activeAnimation)cancelAnimationFrame(activeAnimation);activeAnimation=null;if(activeRenderer){try{activeRenderer.dispose();}catch(error){}activeRenderer=null;}mount.innerHTML='';}
-    function loadingHtml(name){return '<div class="pr3nt-viewer-placeholder"><div class="pr3nt-model-loader"><span class="pr3nt-model-loader-icon"><i></i><b></b></span><div><strong>Model wordt geladen...</strong><span>'+esc(name)+'</span></div></div></div>';}
+    function loadingHtml(){return '<div class="pr3nt-viewer-placeholder"><div class="pr3nt-model-loader"><span class="pr3nt-model-loader-icon"><i></i><b></b></span><div><strong>Model wordt geladen...</strong></div></div></div>';}
     async function loadModel(file){
       const mount=document.getElementById('viewer');
       if(!mount)return;
       document.querySelectorAll('.pr3nt-file-tile').forEach(function(tile){tile.classList.toggle('is-active',Number(tile.dataset.index)===file.index);});
       if(!file.previewable){clearViewer(mount);mount.innerHTML='<div class="pr3nt-viewer-placeholder"><strong>Preview niet beschikbaar</strong><span>Dit bestandstype kun je downloaden, maar nog niet in 3D bekijken.</span><a class="btn btn-light" href="'+esc(file.url)+'">Bestand downloaden</a></div>';return;}
       clearViewer(mount);
-      mount.innerHTML=loadingHtml(file.name);
+      mount.innerHTML=loadingHtml();
       try{
         const isObj=/\.obj$/i.test(file.name);
         const loaderMod=await import(isObj?'three/addons/loaders/OBJLoader.js':'three/addons/loaders/STLLoader.js');
