@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
@@ -32,6 +32,7 @@ const config = {
   metaobjectsEnabled: String(process.env.SHOPIFY_METAOBJECTS_ENABLED || 'false') === 'true',
   successUrl: process.env.SUCCESS_URL || 'https://pr3nt.nl/pages/offerte-aanvraag-ontvangen',
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 50),
+  maxFiles: Number(process.env.MAX_FILES || 8),
   uploadDir: path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes'),
   dataDir: path.resolve(appRoot, process.env.DATA_DIR || 'data'),
   metaobjectType: process.env.QUOTE_METAOBJECT_TYPE || 'pr3nt_quote_request',
@@ -49,7 +50,7 @@ const upload = multer({
     destination: (_req, _file, cb) => cb(null, config.uploadDir),
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${randomUUID()}${path.extname(file.originalname || '').toLowerCase()}`),
   }),
-  limits: { fileSize: config.maxFileSizeMb * 1024 * 1024 },
+  limits: { fileSize: config.maxFileSizeMb * 1024 * 1024, files: config.maxFiles },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
     if (!allowedExtensions.has(ext)) return cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP of STP.'));
@@ -76,6 +77,17 @@ function quoteStatusLabel(status = 'received') {
 
 function isShopifyAccessDenied(error) {
   return String(error?.message || '').toLowerCase().includes('access denied');
+}
+
+function filesSummary(files = []) {
+  if (!files.length) return '-';
+  if (files.length === 1) return files[0].originalName;
+  return `${files.length} bestanden: ${files.map(file => file.originalName).join(', ')}`;
+}
+
+function filesLinksHtml(files = []) {
+  if (!files.length) return '-';
+  return `<ul style="margin:0;padding-left:18px">${files.map(file => `<li><a href="${file.url}">${file.originalName}</a></li>`).join('')}</ul>`;
 }
 
 async function getShopifyAdminToken() {
@@ -108,7 +120,9 @@ async function createCustomer({ name, email, phone }) {
   const parts = name.split(/\s+/).filter(Boolean);
   const firstName = parts.shift() || name;
   const lastName = parts.join(' ');
-  const data = await shopifyGraphQL(`mutation CustomerCreate($input: CustomerInput!) { customerCreate(input: $input) { customer { id email firstName lastName } userErrors { field message } } }`, { input: { email, phone: phone || null, firstName, lastName, tags: ['pr3nt-offerte'], emailMarketingConsent: { marketingState: 'NOT_SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } } });
+  const input = { email, firstName, lastName, tags: ['pr3nt-offerte'], emailMarketingConsent: { marketingState: 'NOT_SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } };
+  if (phone) input.phone = phone;
+  const data = await shopifyGraphQL(`mutation CustomerCreate($input: CustomerInput!) { customerCreate(input: $input) { customer { id email firstName lastName } userErrors { field message } } }`, { input });
   const errors = data.customerCreate.userErrors;
   if (errors.length) throw new Error(errors.map(e => e.message).join(', '));
   return data.customerCreate.customer;
@@ -155,7 +169,7 @@ function transporter() {
 function adminEmailHtml(quote) {
   const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  const rows = [['Quote ID', quote.id], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Bestand', quote.fileOriginalName], ['Download', quote.fileUrl], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
+  const rows = [['Quote ID', quote.id], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone || '-'], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Bestand(en)', filesSummary(quote.files)], ['Download(s)', filesLinksHtml(quote.files)], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
   if (quote.customerNote) rows.push(['Klantkoppeling', quote.customerNote]);
   if (quote.metaobjectError) rows.push(['Shopify waarschuwing', quote.metaobjectError]);
   return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820"><h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1><p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p><p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open in pr3nt Dashboard</a></p><table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">${rows.map(([label, value]) => `<tr><td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td><td style="border-bottom:1px solid #eee">${value || '-'}</td></tr>`).join('')}</table></div>`;
@@ -163,7 +177,7 @@ function adminEmailHtml(quote) {
 
 function customerEmailHtml(quote) {
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb"><div style="padding:28px;background:#101820;color:#ffffff"><div style="font-size:24px;font-weight:900;letter-spacing:-.04em">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:32px;line-height:1.05">Je aanvraag is ontvangen</h1><p style="margin:0;color:#d7dde0;font-size:16px">We gaan je 3D-bestand bekijken en zetten de volgende stap klaar in je portaal.</p></div><div style="padding:28px"><p style="font-size:16px;line-height:1.6">Hoi ${quote.name},</p><p style="font-size:16px;line-height:1.6">Je 3D-print aanvraag is goed binnengekomen. Via je persoonlijke portaal kun je de status volgen, je offerte bekijken, berichten sturen en later je verzending volgen.</p><p style="margin:24px 0"><a href="${portalUrl}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">Open mijn klantportaal</a></p><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin-top:18px"><strong>Samenvatting</strong><br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand: ${quote.fileOriginalName}</div><p style="font-size:14px;color:#667085;line-height:1.5;margin-top:22px">Werkt de knop niet? Kopieer deze link naar je browser:<br><span style="word-break:break-all">${portalUrl}</span></p><p style="font-size:16px;line-height:1.6">Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
+  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb"><div style="padding:28px;background:#101820;color:#ffffff"><div style="font-size:24px;font-weight:900;letter-spacing:-.04em">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:32px;line-height:1.05">Je aanvraag is ontvangen</h1><p style="margin:0;color:#d7dde0;font-size:16px">We gaan je 3D-bestand bekijken en zetten de volgende stap klaar in je portaal.</p></div><div style="padding:28px"><p style="font-size:16px;line-height:1.6">Hoi ${quote.name},</p><p style="font-size:16px;line-height:1.6">Je 3D-print aanvraag is goed binnengekomen. Via je persoonlijke portaal kun je de status volgen, je offerte bekijken, berichten sturen en later je verzending volgen.</p><p style="margin:24px 0"><a href="${portalUrl}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">Open mijn klantportaal</a></p><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin-top:18px"><strong>Samenvatting</strong><br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand(en): ${filesSummary(quote.files)}</div><p style="font-size:14px;color:#667085;line-height:1.5;margin-top:22px">Werkt de knop niet? Kopieer deze link naar je browser:<br><span style="word-break:break-all">${portalUrl}</span></p><p style="font-size:16px;line-height:1.6">Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
 async function sendEmails(quote) {
@@ -194,17 +208,26 @@ app.get('/files/:quoteId/:fileName', async (req, res) => {
   res.download(path.join(config.uploadDir, `${safeQuoteId}-${safeFileName}`));
 });
 
-app.post('/api/quote', upload.single('file'), async (req, res) => {
+app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) => {
   try {
-    const uploadedFile = req.file;
-    if (!uploadedFile) throw new Error('Upload een 3D-bestand.');
+    const uploadedFiles = req.files || [];
+    if (!uploadedFiles.length) throw new Error('Upload minimaal één 3D-bestand.');
+
     const quoteId = `quote-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const ext = path.extname(uploadedFile.originalname).toLowerCase();
-    const safeOriginalName = uploadedFile.originalname.replace(/[^a-zA-Z0-9._-]/g, '-');
-    const finalFileName = `${quoteId}-${safeOriginalName}`;
-    await import('node:fs/promises').then(fs => fs.rename(uploadedFile.path, path.join(config.uploadDir, finalFileName)));
-    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], fileOriginalName: uploadedFile.originalname, fileStoredName: finalFileName, fileExtension: ext, fileUrl: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` };
-    if (!quote.name || !quote.email || !quote.phone || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
+    const files = [];
+
+    for (const uploadedFile of uploadedFiles) {
+      const ext = path.extname(uploadedFile.originalname).toLowerCase();
+      const safeOriginalName = uploadedFile.originalname.replace(/[^a-zA-Z0-9._-]/g, '-');
+      const finalFileName = `${quoteId}-${safeOriginalName}`;
+      await rename(uploadedFile.path, path.join(config.uploadDir, finalFileName));
+      files.push({ originalName: uploadedFile.originalname, safeOriginalName, storedName: finalFileName, extension: ext, url: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` });
+    }
+
+    const firstFile = files[0];
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName, fileExtension: firstFile.extension, fileUrl: firstFile.url };
+    if (!quote.name || !quote.email || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
+
     const customer = await findOrCreateCustomer(quote);
     if (customer) quote.customerId = customer.id;
     else { quote.customerId = ''; quote.customerNote = config.customersEnabled ? 'Klant kon niet automatisch worden gekoppeld.' : 'Klant wordt handmatig aangemaakt in Shopify.'; }
