@@ -113,6 +113,16 @@
     if (!endpoint) throw new Error('De offerte-app is nog niet gekoppeld.');
 
     var chosenFiles = filesOf(fields.fileInput);
+    var shippingNote = [
+      '--- Verzendadres ---',
+      'Land: ' + (fields.shippingCountry || '-'),
+      'Postcode: ' + (fields.shippingPostal || '-'),
+      'Huisnummer: ' + (fields.shippingHouse || '-'),
+      'Plaats: ' + (fields.shippingCity || '-')
+    ].join('\n');
+    var noteWithShipping = String(fields.note || '').trim();
+    noteWithShipping = noteWithShipping ? noteWithShipping + '\n\n' + shippingNote : shippingNote;
+
     var data = new FormData();
     chosenFiles.forEach(function (file) {
       data.append('file', file);
@@ -123,7 +133,7 @@
     data.append('name', fields.name);
     data.append('email', fields.email);
     data.append('phone', fields.phone || '');
-    data.append('note', fields.note || '');
+    data.append('note', noteWithShipping);
     data.append('rush', fields.rush || 'Nee');
     data.append('shipping_country', fields.shippingCountry || '');
     data.append('shipping_postal', fields.shippingPostal || '');
