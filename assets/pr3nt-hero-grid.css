@@ -1,0 +1,49 @@
+.p-hero {
+  isolation: isolate;
+}
+
+.p-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .38;
+  background-image:
+    linear-gradient(45deg, rgba(0, 208, 132, .16) 1px, transparent 1px),
+    linear-gradient(-45deg, rgba(0, 208, 132, .11) 1px, transparent 1px),
+    radial-gradient(circle at 72% 30%, rgba(0, 208, 132, .16), transparent 34%),
+    radial-gradient(circle at 20% 72%, rgba(61, 139, 255, .10), transparent 32%);
+  background-size: 92px 92px, 92px 92px, 100% 100%, 100% 100%;
+  background-position: center, center, center, center;
+  mask-image: linear-gradient(90deg, rgba(0,0,0,.85), rgba(0,0,0,.5) 58%, rgba(0,0,0,.25));
+}
+
+.p-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(16,24,32,.55), transparent 52%),
+    radial-gradient(circle at 78% 20%, rgba(0,208,132,.10), transparent 28%);
+  opacity: .58;
+}
+
+.p-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 760px) {
+  .p-hero::before {
+    opacity: .24;
+    background-size: 72px 72px, 72px 72px, 100% 100%, 100% 100%;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,.65), rgba(0,0,0,.28));
+  }
+
+  .p-hero::after {
+    opacity: .42;
+  }
+}
