@@ -45,14 +45,7 @@
       "description": "3D printservice voor hobbyisten, makers en bedrijven. Pr3nt print prototypes, vervangende onderdelen, functionele onderdelen en kleine series in PLA en PETG.",
       "email": "info@pr3nt.nl",
       "telephone": "+31318507014",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "Schoolstraat 41",
-        "postalCode": "6744WS",
-        "addressLocality": "Ederveen",
-        "addressCountry": "NL"
-      },
-      "areaServed": "NL",
+      "areaServed": ["NL", "BE"],
       "priceRange": "€€"
     }
   </script>
@@ -76,7 +69,7 @@
       "name": "3D printservice",
       "serviceType": "3D printen op aanvraag",
       "provider": {"@id": {{ shop.url | append: '#organization' | json }}},
-      "areaServed": "NL",
+      "areaServed": ["NL", "BE"],
       "description": "3D printen van hobbyprojecten, prototypes, vervangende onderdelen en kleine series in PLA en PETG."
     }
   </script>
