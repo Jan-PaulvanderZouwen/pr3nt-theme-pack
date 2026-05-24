@@ -11,9 +11,10 @@
     .p-upload-progress-copy span{color:rgba(16,24,32,.55);font-size:13px;font-weight:900}
     .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:9px;overflow:hidden}
     .p-upload-progress-bar span{display:block;height:100%;width:0;background:#00d084;border-radius:inherit;transition:width .18s ease}
+    .p-address-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @keyframes pQuotePrinterHead{from{left:9px}to{left:34px}}
     @keyframes pQuotePrintGrow{from{height:4px}to{height:16px}}
-    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}}
+    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row{grid-template-columns:1fr;gap:10px}}
   </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
@@ -31,7 +32,7 @@
 
     <div class="p-step-tabs">
       <button type="button" class="p-step-tab is-active" data-p-tab="1"><small>Stap 1</small><strong>Materiaal & bestand</strong></button>
-      <button type="button" class="p-step-tab" data-p-tab="2"><small>Stap 2</small><strong>Gegevens</strong></button>
+      <button type="button" class="p-step-tab" data-p-tab="2"><small>Stap 2</small><strong>Gegevens & verzending</strong></button>
     </div>
 
     <div class="p-form-step" data-p-step="1">
@@ -75,6 +76,16 @@
         <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">E-mailadres</span><input type="email" style="min-height:52px" placeholder="jij@example.nl" required data-p-email></label>
         <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Naam</span><input type="text" style="min-height:52px" placeholder="Je naam" required data-p-name></label>
         <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Telefoonnummer <small>(optioneel)</small></span><input type="tel" style="min-height:52px" placeholder="Bijv. 06 12 34 56 78" data-p-phone></label>
+      </div>
+
+      <div class="p-contact-group" style="margin-top:12px;padding:16px;background:#fff;border-color:rgba(16,24,32,.07);gap:12px">
+        <p class="p-contact-group-title">Verzendadres</p>
+        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Land</span><select style="min-height:52px" required data-p-shipping-country><option value="Nederland">Nederland</option><option value="België">België</option></select></label>
+        <div class="p-address-row">
+          <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Postcode</span><input type="text" style="min-height:52px" placeholder="Bijv. 6744 WS" required data-p-shipping-postal></label>
+          <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Huisnummer</span><input type="text" style="min-height:52px" placeholder="Bijv. 41" required data-p-shipping-house></label>
+        </div>
+        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Plaats</span><input type="text" style="min-height:52px" placeholder="Bijv. Ederveen" required data-p-shipping-city></label>
       </div>
 
       <label class="p-field" style="margin-top:12px"><span>Opmerking over je print</span><textarea style="min-height:96px" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
