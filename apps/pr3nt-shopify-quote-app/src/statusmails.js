@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import { registerPortalFileCarouselRoutes } from './portalfilecarousel.js';
 import { registerShippingAddressRoutes } from './shippingaddress.js';
+import { registerPortalMobileRoutes } from './portalmobile.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,6 +90,7 @@ function sendLater(quote, title, message, cta) {
 export function registerStatusMailRoutes(app) {
   registerPortalFileCarouselRoutes(app);
   registerShippingAddressRoutes(app);
+  registerPortalMobileRoutes(app);
 
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'POST') return next();
