@@ -103,4 +103,30 @@
       <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
     </div>
   </form>
+  <script>
+    (function(){
+      function neutralizeAddressExamples(){
+        document.querySelectorAll('[data-pr3nt-form]').forEach(function(form){
+          var postal = form.querySelector('[data-p-shipping-postal]');
+          var house = form.querySelector('[data-p-shipping-house]');
+          var city = form.querySelector('[data-p-shipping-city]');
+          if (postal) {
+            postal.placeholder = 'Bijv. 1234 AB';
+            if (/^6744\s?ws$/i.test(String(postal.value || '').trim())) postal.value = '';
+          }
+          if (house) {
+            house.placeholder = 'Bijv. 10';
+            if (String(house.value || '').trim() === '41') house.value = '';
+          }
+          if (city) {
+            city.placeholder = 'Bijv. Utrecht';
+            if (/^ederveen$/i.test(String(city.value || '').trim())) city.value = '';
+          }
+        });
+      }
+      neutralizeAddressExamples();
+      document.addEventListener('DOMContentLoaded', neutralizeAddressExamples);
+      document.addEventListener('shopify:section:load', function(event){ neutralizeAddressExamples(); });
+    })();
+  </script>
 </div>
