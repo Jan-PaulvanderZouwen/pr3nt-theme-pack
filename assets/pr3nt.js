@@ -125,6 +125,10 @@
     data.append('phone', fields.phone || '');
     data.append('note', fields.note || '');
     data.append('rush', fields.rush || 'Nee');
+    data.append('shipping_country', fields.shippingCountry || '');
+    data.append('shipping_postal', fields.shippingPostal || '');
+    data.append('shipping_house', fields.shippingHouse || '');
+    data.append('shipping_city', fields.shippingCity || '');
 
     var response = await fetch(endpoint, { method: 'POST', body: data });
     if (!response.ok) throw new Error('De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
@@ -162,6 +166,10 @@
       var nameInput = form.querySelector('[data-p-name]');
       var emailInput = form.querySelector('[data-p-email]');
       var phoneInput = form.querySelector('[data-p-phone]');
+      var countryInput = form.querySelector('[data-p-shipping-country]');
+      var postalInput = form.querySelector('[data-p-shipping-postal]');
+      var houseInput = form.querySelector('[data-p-shipping-house]');
+      var cityInput = form.querySelector('[data-p-shipping-city]');
       var noteInput = form.querySelector('[data-p-note]');
       var summary = form.querySelector('[data-p-summary]');
       var fileNameInput = form.querySelector('[data-p-file-name]');
@@ -187,6 +195,10 @@
         return cleaned === '' || /^\+?[0-9]{8,15}$/.test(cleaned);
       }
 
+      function valueOk(input, min) {
+        return !!input && String(input.value || '').trim().length >= (min || 1);
+      }
+
       function fileText() {
         var chosenFiles = filesOf(fileInput);
         if (!chosenFiles.length) return 'Geen bestand gekozen';
@@ -197,8 +209,12 @@
         return validFiles() && colorInput && colorInput.value.trim().length >= 2;
       }
 
+      function addressOk() {
+        return valueOk(countryInput, 2) && valueOk(postalInput, 4) && valueOk(houseInput, 1) && valueOk(cityInput, 2);
+      }
+
       function formOk() {
-        return stepOneOk() && nameInput.value.trim().length >= 2 && validEmail(emailInput.value) && validPhone(phoneInput.value);
+        return stepOneOk() && nameInput.value.trim().length >= 2 && validEmail(emailInput.value) && validPhone(phoneInput.value) && addressOk();
       }
 
       function updateSummary() {
@@ -214,7 +230,7 @@
       }
 
       function updateHeader() {
-        if (formTitle) formTitle.textContent = step === 1 ? 'Materiaal & bestand' : 'Gegevens';
+        if (formTitle) formTitle.textContent = step === 1 ? 'Materiaal & bestand' : 'Gegevens & verzending';
         if (stepIcon) stepIcon.textContent = String(step);
       }
 
@@ -275,8 +291,9 @@
         });
       }
 
-      [colorInput, nameInput, emailInput, phoneInput, noteInput].forEach(function (input) {
+      [colorInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
         if (input) input.addEventListener('input', update);
+        if (input && input.tagName === 'SELECT') input.addEventListener('change', update);
       });
       tabs.forEach(function (tab) { tab.addEventListener('click', function () { setStep(Number(tab.dataset.pTab)); }); });
       if (nextButton) nextButton.addEventListener('click', function () { setStep(2); });
@@ -304,6 +321,10 @@
             name: nameInput.value,
             email: emailInput.value,
             phone: phoneInput.value,
+            shippingCountry: countryInput ? countryInput.value : '',
+            shippingPostal: postalInput ? postalInput.value : '',
+            shippingHouse: houseInput ? houseInput.value : '',
+            shippingCity: cityInput ? cityInput.value : '',
             note: noteInput ? noteInput.value : '',
             rush: rushInput.value
           });
