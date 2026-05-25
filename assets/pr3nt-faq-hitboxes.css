@@ -42,14 +42,14 @@
   margin-left: auto;
   border-radius: 999px;
   display: block;
-  background-color: rgba(16, 24, 32, .06);
-  background-image:
-    linear-gradient(45deg, transparent 46%, var(--p-dark, #101820) 47%, var(--p-dark, #101820) 53%, transparent 54%),
-    linear-gradient(-45deg, transparent 46%, var(--p-dark, #101820) 47%, var(--p-dark, #101820) 53%, transparent 54%);
-  background-size: 9px 9px, 9px 9px;
-  background-position: calc(50% - 3px) calc(50% - 1px), calc(50% + 3px) calc(50% - 1px);
+  background: rgba(16, 24, 32, .06);
+  background-image: linear-gradient(135deg, transparent 50%, var(--p-dark, #101820) 50%), linear-gradient(45deg, var(--p-dark, #101820) 50%, transparent 50%);
+  background-position: calc(50% - 3px) 50%, calc(50% + 3px) 50%;
+  background-size: 7px 7px, 7px 7px;
   background-repeat: no-repeat;
-  transition: background-color .18s ease;
+  transform: rotate(0deg);
+  transform-origin: center;
+  transition: transform .18s ease, background-color .18s ease;
 }
 
 .p-section details[open] summary::after,
@@ -60,6 +60,7 @@
 [class*='FAQ'] details[open] summary::after,
 [class*='accordion'] details[open] summary::after {
   background-color: rgba(0, 208, 132, .16);
+  transform: rotate(180deg);
 }
 
 .p-section details summary > *,
@@ -80,6 +81,27 @@
 [class*='FAQ'] details,
 [class*='accordion'] details {
   overflow: hidden;
+}
+
+.p-section details > *:not(summary),
+.p-card details > *:not(summary),
+.p-faq details > *:not(summary),
+.faq details > *:not(summary),
+[class*='faq'] details > *:not(summary),
+[class*='FAQ'] details > *:not(summary),
+[class*='accordion'] details > *:not(summary) {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.p-section details > *:not(summary):last-child,
+.p-card details > *:not(summary):last-child,
+.p-faq details > *:not(summary):last-child,
+.faq details > *:not(summary):last-child,
+[class*='faq'] details > *:not(summary):last-child,
+[class*='FAQ'] details > *:not(summary):last-child,
+[class*='accordion'] details > *:not(summary):last-child {
+  padding-bottom: 18px;
 }
 
 @media (max-width: 760px) {
@@ -103,5 +125,16 @@
   [class*='accordion'] summary::after {
     width: 30px;
     height: 30px;
+  }
+
+  .p-section details > *:not(summary),
+  .p-card details > *:not(summary),
+  .p-faq details > *:not(summary),
+  .faq details > *:not(summary),
+  [class*='faq'] details > *:not(summary),
+  [class*='FAQ'] details > *:not(summary),
+  [class*='accordion'] details > *:not(summary) {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 }
