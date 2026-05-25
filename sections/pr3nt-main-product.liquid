@@ -1,0 +1,84 @@
+{% assign current_variant = product.selected_or_first_available_variant %}
+{% assign subtitle = product.metafields.custom.subtitle | default: product.description | strip_html | truncate: 150 %}
+
+<main class="p-product-page">
+  <section class="p-product-hero">
+    <div class="p-wrap">
+      <nav class="p-product-breadcrumbs" aria-label="Breadcrumb">
+        <a href="{{ routes.root_url }}">Home</a><span>/</span><a href="{{ routes.all_products_collection_url }}">Producten</a><span>/</span><span>{{ product.title }}</span>
+      </nav>
+
+      <div class="p-product-grid">
+        <div class="p-product-gallery">
+          <div class="p-product-media-main">
+            {% if product.featured_image %}
+              <span class="p-product-badge">3D printbaar product</span>
+              {{ product.featured_image | image_url: width: 1400 | image_tag: loading: 'eager', alt: product.title }}
+            {% else %}
+              <div class="p-product-media-placeholder">Voeg productfoto’s toe in Shopify.</div>
+            {% endif %}
+          </div>
+          {% if product.images.size > 1 %}
+            <div class="p-product-thumbs">
+              {% for image in product.images limit: 8 %}
+                <div class="p-product-thumb {% if forloop.first %}is-active{% endif %}">{{ image | image_url: width: 260 | image_tag: loading: 'lazy', alt: product.title }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="p-product-info">
+          <section class="p-product-panel">
+            <p class="p-product-kicker">Premium 3D-print product</p>
+            <h1 class="p-product-title">{{ product.title }}</h1>
+            {% if subtitle != blank %}<p class="p-product-subtitle">{{ subtitle }}</p>{% endif %}
+            <div class="p-product-price-row">
+              <div>
+                <div class="p-product-price">{{ current_variant.price | money }}</div>
+                <div class="p-product-tax">Incl. btw waar van toepassing · excl. eventuele verzending</div>
+              </div>
+              <div class="p-product-rating"><span class="p-product-stars">★★★★★</span><span>Reviews voorbereid</span></div>
+            </div>
+          </section>
+
+          <section class="p-product-panel">
+            {% form 'product', product, class: 'p-product-form' %}
+              <input type="hidden" name="id" value="{{ current_variant.id }}">
+              {% unless product.has_only_default_variant %}
+                {% for option in product.options_with_values %}
+                  <div class="p-product-option">
+                    <label>{{ option.name }}</label>
+                    <select class="p-product-select" name="options[{{ option.name | escape }}]">
+                      {% for value in option.values %}<option value="{{ value | escape }}" {% if option.selected_value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+                    </select>
+                  </div>
+                {% endfor %}
+              {% endunless %}
+              <div class="p-product-option"><label>Aantal</label><input class="p-product-qty" type="number" name="quantity" min="1" value="1"></div>
+              <div class="p-product-cta-row">
+                <button class="p-product-buy" type="submit" {% unless current_variant.available %}disabled{% endunless %}>{% if current_variant.available %}Toevoegen aan winkelwagen{% else %}Tijdelijk niet beschikbaar{% endif %}</button>
+                <a class="p-product-quote" href="/#offerte-formulier">Offerte aanvragen voor maatwerk</a>
+              </div>
+            {% endform %}
+            <div class="p-product-trust"><span>Printbaar gecontroleerd</span><span>NL/BE verzending</span><span>Maatwerk mogelijk</span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="p-product-tabs">
+    <div class="p-wrap p-product-content-grid">
+      <article class="p-product-card"><h2>Productinformatie</h2><div class="rte">{{ product.description }}</div></article>
+      <aside class="p-product-card"><h2>Specificaties</h2><dl class="p-product-specs"><div><dt>Materiaal</dt><dd>{{ product.metafields.custom.material | default: 'PLA / PETG' }}</dd></div><div><dt>Levertijd</dt><dd>{{ product.metafields.custom.levertijd | default: '2-5 werkdagen' }}</dd></div><div><dt>SKU</dt><dd>{{ current_variant.sku | default: product.handle }}</dd></div></dl></aside>
+      <section class="p-product-card p-product-review-box"><h2>Reviews</h2><div id="shopify-product-reviews" data-id="{{ product.id }}">{{ product.metafields.spr.reviews }}</div><div class="p-product-review-empty">Reviews kunnen hier worden ingeladen via Shopify Product Reviews, Judge.me, Loox of een andere review-app.</div></section>
+      <section class="p-product-card"><h2>Toch maatwerk nodig?</h2><p class="rte">Wil je dit product in een andere maat, kleur, uitvoering of serie laten printen? Vraag dan een offerte aan.</p><a class="p-product-quote" href="/#offerte-formulier">Start maatwerkofferte</a></section>
+    </div>
+  </section>
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":{{ product.title | json }},"description":{{ product.description | strip_html | truncate: 500 | json }},"sku":{{ current_variant.sku | default: product.handle | json }},"brand":{"@type":"Brand","name":"pr3nt"},"offers":{"@type":"Offer","priceCurrency":{{ cart.currency.iso_code | json }},"price":{{ current_variant.price | divided_by: 100.0 | json }},"availability":"https://schema.org/{% if current_variant.available %}InStock{% else %}OutOfStock{% endif %}","url":{{ shop.url | append: product.url | json }},"itemCondition":"https://schema.org/NewCondition"}}</script>
+</main>
+
+{% schema %}
+{"name":"Pr3nt productpagina","settings":[{"type":"paragraph","content":"Premium producttemplate met offertefocus, SEO, reviews en Merchant Center-vriendelijke productdata."}]}
+{% endschema %}
