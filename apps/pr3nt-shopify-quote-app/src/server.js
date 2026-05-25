@@ -15,6 +15,7 @@ import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
 import { registerStatusMailRoutes } from './statusmails.js';
 import { registerQuoteContextRoutes } from './quotecontext.js';
+import { registerShippingContextRoutes } from './shippingcontext.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -83,6 +84,11 @@ function isShopifyAccessDenied(error) {
 
 function requestTypeLabel(quote) {
   return quote.requestType === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig';
+}
+
+function shippingSummary(shipping = {}) {
+  const line = [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' ');
+  return [shipping.country, line, shipping.city].filter(Boolean).join(' · ') || '-';
 }
 
 function filesSummary(files = []) {
@@ -175,7 +181,7 @@ function transporter() {
 function adminEmailHtml(quote) {
   const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  const rows = [['Quote ID', quote.id], ['Aanvraagtype', requestTypeLabel(quote)], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone || '-'], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Omschrijving', quote.description || '-'], ['Bestand(en)', filesSummary(quote.files)], ['Download(s)', filesLinksHtml(quote.files)], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
+  const rows = [['Quote ID', quote.id], ['Aanvraagtype', requestTypeLabel(quote)], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone || '-'], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Verzendadres', shippingSummary(quote.shipping)], ['Omschrijving', quote.description || '-'], ['Bestand(en)', filesSummary(quote.files)], ['Download(s)', filesLinksHtml(quote.files)], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
   if (quote.customerNote) rows.push(['Klantkoppeling', quote.customerNote]);
   if (quote.metaobjectError) rows.push(['Shopify waarschuwing', quote.metaobjectError]);
   return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820"><h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1><p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p><p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open in pr3nt Dashboard</a></p><table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">${rows.map(([label, value]) => `<tr><td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td><td style="border-bottom:1px solid #eee">${value || '-'}</td></tr>`).join('')}</table></div>`;
@@ -202,6 +208,7 @@ app.get('/health', (_req, res) => {
 });
 
 registerQuoteContextRoutes(app);
+registerShippingContextRoutes(app);
 
 // Statusmail middleware must run before admin routes so it can detect changes after admin saves.
 registerStatusMailRoutes(app);
@@ -224,6 +231,12 @@ app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) =
     const uploadedFiles = req.files || [];
     const requestType = clean(req.body.request_type, 40) === 'no_model' ? 'no_model' : '3d_file';
     const description = clean(req.body.description, 3000);
+    const shipping = {
+      country: clean(req.body.shipping_country, 120),
+      postalCode: clean(req.body.shipping_postal, 40),
+      houseNumber: clean(req.body.shipping_house, 40),
+      city: clean(req.body.shipping_city, 120),
+    };
     if (requestType === '3d_file' && !uploadedFiles.length) throw new Error('Upload minimaal één 3D-bestand.');
     if (requestType === 'no_model' && !description) throw new Error('Omschrijf kort wat je nodig hebt.');
 
@@ -239,7 +252,7 @@ app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) =
     }
 
     const firstFile = files[0] || {};
-    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, shipping, name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), billing: { name: clean(req.body.name, 200), address: [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' '), postalCode: shipping.postalCode, city: shipping.city, country: shipping.country || 'Nederland' }, messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
     if (!quote.name || !quote.email || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
 
     const customer = await findOrCreateCustomer(quote);
