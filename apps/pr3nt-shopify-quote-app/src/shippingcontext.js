@@ -46,7 +46,7 @@ function shippingOf(quote = {}) {
   return {
     country: shipping.country || parsed.country || '',
     postalCode: shipping.postalCode || parsed.postalCode || '',
-    houseNumber: shipping.houseNumber || parsed.houseNumber || '',
+    houseNumber: shipping.houseNumber || shipping.house || shipping.number || parsed.houseNumber || '',
     city: shipping.city || parsed.city || '',
   };
 }
@@ -68,12 +68,12 @@ function css() {
 
 function portalCardHtml(shipping) {
   if (!hasShipping(shipping)) return '';
-  const line = [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' ');
   return `<div class="pr3nt-shipping-card" data-pr3nt-shipping-card>
     <h2>Verzendadres</h2>
     <div class="pr3nt-shipping-kv">
       <div class="pr3nt-shipping-muted">Land</div><div>${escapeHtml(shipping.country || '-')}</div>
-      <div class="pr3nt-shipping-muted">Postcode / huisnummer</div><div>${escapeHtml(line || '-')}</div>
+      <div class="pr3nt-shipping-muted">Postcode</div><div>${escapeHtml(shipping.postalCode || '-')}</div>
+      <div class="pr3nt-shipping-muted">Huisnummer</div><div>${escapeHtml(shipping.houseNumber || '-')}</div>
       <div class="pr3nt-shipping-muted">Plaats</div><div>${escapeHtml(shipping.city || '-')}</div>
     </div>
   </div>`;
@@ -100,7 +100,7 @@ function script(quote) {
       }
       function prefillAccount(){
         if(location.pathname.indexOf('/account') === -1) return;
-        var address = [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' ');
+        var address = shipping.houseNumber || '';
         setIfEmpty('country', shipping.country || 'Nederland');
         setIfEmpty('postalCode', shipping.postalCode || '');
         setIfEmpty('city', shipping.city || '');
