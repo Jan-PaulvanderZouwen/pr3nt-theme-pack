@@ -113,27 +113,33 @@
     if (!endpoint) throw new Error('De offerte-app is nog niet gekoppeld.');
 
     var chosenFiles = filesOf(fields.fileInput);
-    var shippingNote = [
-      '--- Verzendadres ---',
+    var requestTypeLabel = fields.requestType === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig';
+    var intakeNote = [
+      '--- Aanvraagtype ---',
+      requestTypeLabel,
+      fields.description ? '\n--- Omschrijving / referentie ---\n' + fields.description : '',
+      '\n--- Verzendadres ---',
       'Land: ' + (fields.shippingCountry || '-'),
       'Postcode: ' + (fields.shippingPostal || '-'),
       'Huisnummer: ' + (fields.shippingHouse || '-'),
       'Plaats: ' + (fields.shippingCity || '-')
-    ].join('\n');
-    var noteWithShipping = String(fields.note || '').trim();
-    noteWithShipping = noteWithShipping ? noteWithShipping + '\n\n' + shippingNote : shippingNote;
+    ].filter(Boolean).join('\n');
+    var noteWithIntake = String(fields.note || '').trim();
+    noteWithIntake = noteWithIntake ? noteWithIntake + '\n\n' + intakeNote : intakeNote;
 
     var data = new FormData();
     chosenFiles.forEach(function (file) {
       data.append('file', file);
     });
     data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
+    data.append('request_type', fields.requestType || '3d_file');
+    data.append('description', fields.description || '');
     data.append('color', fields.color);
     data.append('material', fields.material);
     data.append('name', fields.name);
     data.append('email', fields.email);
     data.append('phone', fields.phone || '');
-    data.append('note', noteWithShipping);
+    data.append('note', noteWithIntake);
     data.append('rush', fields.rush || 'Nee');
     data.append('shipping_country', fields.shippingCountry || '');
     data.append('shipping_postal', fields.shippingPostal || '');
@@ -141,20 +147,16 @@
     data.append('shipping_city', fields.shippingCity || '');
 
     var response = await fetch(endpoint, { method: 'POST', body: data });
-    if (!response.ok) throw new Error('De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
-
     var type = response.headers.get('content-type') || '';
-    if (type.indexOf('application/json') !== -1) {
-      var json = await response.json().catch(function () { return {}; });
-      if (json && json.ok === false) throw new Error(json.error || 'De aanvraag kon niet worden verstuurd.');
-      return json || {};
-    }
-    return { ok: true, redirect: '/pages/offerte-aanvraag-ontvangen' };
+    var json = type.indexOf('application/json') !== -1 ? await response.json().catch(function () { return {}; }) : {};
+    if (!response.ok || json.ok === false) throw new Error(json.error || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
+    return json || { ok: true, redirect: '/pages/offerte-aanvraag-ontvangen' };
   }
 
   function initForms(scope) {
     var root = scope || document;
-    var allowed = ['stl', '3mf', 'obj', 'step', 'stp'];
+    var modelExtensions = ['stl', '3mf', 'obj', 'step', 'stp'];
+    var referenceExtensions = modelExtensions.concat(['jpg', 'jpeg', 'png', 'webp', 'pdf', 'heic']);
 
     root.querySelectorAll('[data-pr3nt-form]:not([data-pr3nt-ready])').forEach(function (form) {
       form.dataset.pr3ntReady = 'true';
@@ -162,6 +164,7 @@
       var pending = false;
       var fileInput = form.querySelector('[data-p-file]');
       var fileLabel = form.querySelector('[data-p-file-label]');
+      var uploadHelp = form.querySelector('[data-p-upload-help]');
       var fileError = form.querySelector('[data-p-file-error]');
       var nextButton = form.querySelector('[data-p-next]');
       var submitButton = form.querySelector('[data-p-submit]');
@@ -172,6 +175,11 @@
       var materialButtons = form.querySelectorAll('[data-p-material]');
       var rushInput = form.querySelector('[data-p-rush-input]');
       var rushButton = form.querySelector('[data-p-rush]');
+      var requestTypeInput = form.querySelector('[data-p-request-type-input]');
+      var requestTypeButtons = form.querySelectorAll('[data-p-request-type]');
+      var designHelp = form.querySelector('[data-p-design-help]');
+      var descriptionInput = form.querySelector('[data-p-description]');
+      var descriptionLabel = form.querySelector('[data-p-description-label]');
       var colorInput = form.querySelector('[data-p-color]');
       var nameInput = form.querySelector('[data-p-name]');
       var emailInput = form.querySelector('[data-p-email]');
@@ -186,14 +194,20 @@
       var formTitle = form.querySelector('[data-p-form-title]');
       var stepIcon = form.querySelector('[data-p-step-icon]');
 
+      function requestType() {
+        return requestTypeInput ? requestTypeInput.value : '3d_file';
+      }
+
       function validFile(file) {
         if (!file || !file.name) return false;
-        return allowed.indexOf(file.name.split('.').pop().toLowerCase()) !== -1;
+        var ext = file.name.split('.').pop().toLowerCase();
+        return (requestType() === 'no_model' ? referenceExtensions : modelExtensions).indexOf(ext) !== -1;
       }
 
       function validFiles() {
         var chosenFiles = filesOf(fileInput);
-        return chosenFiles.length > 0 && chosenFiles.every(validFile);
+        if (!chosenFiles.length) return requestType() === 'no_model';
+        return chosenFiles.every(validFile);
       }
 
       function validEmail(value) {
@@ -211,12 +225,16 @@
 
       function fileText() {
         var chosenFiles = filesOf(fileInput);
-        if (!chosenFiles.length) return 'Geen bestand gekozen';
+        if (!chosenFiles.length) return requestType() === 'no_model' ? 'Geen bestand toegevoegd' : 'Geen bestand gekozen';
         return chosenFiles.length === 1 ? chosenFiles[0].name : chosenFiles.length + ' bestanden gekozen';
       }
 
+      function descriptionOk() {
+        return requestType() === '3d_file' || valueOk(descriptionInput, 12);
+      }
+
       function stepOneOk() {
-        return validFiles() && colorInput && colorInput.value.trim().length >= 2;
+        return validFiles() && descriptionOk() && colorInput && colorInput.value.trim().length >= 2;
       }
 
       function addressOk() {
@@ -231,8 +249,9 @@
         if (!summary) return;
         var chosenFiles = filesOf(fileInput);
         var rushText = rushInput.value === 'Ja' ? 'spoed' : 'standaard';
-        var fileSummary = fileText();
-        var detailSummary = materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText;
+        var typeLabel = requestType() === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand';
+        var fileSummary = requestType() === 'no_model' && !chosenFiles.length ? 'Omschrijving zonder bestand' : fileText();
+        var detailSummary = typeLabel + ' · ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText;
         summary.innerHTML = '<strong style="display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2">' + escapeHtml(fileSummary) + '</strong><span style="display:block;margin-top:2px;color:rgba(16,24,32,.55);font-size:12.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(detailSummary) + '</span>';
         summary.style.overflow = 'hidden';
         summary.title = chosenFiles.map(function (file) { return file.name; }).join(', ') + ' · ' + detailSummary;
@@ -240,11 +259,24 @@
       }
 
       function updateHeader() {
-        if (formTitle) formTitle.textContent = step === 1 ? 'Materiaal & bestand' : 'Gegevens & verzending';
+        if (formTitle) formTitle.textContent = step === 1 ? 'Bestand of idee' : 'Gegevens & verzending';
         if (stepIcon) stepIcon.textContent = String(step);
       }
 
+      function updateRequestTypeUi() {
+        var noModel = requestType() === 'no_model';
+        requestTypeButtons.forEach(function (button) {
+          button.classList.toggle('is-active', button.dataset.pRequestType === requestType());
+        });
+        if (fileLabel) fileLabel.textContent = noModel ? (filesOf(fileInput).length ? fileText() : 'Upload eventueel foto’s of een schets') : (filesOf(fileInput).length ? fileText() : 'Sleep je 3D-bestand hierheen');
+        if (uploadHelp) uploadHelp.textContent = noModel ? 'Optioneel: JPG, PNG, WEBP, PDF, HEIC of 3D-bestand' : 'Verplicht: STL, 3MF, OBJ, STEP of STP';
+        if (designHelp) designHelp.hidden = !noModel;
+        if (descriptionLabel) descriptionLabel.innerHTML = noModel ? 'Omschrijving <small>(verplicht)</small>' : 'Omschrijving <small>(optioneel)</small>';
+        if (fileError) fileError.textContent = noModel ? 'Upload een geldig referentiebestand of laat het uploadveld leeg.' : 'Upload een geldig 3D-bestand.';
+      }
+
       function update() {
+        updateRequestTypeUi();
         if (nextButton) nextButton.disabled = !stepOneOk();
         if (submitButton && !pending) submitButton.disabled = !formOk();
         updateHeader();
@@ -264,23 +296,29 @@
         fileInput.addEventListener('change', function () {
           var chosenFiles = filesOf(fileInput);
           if (!chosenFiles.length) {
-            fileLabel.textContent = 'Sleep je 3D-bestand hierheen';
-            fileError.classList.remove('is-visible');
+            if (fileError) fileError.classList.remove('is-visible');
             update();
             return;
           }
           if (!chosenFiles.every(validFile)) {
             fileInput.value = '';
-            fileLabel.textContent = 'Sleep je 3D-bestand hierheen';
-            fileError.classList.add('is-visible');
+            if (fileError) fileError.classList.add('is-visible');
             update();
             return;
           }
-          fileLabel.textContent = fileText();
-          fileError.classList.remove('is-visible');
+          if (fileError) fileError.classList.remove('is-visible');
           update();
         });
       }
+
+      requestTypeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          requestTypeInput.value = button.dataset.pRequestType || '3d_file';
+          if (fileInput) fileInput.value = '';
+          if (fileError) fileError.classList.remove('is-visible');
+          update();
+        });
+      });
 
       materialButtons.forEach(function (button) {
         button.addEventListener('click', function () {
@@ -301,7 +339,7 @@
         });
       }
 
-      [colorInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
+      [descriptionInput, colorInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
         if (input) input.addEventListener('input', update);
         if (input && input.tagName === 'SELECT') input.addEventListener('change', update);
       });
@@ -326,6 +364,8 @@
         try {
           var result = await submitQuote(form, {
             fileInput: fileInput,
+            requestType: requestType(),
+            description: descriptionInput ? descriptionInput.value : '',
             color: colorInput.value,
             material: materialInput.value,
             name: nameInput.value,
