@@ -14,6 +14,7 @@ import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
 import { registerStatusMailRoutes } from './statusmails.js';
+import { registerQuoteContextRoutes } from './quotecontext.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -199,6 +200,8 @@ async function sendEmails(quote) {
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'pr3nt-shopify-quote-app', auth: config.shopifyToken ? 'admin-access-token' : 'client-credentials', customersEnabled: config.customersEnabled, metaobjectsEnabled: config.metaobjectsEnabled });
 });
+
+registerQuoteContextRoutes(app);
 
 // Statusmail middleware must run before admin routes so it can detect changes after admin saves.
 registerStatusMailRoutes(app);
