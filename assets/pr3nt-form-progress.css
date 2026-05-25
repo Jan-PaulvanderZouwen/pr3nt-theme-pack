@@ -1,0 +1,106 @@
+/* Three-step visual progress for the quote form */
+[data-pr3nt-form] .p-step-tabs {
+  display: none !important;
+}
+
+.p-form-progress {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 18px 0 4px;
+  padding: 0 4px 4px;
+  --p-progress-ratio: .08;
+}
+
+.p-form-progress::before,
+.p-form-progress::after {
+  content: '';
+  position: absolute;
+  left: calc(16.666% + 15px);
+  right: calc(16.666% + 15px);
+  top: 15px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(16, 24, 32, .10);
+}
+
+.p-form-progress::after {
+  right: auto;
+  width: calc((66.666% - 30px) * var(--p-progress-ratio));
+  background: var(--p-green, #00d084);
+  transition: width .24s ease;
+}
+
+.p-form-progress-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: rgba(16, 24, 32, .48);
+  padding: 0;
+  cursor: default;
+  font: inherit;
+  text-align: center;
+}
+
+.p-form-progress-step.is-clickable {
+  cursor: pointer;
+}
+
+.p-progress-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 3px solid #e2e7e5;
+  background: #fff;
+  color: rgba(16, 24, 32, .42);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 950;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+
+.p-form-progress-step span:last-child {
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -.01em;
+}
+
+.p-form-progress-step.is-active,
+.p-form-progress-step.is-done {
+  color: var(--p-dark, #101820);
+}
+
+.p-form-progress-step.is-active .p-progress-dot,
+.p-form-progress-step.is-done .p-progress-dot {
+  background: var(--p-green, #00d084);
+  border-color: var(--p-green, #00d084);
+  color: #082115;
+  box-shadow: 0 0 0 5px rgba(0, 208, 132, .13);
+}
+
+@media (max-width: 640px) {
+  .p-form-progress {
+    gap: 4px;
+  }
+
+  .p-progress-dot {
+    width: 28px;
+    height: 28px;
+  }
+
+  .p-form-progress::before,
+  .p-form-progress::after {
+    top: 14px;
+  }
+
+  .p-form-progress-step span:last-child {
+    font-size: 11px;
+  }
+}
