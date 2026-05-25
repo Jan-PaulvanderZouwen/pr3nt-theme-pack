@@ -12,38 +12,51 @@
     .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:9px;overflow:hidden}
     .p-upload-progress-bar span{display:block;height:100%;width:0;background:#00d084;border-radius:inherit;transition:width .18s ease}
     .p-address-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .p-request-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+    .p-request-type{border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:18px;padding:14px;text-align:left;cursor:pointer;display:grid;gap:4px}
+    .p-request-type strong{font-size:14px;line-height:1.2}.p-request-type span{font-size:12.5px;line-height:1.35;color:rgba(16,24,32,.55);font-weight:750}
+    .p-request-type.is-active{background:var(--p-dark);color:#fff;border-color:var(--p-dark)}.p-request-type.is-active span{color:rgba(255,255,255,.7)}
+    .p-design-help{margin-top:12px;padding:13px 14px;border-radius:18px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:13.5px;line-height:1.5;font-weight:760}
+    .p-design-help strong{color:var(--p-dark)}
     @keyframes pQuotePrinterHead{from{left:9px}to{left:34px}}
     @keyframes pQuotePrintGrow{from{height:4px}to{height:16px}}
-    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row{grid-template-columns:1fr;gap:10px}}
+    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row,.p-request-type-grid{grid-template-columns:1fr;gap:10px}}
   </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
     <input type="hidden" value="Nee" data-p-rush-input>
     <input type="hidden" value="" data-p-file-name>
+    <input type="hidden" value="3d_file" data-p-request-type-input>
 
     <div class="p-form-head">
       <div>
         <p class="p-form-kicker">{{ form_kicker | default: 'Binnen 2 stappen jouw print geregeld' }}</p>
-        <h2 class="p-form-title" data-p-form-title>Materiaal & bestand</h2>
+        <h2 class="p-form-title" data-p-form-title>Bestand of idee</h2>
       </div>
       <div class="p-iconbox" data-p-step-icon>1</div>
     </div>
 
     <div class="p-step-tabs">
-      <button type="button" class="p-step-tab is-active" data-p-tab="1"><small>Stap 1</small><strong>Materiaal & bestand</strong></button>
+      <button type="button" class="p-step-tab is-active" data-p-tab="1"><small>Stap 1</small><strong>Bestand of idee</strong></button>
       <button type="button" class="p-step-tab" data-p-tab="2"><small>Stap 2</small><strong>Gegevens & verzending</strong></button>
     </div>
 
     <div class="p-form-step" data-p-step="1">
+      <div class="p-request-type-grid" aria-label="Type aanvraag">
+        <button type="button" class="p-request-type is-active" data-p-request-type="3d_file"><strong>Ik heb al een 3D-bestand</strong><span>Upload STL, STEP, 3MF, OBJ of STP.</span></button>
+        <button type="button" class="p-request-type" data-p-request-type="no_model"><strong>Ik heb nog geen 3D-bestand</strong><span>Stuur foto’s, maten of een omschrijving.</span></button>
+      </div>
+
       <label class="p-upload">
         <span style="font-size:30px">↑</span>
         <strong data-p-file-label>Sleep je 3D-bestand hierheen</strong>
-        <span class="p-upload-help">Ondersteund: {{ supported_formats | default: 'STL, 3MF, OBJ, STEP of STP' }}</span>
+        <span class="p-upload-help" data-p-upload-help>Ondersteund: STL, 3MF, OBJ, STEP of STP</span>
         <span class="p-btn p-btn-dark p-upload-button">Bestand kiezen</span>
-        <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp" data-p-file multiple>
+        <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp,.jpg,.jpeg,.png,.webp,.pdf,.heic" data-p-file multiple>
       </label>
-      <div class="p-error" data-p-file-error>Upload een geldig 3D-bestand.</div>
+      <div class="p-error" data-p-file-error>Upload een geldig bestand of kies “Ik heb nog geen 3D-bestand”.</div>
+      <div class="p-design-help" data-p-design-help hidden><strong>Nog geen bestand?</strong> Upload eventueel foto’s/schetsen of beschrijf hieronder wat je nodig hebt. Een korte omschrijving is dan verplicht, zodat we kunnen beoordelen of het onderdeel te printen of te tekenen is.</div>
 
       <div class="p-field-grid">
         <div class="p-field">
@@ -58,6 +71,11 @@
           <input type="text" placeholder="Bijv. zwart, wit, rood..." required data-p-color>
         </label>
       </div>
+
+      <label class="p-field" style="margin-top:14px" data-p-description-field>
+        <span data-p-description-label>Omschrijving <small>(optioneel)</small></span>
+        <textarea style="min-height:96px" placeholder="Bijvoorbeeld: het onderdeel moet stevig zijn, afmetingen zijn ongeveer 40 x 20 mm, zie foto..." data-p-description></textarea>
+      </label>
 
       <button type="button" class="p-rush" data-p-rush><strong>Spoed aanvragen</strong><span data-p-rush-text>Standaard · 3 dagen verzending</span></button>
       <button type="button" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-next disabled>Verder naar gegevens</button>
@@ -88,7 +106,7 @@
         <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Plaats</span><input type="text" style="min-height:52px" placeholder="Bijv. Utrecht" required data-p-shipping-city></label>
       </div>
 
-      <label class="p-field" style="margin-top:12px"><span>Opmerking over je print</span><textarea style="min-height:96px" placeholder="Bijvoorbeeld: sterk onderdeel, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
+      <label class="p-field" style="margin-top:12px"><span>Extra opmerking over je print</span><textarea style="min-height:96px" placeholder="Bijvoorbeeld: sterke uitvoering, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
       <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
       <div class="p-upload-progress" data-p-upload-progress hidden>
