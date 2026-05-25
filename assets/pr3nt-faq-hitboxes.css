@@ -28,6 +28,40 @@
   display: none;
 }
 
+.p-section details summary::after,
+.p-card details summary::after,
+.p-faq summary::after,
+.faq summary::after,
+[class*='faq'] summary::after,
+[class*='FAQ'] summary::after,
+[class*='accordion'] summary::after {
+  content: '⌄';
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 24, 32, .06);
+  color: var(--p-dark, #101820);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  transition: transform .18s ease, background .18s ease;
+}
+
+.p-section details[open] summary::after,
+.p-card details[open] summary::after,
+.p-faq details[open] summary::after,
+.faq details[open] summary::after,
+[class*='faq'] details[open] summary::after,
+[class*='FAQ'] details[open] summary::after,
+[class*='accordion'] details[open] summary::after {
+  transform: rotate(180deg);
+  background: rgba(0, 208, 132, .16);
+}
+
 .p-section details summary > *,
 .p-card details summary > *,
 .p-faq summary > *,
@@ -58,5 +92,16 @@
   [class*='accordion'] summary {
     min-height: 62px;
     padding: 19px 18px;
+  }
+
+  .p-section details summary::after,
+  .p-card details summary::after,
+  .p-faq summary::after,
+  .faq summary::after,
+  [class*='faq'] summary::after,
+  [class*='FAQ'] summary::after,
+  [class*='accordion'] summary::after {
+    width: 30px;
+    height: 30px;
   }
 }
