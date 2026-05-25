@@ -41,7 +41,7 @@ const config = {
 
 let cachedAdminToken = null;
 let cachedAdminTokenExpiresAt = 0;
-const allowedExtensions = new Set(['.stl', '.3mf', '.obj', '.step', '.stp']);
+const allowedExtensions = new Set(['.stl', '.3mf', '.obj', '.step', '.stp', '.jpg', '.jpeg', '.png', '.webp', '.pdf', '.heic']);
 
 await mkdir(config.uploadDir, { recursive: true });
 await mkdir(config.dataDir, { recursive: true });
@@ -54,7 +54,7 @@ const upload = multer({
   limits: { fileSize: config.maxFileSizeMb * 1024 * 1024, files: config.maxFiles },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
-    if (!allowedExtensions.has(ext)) return cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP of STP.'));
+    if (!allowedExtensions.has(ext)) return cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP, STP, JPG, PNG, WEBP, PDF of HEIC.'));
     cb(null, true);
   },
 });
@@ -78,6 +78,10 @@ function quoteStatusLabel(status = 'received') {
 
 function isShopifyAccessDenied(error) {
   return String(error?.message || '').toLowerCase().includes('access denied');
+}
+
+function requestTypeLabel(quote) {
+  return quote.requestType === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig';
 }
 
 function filesSummary(files = []) {
@@ -147,7 +151,7 @@ async function findOrCreateCustomer(input) {
 async function createQuoteMetaobject(quote) {
   if (!config.metaobjectsEnabled) return null;
   const fields = [
-    { key: 'quote_id', value: quote.id }, { key: 'status', value: quote.status }, { key: 'status_label', value: quoteStatusLabel(quote.status) }, { key: 'customer_id', value: quote.customerId || '' }, { key: 'name', value: quote.name }, { key: 'email', value: quote.email }, { key: 'phone', value: quote.phone }, { key: 'material', value: quote.material }, { key: 'color', value: quote.color }, { key: 'rush', value: quote.rush }, { key: 'note', value: quote.note || '' }, { key: 'file_name', value: quote.fileOriginalName }, { key: 'file_url', value: quote.fileUrl }, { key: 'created_at', value: quote.createdAt },
+    { key: 'quote_id', value: quote.id }, { key: 'status', value: quote.status }, { key: 'status_label', value: quoteStatusLabel(quote.status) }, { key: 'customer_id', value: quote.customerId || '' }, { key: 'name', value: quote.name }, { key: 'email', value: quote.email }, { key: 'phone', value: quote.phone }, { key: 'material', value: quote.material }, { key: 'color', value: quote.color }, { key: 'rush', value: quote.rush }, { key: 'note', value: quote.note || '' }, { key: 'file_name', value: quote.fileOriginalName || '' }, { key: 'file_url', value: quote.fileUrl || '' }, { key: 'created_at', value: quote.createdAt },
   ];
   const data = await shopifyGraphQL(`mutation CreateQuoteMetaobject($metaobject: MetaobjectCreateInput!) { metaobjectCreate(metaobject: $metaobject) { metaobject { id handle type } userErrors { field message code } } }`, { metaobject: { type: config.metaobjectType, handle: quote.id, fields } });
   const errors = data.metaobjectCreate.userErrors;
@@ -170,7 +174,7 @@ function transporter() {
 function adminEmailHtml(quote) {
   const adminUrl = `${config.baseUrl}/admin/quotes/${encodeURIComponent(quote.id)}`;
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  const rows = [['Quote ID', quote.id], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone || '-'], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Bestand(en)', filesSummary(quote.files)], ['Download(s)', filesLinksHtml(quote.files)], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
+  const rows = [['Quote ID', quote.id], ['Aanvraagtype', requestTypeLabel(quote)], ['Naam', quote.name], ['E-mail', quote.email], ['Telefoon', quote.phone || '-'], ['Materiaal', quote.material], ['Kleur', quote.color], ['Spoed', quote.rush], ['Omschrijving', quote.description || '-'], ['Bestand(en)', filesSummary(quote.files)], ['Download(s)', filesLinksHtml(quote.files)], ['Open aanvraag', adminUrl], ['Klantportaal', portalUrl], ['Opmerking', quote.note || '-'], ['Shopify customer ID', quote.customerId || '-'], ['Metaobject ID', quote.metaobjectId || '-']];
   if (quote.customerNote) rows.push(['Klantkoppeling', quote.customerNote]);
   if (quote.metaobjectError) rows.push(['Shopify waarschuwing', quote.metaobjectError]);
   return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101820"><h1>Nieuwe offerte-aanvraag via pr3nt.nl</h1><p><strong>Status:</strong> ${quoteStatusLabel(quote.status)}</p><p><a href="${adminUrl}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">Open in pr3nt Dashboard</a></p><table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px">${rows.map(([label, value]) => `<tr><td style="border-bottom:1px solid #eee;font-weight:bold;width:180px">${label}</td><td style="border-bottom:1px solid #eee">${value || '-'}</td></tr>`).join('')}</table></div>`;
@@ -178,7 +182,8 @@ function adminEmailHtml(quote) {
 
 function customerEmailHtml(quote) {
   const portalUrl = quote.portalToken ? `${config.baseUrl}/portal/${quote.portalToken}` : `${config.baseUrl}/portal/${quote.id}`;
-  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb"><div style="padding:28px;background:#101820;color:#ffffff"><div style="font-size:24px;font-weight:900;letter-spacing:-.04em">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:32px;line-height:1.05">Je aanvraag is ontvangen</h1><p style="margin:0;color:#d7dde0;font-size:16px">We gaan je 3D-bestand bekijken en zetten de volgende stap klaar in je portaal.</p></div><div style="padding:28px"><p style="font-size:16px;line-height:1.6">Hoi ${quote.name},</p><p style="font-size:16px;line-height:1.6">Je 3D-print aanvraag is goed binnengekomen. Via je persoonlijke portaal kun je de status volgen, je offerte bekijken, berichten sturen en later je verzending volgen.</p><p style="margin:24px 0"><a href="${portalUrl}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">Open mijn klantportaal</a></p><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin-top:18px"><strong>Samenvatting</strong><br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand(en): ${filesSummary(quote.files)}</div><p style="font-size:14px;color:#667085;line-height:1.5;margin-top:22px">Werkt de knop niet? Kopieer deze link naar je browser:<br><span style="word-break:break-all">${portalUrl}</span></p><p style="font-size:16px;line-height:1.6">Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
+  const intro = quote.requestType === 'no_model' ? 'We bekijken je omschrijving en eventuele referentiebestanden. Daarna laten we weten of we dit kunnen tekenen of printen.' : 'We gaan je 3D-bestand bekijken en zetten de volgende stap klaar in je portaal.';
+  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb"><div style="padding:28px;background:#101820;color:#ffffff"><div style="font-size:24px;font-weight:900;letter-spacing:-.04em">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:32px;line-height:1.05">Je aanvraag is ontvangen</h1><p style="margin:0;color:#d7dde0;font-size:16px">${intro}</p></div><div style="padding:28px"><p style="font-size:16px;line-height:1.6">Hoi ${quote.name},</p><p style="font-size:16px;line-height:1.6">Je 3D-print aanvraag is goed binnengekomen. Via je persoonlijke portaal kun je de status volgen, je offerte bekijken, berichten sturen en later je verzending volgen.</p><p style="margin:24px 0"><a href="${portalUrl}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">Open mijn klantportaal</a></p><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin-top:18px"><strong>Samenvatting</strong><br>Aanvraagtype: ${requestTypeLabel(quote)}<br>Materiaal: ${quote.material}<br>Kleur: ${quote.color}<br>Spoed: ${quote.rush}<br>Bestand(en): ${filesSummary(quote.files)}</div><p style="font-size:14px;color:#667085;line-height:1.5;margin-top:22px">Werkt de knop niet? Kopieer deze link naar je browser:<br><span style="word-break:break-all">${portalUrl}</span></p><p style="font-size:16px;line-height:1.6">Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
 async function sendEmails(quote) {
@@ -214,7 +219,10 @@ app.get('/files/:quoteId/:fileName', async (req, res) => {
 app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) => {
   try {
     const uploadedFiles = req.files || [];
-    if (!uploadedFiles.length) throw new Error('Upload minimaal één 3D-bestand.');
+    const requestType = clean(req.body.request_type, 40) === 'no_model' ? 'no_model' : '3d_file';
+    const description = clean(req.body.description, 3000);
+    if (requestType === '3d_file' && !uploadedFiles.length) throw new Error('Upload minimaal één 3D-bestand.');
+    if (requestType === 'no_model' && !description) throw new Error('Omschrijf kort wat je nodig hebt.');
 
     const quoteId = `quote-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const files = [];
@@ -227,8 +235,8 @@ app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) =
       files.push({ originalName: uploadedFile.originalname, safeOriginalName, storedName: finalFileName, extension: ext, url: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` });
     }
 
-    const firstFile = files[0];
-    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName, fileExtension: firstFile.extension, fileUrl: firstFile.url };
+    const firstFile = files[0] || {};
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
     if (!quote.name || !quote.email || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
 
     const customer = await findOrCreateCustomer(quote);
