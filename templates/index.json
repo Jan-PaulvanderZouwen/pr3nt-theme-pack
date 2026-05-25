@@ -240,7 +240,7 @@
           "type": "example_card",
           "settings": {
             "title": "Klein gadget",
-            "text": "Sleutelhanger, houder of klein accessoire",
+            "text": "Sleutelhanger, houder of clipjes",
             "price": "± €21,25"
           }
         },
@@ -248,7 +248,7 @@
           "type": "example_card",
           "settings": {
             "title": "Accessoire",
-            "text": "Terrain, tokens of mini-accessoire",
+            "text": "action figure, behuizing of mini-accessoire",
             "price": "± €28,30"
           }
         },
@@ -476,8 +476,8 @@
         "eyebrow": "Offerte aanvragen",
         "heading": "Upload je bestand, wij rekenen het uit.",
         "text": "Een 3D-bestand kun je niet eerlijk automatisch prijzen zonder het eerst te controleren. Support, wanddikte, printoriëntatie, materiaalverbruik en printtijd bepalen de uiteindelijke prijs. Daarom ontvang je bij pr3nt.nl altijd eerst een offerte.",
-        "supported_formats": "STL, 3MF, OBJ, STEP of STP",
-        "quote_endpoint_url": "https://app.pr3nt.nl/api/quote"
+        "button_label": "Offerte aanvragen",
+        "button_link": "#offerte-formulier"
       }
     },
     "faq": {
