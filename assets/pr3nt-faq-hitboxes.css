@@ -1,0 +1,62 @@
+/* Larger FAQ click/tap targets */
+.p-section details summary,
+.p-card details summary,
+.p-faq summary,
+.faq summary,
+[class*='faq'] summary,
+[class*='FAQ'] summary,
+[class*='accordion'] summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 58px;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: rgba(0, 208, 132, .16);
+}
+
+.p-section details summary::-webkit-details-marker,
+.p-card details summary::-webkit-details-marker,
+.p-faq summary::-webkit-details-marker,
+.faq summary::-webkit-details-marker,
+[class*='faq'] summary::-webkit-details-marker,
+[class*='FAQ'] summary::-webkit-details-marker,
+[class*='accordion'] summary::-webkit-details-marker {
+  display: none;
+}
+
+.p-section details summary > *,
+.p-card details summary > *,
+.p-faq summary > *,
+.faq summary > *,
+[class*='faq'] summary > *,
+[class*='FAQ'] summary > *,
+[class*='accordion'] summary > * {
+  pointer-events: none;
+}
+
+.p-section details,
+.p-card details,
+.p-faq details,
+.faq details,
+[class*='faq'] details,
+[class*='FAQ'] details,
+[class*='accordion'] details {
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .p-section details summary,
+  .p-card details summary,
+  .p-faq summary,
+  .faq summary,
+  [class*='faq'] summary,
+  [class*='FAQ'] summary,
+  [class*='accordion'] summary {
+    min-height: 62px;
+    padding: 19px 18px;
+  }
+}
