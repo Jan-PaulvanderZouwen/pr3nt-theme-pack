@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import { registerPortalFileCarouselRoutes } from './portalfilecarousel.js';
 import { registerShippingAddressRoutes } from './shippingaddress.js';
 import { registerPortalMobileRoutes } from './portalmobile.js';
+import { registerPortalCheckoutCopyRoutes } from './portalcheckoutcopy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,6 +110,7 @@ export function registerStatusMailRoutes(app) {
   registerPortalFileCarouselRoutes(app);
   registerShippingAddressRoutes(app);
   registerPortalMobileRoutes(app);
+  registerPortalCheckoutCopyRoutes(app);
 
   app.post('/portal/:token/accept', async (req, res) => {
     const quotes = await readQuotes();
