@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
@@ -26,9 +26,9 @@ const labels = {
 };
 
 const messages = {
-  creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we automatisch mee in de prijsopgaaf.',
-  quote_sent: 'Je prijsopgaaf staat klaar in je klantportaal. Je kunt hem daar bekijken en akkoord geven.',
-  accepted: 'Je prijsopgaaf is akkoord. We zetten de Shopify-betaallink voor je klaar.',
+  creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we mee in de prijsopgaaf.',
+  quote_sent: 'Je prijsopgaaf staat klaar in je klantportaal. Controleer de regels en rond akkoord + betaling af. We starten met printen zodra de betaling is ontvangen.',
+  accepted: 'Je prijsopgaaf is akkoord. We starten met printen zodra de betaling is ontvangen.',
   paid: 'We hebben je betaling ontvangen. Je print wordt nu ingepland.',
   print_queue: 'Je print staat in de wachtrij of is in productie.',
   ready_to_ship: 'Je print is klaar en wordt voorbereid voor verzending.',
@@ -49,8 +49,16 @@ async function readQuotes() {
   }
 }
 
+async function writeQuotes(quotes) {
+  await writeFile(quotesFilePath, JSON.stringify(quotes, null, 2));
+}
+
 function findQuote(quotes, id) {
   return quotes.find((quote) => quote.id === id);
+}
+
+function findQuoteByToken(quotes, token) {
+  return quotes.find((quote) => !quote.archivedAt && (quote.portalToken === token || quote.id === token));
 }
 
 function portalUrl(quote) {
@@ -87,10 +95,39 @@ function sendLater(quote, title, message, cta) {
   Promise.resolve().then(() => sendCustomerMail(quote, title, message, cta)).catch((error) => console.warn('Statusmail kon niet worden verzonden:', error.message));
 }
 
+function addAcceptanceAudit(quote, req, now) {
+  quote.acceptance = {
+    method: quote.paymentUrl ? 'portal_accept_and_pay' : 'portal_accept_button',
+    acceptedAt: now,
+    ip: req.ip || req.get('x-forwarded-for') || '',
+    userAgent: req.get('user-agent') || '',
+    referer: req.get('referer') || '',
+  };
+}
+
 export function registerStatusMailRoutes(app) {
   registerPortalFileCarouselRoutes(app);
   registerShippingAddressRoutes(app);
   registerPortalMobileRoutes(app);
+
+  app.post('/portal/:token/accept', async (req, res) => {
+    const quotes = await readQuotes();
+    const quote = findQuoteByToken(quotes, req.params.token);
+    if (!quote) return res.status(404).send('Aanvraag niet gevonden');
+
+    const now = new Date().toISOString();
+    if (!quote.acceptedAt) quote.acceptedAt = now;
+    quote.status = 'accepted';
+    addAcceptanceAudit(quote, req, now);
+    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+    if (!quote.messages.some((message) => String(message.text || '').includes('Ik ga akkoord met de offerte'))) {
+      quote.messages.push({ from: 'klant', text: quote.paymentUrl ? 'Ik ga akkoord met de offerte en ga door naar betalen.' : 'Ik ga akkoord met de offerte.', createdAt: now });
+    }
+    await writeQuotes(quotes);
+
+    if (quote.paymentUrl) return res.redirect(quote.paymentUrl);
+    return res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Offerte%20akkoord%20gegeven`);
+  });
 
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'POST') return next();
@@ -102,13 +139,8 @@ export function registerStatusMailRoutes(app) {
         if (!after || after.archivedAt) return;
         const oldStatus = before?.status || '';
         const newStatus = after.status || '';
-        const paymentAdded = !before?.paymentUrl && after.paymentUrl;
-        if (paymentAdded) {
-          sendLater(after, 'Je kunt je 3D-print betalen', 'De betaallink staat klaar in je klantportaal. Verzending is inbegrepen in de prijsopgaaf.', 'Nu betalen');
-          return;
-        }
         if (oldStatus !== newStatus && messages[newStatus]) {
-          const cta = newStatus === 'quote_sent' ? 'Prijsopgaaf bekijken' : newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
+          const cta = newStatus === 'quote_sent' ? 'Prijsopgaaf bekijken en betalen' : newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
           sendLater(after, labels[newStatus] || 'Status bijgewerkt', messages[newStatus], cta);
         }
       }).catch((error) => console.warn('Statusmail middleware fout:', error.message));
