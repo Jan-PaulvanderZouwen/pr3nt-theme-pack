@@ -6,11 +6,13 @@ import { registerPortalFileCarouselRoutes } from './portalfilecarousel.js';
 import { registerShippingAddressRoutes } from './shippingaddress.js';
 import { registerPortalMobileRoutes } from './portalmobile.js';
 import { registerPortalCheckoutCopyRoutes } from './portalcheckoutcopy.js';
+import { exportQuoteDesigns } from './designsync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
+const uploadDir = path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
 
@@ -106,7 +108,28 @@ function addAcceptanceAudit(quote, req, now) {
   };
 }
 
+function registerDesignExportAfterQuote(app) {
+  app.use('/api/quote', (req, res, next) => {
+    if (req.method !== 'POST') return next();
+    res.on('finish', () => {
+      if (res.statusCode < 200 || res.statusCode >= 300) return;
+      Promise.resolve().then(async () => {
+        const quotes = await readQuotes();
+        let changed = false;
+        for (const quote of quotes.slice(0, 5)) {
+          if (quote.designExport || !Array.isArray(quote.files) || !quote.files.length) continue;
+          await exportQuoteDesigns(quote, uploadDir);
+          if (quote.designExport) changed = true;
+        }
+        if (changed) await writeQuotes(quotes);
+      }).catch((error) => console.warn('Design export kon niet worden uitgevoerd:', error.message));
+    });
+    next();
+  });
+}
+
 export function registerStatusMailRoutes(app) {
+  registerDesignExportAfterQuote(app);
   registerPortalFileCarouselRoutes(app);
   registerShippingAddressRoutes(app);
   registerPortalMobileRoutes(app);
