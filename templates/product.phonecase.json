@@ -1,0 +1,10 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-phonecase-configurator"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
