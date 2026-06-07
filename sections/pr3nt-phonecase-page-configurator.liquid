@@ -1,0 +1,60 @@
+<main class="p-phonecase-page" data-phonecase-config>
+  <section class="p-phonecase-hero">
+    <div class="p-wrap">
+      <div class="p-phonecase-head">
+        <div>
+          <p class="p-eyebrow">Design je eigen telefoonhoesje</p>
+          <h1 class="p-phonecase-title">Maak jouw hoesje in 3D</h1>
+          <p class="p-phonecase-intro">Kies je telefoon, type hoesje, kleur, texture en voeg je eigen tekst toe. Je ziet direct wat je maakt. In deze pagina-versie kun je eerst de configurator testen zonder productkoppeling.</p>
+        </div>
+        <div class="p-phonecase-timer"><small>10% korting actief</small><strong data-timer>10:00</strong></div>
+      </div>
+      <div class="p-phonecase-grid">
+        <section class="p-phonecase-panel p-phonecase-config">
+          <div class="p-phonecase-progress"><span data-progress></span><span data-progress></span><span data-progress></span><span data-progress></span><span data-progress></span></div>
+
+          <div class="p-config-step is-active" data-step="0">
+            <p class="p-step-kicker">Stap 1</p><h2 class="p-step-title">Welke telefoon heb je?</h2><p class="p-step-help">Zoek of kies je toestel. De camera-layout in de preview past mee aan.</p>
+            <input class="p-phonecase-search" data-model-search placeholder="Zoek bijvoorbeeld iPhone 15 of Galaxy S24">
+            <div class="p-model-help"><strong>Weet je het niet?</strong><div class="p-help-grid"><button class="p-help-chip" type="button">iPhone: Instellingen → Algemeen → Info</button><button class="p-help-chip" type="button">Samsung: Instellingen → Info telefoon</button><button class="p-help-chip" type="button">Kijk naar aantal camera’s</button><button class="p-help-chip" type="button">Staat je model er niet bij? Vraag offerte aan</button></div></div>
+            <div class="p-choice-list" data-model-list></div>
+          </div>
+
+          <div class="p-config-step" data-step="1">
+            <p class="p-step-kicker">Stap 2</p><h2 class="p-step-title">Kies je hoesje</h2><p class="p-step-help">Kies een type dat past bij je gebruik.</p>
+            <div class="p-choice-list" data-case-list></div>
+          </div>
+
+          <div class="p-config-step" data-step="2">
+            <p class="p-step-kicker">Stap 3</p><h2 class="p-step-title">Kleur en texture</h2><p class="p-step-help">Elke keuze zie je direct terug in het 3D-voorbeeld.</p>
+            <h3>Kleur</h3><div class="p-swatch-grid" data-color-list></div>
+            <h3>Texture</h3><div class="p-swatch-grid" data-texture-list></div>
+          </div>
+
+          <div class="p-config-step" data-step="3">
+            <p class="p-step-kicker">Stap 4</p><h2 class="p-step-title">Personaliseer</h2><p class="p-step-help">Voeg korte tekst of initialen toe. Houd het kort voor het strakste resultaat.</p>
+            <div class="p-text-tools"><input data-design-input maxlength="22" placeholder="Bijv. JP, naam of korte tekst"><select data-font><option value="Inter">Strak</option><option value="Space Grotesk">Modern</option><option value="Arial">Basic</option></select></div>
+            <div class="p-text-position"><button type="button" data-pos="top">Boven</button><button type="button" class="is-active" data-pos="center">Midden</button><button type="button" data-pos="bottom">Onder</button></div>
+          </div>
+
+          <div class="p-config-step" data-step="4">
+            <p class="p-step-kicker">Stap 5</p><h2 class="p-step-title">Controleer en bestel</h2><p class="p-step-help">De bestelknop wordt in fase 2 gekoppeld aan een Shopify-product. Voor nu kun je de flow en styling testen.</p>
+            <div class="p-final-check"><span>✓ Telefoonmodel gekozen</span><span>✓ Camera-zone vrijgehouden</span><span>✓ Ontwerp binnen veilige zone</span><span>✓ Klaar voor productkoppeling</span></div>
+            <a class="p-cart-button" href="/#offerte-formulier">Offerte / bestelling aanvragen</a>
+            <a class="p-product-quote" href="/#offerte-formulier">Zakelijk of afwijkend model? Vraag offerte aan</a>
+          </div>
+
+          <div class="p-config-nav"><button class="p-back" type="button" data-back>Terug</button><button class="p-next" type="button" data-next>Volgende stap</button></div>
+        </section>
+
+        <section class="p-phonecase-panel p-phonecase-preview">
+          <div class="p-preview-top"><span class="p-discount-badge">10% korting na eerste keuze</span><div class="p-price-box"><small>Vanafprijs</small><strong data-price>€24,95</strong></div></div>
+          <div class="p-preview-stage"><div class="p-phone-3d" data-preview-phone><div class="p-camera" data-camera><span></span><span></span><span></span></div><div class="p-safe-zone"></div><div class="p-design-text" data-design-text data-pos="center" hidden></div></div></div>
+          <div class="p-preview-note"><span>Live 3D-preview</span><span>Veilige ontwerpzone</span><span>Prijs direct zichtbaar</span></div>
+        </section>
+      </div>
+    </div>
+  </section>
+  <div class="p-mobile-sticky"><div><small>Totaal</small><strong data-price>€24,95</strong></div><button type="button" data-scroll-config>Ontwerp aanpassen</button></div>
+</main>
+{% schema %}{"name":"Telefoonhoesje pagina-configurator","settings":[{"type":"paragraph","content":"Pagina-template versie van de telefoonhoesjesconfigurator. Kies template page.phonecase bij een Shopify-pagina."}]}{% endschema %}
