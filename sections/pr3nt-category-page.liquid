@@ -1,0 +1,71 @@
+<main class="p-category-page">
+  <section class="p-category-hero">
+    <div class="p-wrap p-category-grid">
+      <div>
+        <p class="p-category-kicker">{{ section.settings.kicker }}</p>
+        <h1 class="p-category-title">{{ section.settings.heading }}</h1>
+        <p class="p-category-intro">{{ section.settings.intro }}</p>
+        <div class="p-category-actions">
+          <a class="p-btn p-btn-primary" href="/#offerte-formulier">Vraag offerte aan</a>
+          <a class="p-btn p-btn-ghost" href="/pages/contact">Stel je vraag</a>
+        </div>
+      </div>
+      <div class="p-category-image" data-label="{{ section.settings.image_label | escape }}">
+        {% if section.settings.image != blank %}
+          <img src="{{ section.settings.image | image_url: width: 1200 }}" alt="{{ section.settings.heading | escape }}" loading="eager">
+        {% else %}
+          <div class="p-media-fallback">Voeg een afbeelding toe</div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="p-category-section">
+    <div class="p-wrap">
+      <div class="p-category-head">
+        <div>
+          <p class="p-eyebrow">Toepassingen</p>
+          <h2 class="p-title-sm">{{ section.settings.subheading }}</h2>
+        </div>
+        <p class="p-category-lead">{{ section.settings.body }}</p>
+      </div>
+
+      <div class="p-category-cards">
+        <article class="p-category-card"><small>Idee 1</small><h3>{{ section.settings.card_1_title }}</h3><p>{{ section.settings.card_1_text }}</p></article>
+        <article class="p-category-card"><small>Idee 2</small><h3>{{ section.settings.card_2_title }}</h3><p>{{ section.settings.card_2_text }}</p></article>
+        <article class="p-category-card"><small>Idee 3</small><h3>{{ section.settings.card_3_title }}</h3><p>{{ section.settings.card_3_text }}</p></article>
+      </div>
+
+      <div class="p-category-note">
+        <div>
+          <strong>{{ section.settings.note_title }}</strong>
+          <p>{{ section.settings.note_text }}</p>
+        </div>
+        <a class="p-btn p-btn-primary" href="/#offerte-formulier">Start je aanvraag</a>
+      </div>
+    </div>
+  </section>
+</main>
+{% schema %}
+{
+  "name": "Print category",
+  "settings": [
+    {"type":"text","id":"kicker","label":"Kleine titel","default":"3D print inspiratie"},
+    {"type":"text","id":"heading","label":"Titel","default":"Wat wil je laten printen?"},
+    {"type":"textarea","id":"intro","label":"Intro","default":"Bekijk voorbeelden, toepassingen en ideeën. Vraag daarna eenvoudig een offerte aan."},
+    {"type":"image_picker","id":"image","label":"Afbeelding"},
+    {"type":"text","id":"image_label","label":"Label op afbeelding","default":"Op maat geprint"},
+    {"type":"text","id":"subheading","label":"Subtitel","default":"Praktische ideeën die echt gebruikt worden."},
+    {"type":"textarea","id":"body","label":"Tekst","default":"3D printen is vooral interessant wanneer een standaard product net niet past, niet bestaat of sneller op maat gemaakt kan worden."},
+    {"type":"text","id":"card_1_title","label":"Kaart 1 titel","default":"Op maat gemaakt"},
+    {"type":"textarea","id":"card_1_text","label":"Kaart 1 tekst","default":"Handig wanneer standaard producten niet precies passen of wanneer je iets wilt dat bij jouw toepassing hoort."},
+    {"type":"text","id":"card_2_title","label":"Kaart 2 titel","default":"Snel testen"},
+    {"type":"textarea","id":"card_2_text","label":"Kaart 2 tekst","default":"Ideaal voor prototypes, hulpstukken en ideeën die je eerst in het echt wilt vasthouden."},
+    {"type":"text","id":"card_3_title","label":"Kaart 3 titel","default":"Kleine series"},
+    {"type":"textarea","id":"card_3_text","label":"Kaart 3 tekst","default":"Voor meerdere stuks van hetzelfde onderdeel of accessoires die je vaker nodig hebt."},
+    {"type":"text","id":"note_title","label":"CTA titel","default":"Twijfel je of het te printen is?"},
+    {"type":"textarea","id":"note_text","label":"CTA tekst","default":"Stuur je bestand, foto of omschrijving mee. We kijken mee naar materiaal, sterkte en haalbaarheid voordat je betaalt."}
+  ],
+  "presets": [{"name":"Print category"}]
+}
+{% endschema %}
