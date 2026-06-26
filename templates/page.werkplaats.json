@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Werkplaats",
+        "heading": "3D prints voor je werkplaats",
+        "intro": "Voor onderdelen die je niet standaard koopt, maar wel precies nodig hebt. Denk aan houders, mallen, adapters, klemmen en slimme hulpstukken voor je werkbank.",
+        "image": "shopify://shop_images/Gereedschaps-organisers_laten_printen.png",
+        "image_label": "Handig op maat",
+        "subheading": "Maak je werkbank slimmer zonder lang zoeken.",
+        "body": "Werkplaatsprints zijn vooral interessant als iets exact moet passen. Een houder voor jouw gereedschap, een kapje voor een apparaat, een boormal of een adapter die nergens te koop is.",
+        "card_1_title": "Gereedschapshouders",
+        "card_1_text": "Maak vaste plekken voor bits, doppen, schroevendraaiers, meetgereedschap of kleine onderdelen. Netter, sneller en precies passend op jouw plek.",
+        "card_2_title": "Mallen en hulpstukken",
+        "card_2_text": "Een boormal, afstandhouder of montagehulp kan veel tijd besparen. Zeker bij herhaald werk of wanneer iets elke keer exact hetzelfde moet.",
+        "card_3_title": "Adapters en kapjes",
+        "card_3_text": "Vervang gebroken kunststof, maak een passend afdekkapje of print een adapter die een standaard onderdeel bruikbaar maakt.",
+        "note_title": "Stuur een foto of maatvoering mee",
+        "note_text": "Geen 3D-bestand? Met duidelijke foto's en afmetingen kunnen we vaak inschatten of het onderdeel te tekenen en te printen is."
+      }
+    }
+  },
+  "order": ["main"]
+}
