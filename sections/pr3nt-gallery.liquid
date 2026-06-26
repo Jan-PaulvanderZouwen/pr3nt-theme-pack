@@ -42,6 +42,10 @@
             {% assign p_gallery_text = 'Voor terrain, onderdelen, hulpstukken en prototypes waarmee je hobbyproject sneller verder kan.' %}
         {% endcase %}
 
+        {% if block.settings.linked_page != blank %}
+          {% assign p_gallery_url = block.settings.linked_page.url %}
+        {% endif %}
+
         <a class="p-card p-gallery-card" href="{{ p_gallery_url }}" {{ block.shopify_attributes }}>
           <span class="p-gallery-badge">{{ p_gallery_badge }}</span>
           <div class="p-media">
@@ -61,4 +65,121 @@
     </div>
   </div>
 </section>
-{% schema %}{"name":"pr3nt gallery","settings":[{"type":"select","id":"background","label":"Achtergrond","default":"white","options":[{"value":"cream","label":"Crème"},{"value":"white","label":"Wit"}]},{"type":"range","id":"padding_y","label":"Verticale ruimte","min":40,"max":140,"step":4,"default":76},{"type":"text","id":"eyebrow","label":"Label","default":"Voorbeelden"},{"type":"text","id":"heading","label":"Titel","default":"Bekijk voorbeelden uit het echte leven."},{"type":"textarea","id":"text","label":"Tekst","default":"Vervang deze afbeeldingen door je eigen prints of door afbeeldingen waarvoor je toestemming hebt."}],"blocks":[{"type":"image","name":"Afbeelding","settings":[{"type":"image_picker","id":"image","label":"Afbeelding"},{"type":"text","id":"title","label":"Titel","default":"Voorbeeld"}]}],"presets":[{"name":"pr3nt gallery","blocks":[{"type":"image","settings":{"title":"Functioneel onderdeel"}},{"type":"image","settings":{"title":"Kabelclip"}},{"type":"image","settings":{"title":"Plantenaccessoire"}},{"type":"image","settings":{"title":"Tabletop terrain"}},{"type":"image","settings":{"title":"Prototype behuizing"}},{"type":"image","settings":{"title":"Tandwiel"}}]}]}{% endschema %}
+{% schema %}
+{
+  "name": "pr3nt gallery",
+  "settings": [
+    {
+      "type": "select",
+      "id": "background",
+      "label": "Achtergrond",
+      "default": "white",
+      "options": [
+        {
+          "value": "cream",
+          "label": "Crème"
+        },
+        {
+          "value": "white",
+          "label": "Wit"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "padding_y",
+      "label": "Verticale ruimte",
+      "min": 40,
+      "max": 140,
+      "step": 4,
+      "default": 76
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Label",
+      "default": "Voorbeelden"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Titel",
+      "default": "Bekijk voorbeelden uit het echte leven."
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Tekst",
+      "default": "Vervang deze afbeeldingen door je eigen prints of door afbeeldingen waarvoor je toestemming hebt."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "name": "Afbeelding",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Afbeelding"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Titel",
+          "default": "Voorbeeld"
+        },
+        {
+          "type": "page",
+          "id": "linked_page",
+          "label": "Link naar pagina",
+          "info": "Kies hier de pagina waar deze kaart naartoe moet linken. Als je niets kiest, gebruikt de kaart de automatische fallback op basis van de titel."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "pr3nt gallery",
+      "blocks": [
+        {
+          "type": "image",
+          "settings": {
+            "title": "Functioneel onderdeel"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "title": "Kabelclip"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "title": "Plantenaccessoire"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "title": "Tabletop terrain"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "title": "Prototype behuizing"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "title": "Tandwiel"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
