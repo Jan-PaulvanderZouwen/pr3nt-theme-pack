@@ -3,7 +3,7 @@
   <div class="p-hero-glow p-hero-glow-right"></div>
 
   <div class="p-wrap p-grid-2 p-hero-grid">
-    <div>
+    <div class="p-hero-copy-block">
       {% if section.settings.kicker != blank %}
         <div class="p-hero-kicker">{{ section.settings.kicker }}</div>
       {% endif %}
@@ -19,14 +19,22 @@
         <a href="{{ section.settings.secondary_link }}" class="p-btn p-btn-ghost">{{ section.settings.secondary_label }}</a>
       </div>
 
-      <div class="p-badges">
-        {% for block in section.blocks %}
-          <div class="p-badge" {{ block.shopify_attributes }}>
-            <small>{{ block.settings.label }}</small>
-            <strong>{{ block.settings.value }}</strong>
-          </div>
-        {% endfor %}
+      <div class="p-hero-path" aria-label="Snel overzicht van het proces">
+        <div class="p-hero-path-item"><i>1</i><strong>Upload of omschrijf</strong><span>Bestand klaar? Top. Nog geen model? Foto of schets mag ook.</span></div>
+        <div class="p-hero-path-item"><i>2</i><strong>Wij checken je print</strong><span>We kijken naar materiaal, sterkte, support en printtijd.</span></div>
+        <div class="p-hero-path-item"><i>3</i><strong>Printen en versturen</strong><span>Na akkoord maken we hem netjes en sturen we hem op.</span></div>
       </div>
+
+      {% if section.blocks.size > 0 %}
+        <div class="p-badges">
+          {% for block in section.blocks %}
+            <div class="p-badge" {{ block.shopify_attributes }}>
+              <small>{{ block.settings.label }}</small>
+              <strong>{{ block.settings.value }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
 
     {% if section.settings.show_form %}
