@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Bureau-accessoires",
+        "heading": "Een bureau dat gewoon klopt",
+        "intro": "Maak je werkplek netter en slimmer met 3D-geprinte bureau-accessoires. Denk aan kabelgeleiders, laptopsteunen, pennenbakjes, telefoonhouders en organisers.",
+        "image": "shopify://shop_images/Bureau-accessoires_laten_printen.png",
+        "image_label": "Werkplek op maat",
+        "subheading": "Voor alles wat netter, handiger of compacter kan.",
+        "body": "Een bureau is vaak vol met kabels, adapters, kleine spullen en apparaten. Met 3D printen kun je accessoires maken die precies passen bij jouw setup.",
+        "card_1_title": "Kabelmanagement",
+        "card_1_text": "Kabelclips, doorvoeren, ladershouders en geleiders houden je bureau rustig. Vooral handig als standaard oplossingen net niet passen.",
+        "card_2_title": "Houders en standaards",
+        "card_2_text": "Print een houder voor je telefoon, tablet, headset, dockingstation of laptop. Strak, praktisch en passend bij je werkplek.",
+        "card_3_title": "Organisers",
+        "card_3_text": "Voor pennen, SD-kaarten, adapters, USB-sticks of gereedschapjes. Kleine prints kunnen veel rommel oplossen.",
+        "note_title": "Ook handig voor kantoor of balie",
+        "note_text": "Heb je meerdere werkplekken of wil je iets in kleine serie laten maken? Stuur je idee door, dan maken we een duidelijke prijs."
+      }
+    }
+  },
+  "order": ["main"]
+}
