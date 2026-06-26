@@ -25,35 +25,12 @@
       </div>
     </div>
 
-    <div class="p-hero-showcase" aria-label="Pr3nt voorbeelden">
-      <div class="p-showcase-top">
-        <span class="p-showcase-logo">pr<span>3</span>nt</span>
-        <small>van idee naar bruikbare print</small>
+    {% if section.settings.show_form %}
+      <div class="p-form-shell p-hero-form-shell" id="offerte-formulier" data-pr3nt-quote-target>
+        {% render 'pr3nt-quote-form', supported_formats: section.settings.supported_formats, form_id: 'Pr3ntHeroQuoteForm', quote_endpoint_url: section.settings.quote_endpoint_url %}
       </div>
-      <div class="p-showcase-object">
-        <span></span><span></span><span></span>
-      </div>
-      <div class="p-showcase-list">
-        <div><strong>Onderdelen</strong><span>clips, adapters, kapjes</span></div>
-        <div><strong>Prototypes</strong><span>testen voordat je bouwt</span></div>
-        <div><strong>Kleine series</strong><span>meerdere stuks zonder gedoe</span></div>
-      </div>
-    </div>
+    {% endif %}
   </div>
-
-  {% if section.settings.show_form %}
-    <div class="p-wrap">
-      <div class="p-hero-form-drop" id="offerte-formulier" data-pr3nt-quote-target>
-        <div class="p-hero-form-head">
-          <p class="p-eyebrow">Offerte aanvragen</p>
-          <h2 class="p-title-sm">Upload je bestand of omschrijf je idee.</h2>
-        </div>
-        <div class="p-form-shell">
-          {% render 'pr3nt-quote-form', supported_formats: section.settings.supported_formats, form_id: 'Pr3ntHeroQuoteForm', quote_endpoint_url: section.settings.quote_endpoint_url %}
-        </div>
-      </div>
-    </div>
-  {% endif %}
 </section>
 
 {% schema %}
