@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Woonaccessoires",
+        "heading": "Woonaccessoires die je niet overal ziet",
+        "intro": "Geef je interieur iets persoonlijks met 3D-geprinte accessoires. Van een vaas tot een wandhaakje of plantenhouder: je maakt iets dat past bij jouw stijl en ruimte.",
+        "image": "shopify://shop_images/Vaas_laten_printen.png",
+        "image_label": "Uniek voor thuis",
+        "subheading": "Kleine details maken je interieur eigen.",
+        "body": "3D printen is ideaal voor accessoires die net anders mogen zijn. Niet de standaard woonwinkel-look, maar vormen, maten en details die passen bij jouw plek.",
+        "card_1_title": "Vazen en objecten",
+        "card_1_text": "Een decoratieve vaas, sculptuur of tafeldecoratie kan in een eigen vorm, maat of kleur worden gemaakt. Ideaal als subtiele eyecatcher.",
+        "card_2_title": "Wandhaakjes en houders",
+        "card_2_text": "Denk aan kleine haakjes, afstandhouders, kabeldoorvoeren of accessoires die functioneel zijn maar er ook strak uit mogen zien.",
+        "card_3_title": "Planten en styling",
+        "card_3_text": "Maak plantenhouders, stekvaasjes, labels of kleine standaards op maat. Leuk voor een vensterbank, plank of bureauhoek.",
+        "note_title": "Moet het bij je interieur passen?",
+        "note_text": "Stuur gerust een foto van de plek of geef je gewenste kleur door. Dan denken we mee over materiaal, formaat en afwerking."
+      }
+    }
+  },
+  "order": ["main"]
+}
