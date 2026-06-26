@@ -1,11 +1,50 @@
-.p-hero-form-shell .p-form-kicker{font-size:10.5px!important;}
-.p-hero-form-shell .p-options-panel{margin-top:7px!important;padding:8px!important;border-radius:14px!important;background:rgba(255,255,255,.78)!important;border:1px solid rgba(16,24,32,.07)!important;display:grid!important;gap:7px!important;}
-.p-hero-form-shell .p-options-panel .p-field-grid{margin-top:0!important;gap:7px!important;}
-.p-hero-form-shell .p-options-panel .p-field{padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;}
-.p-hero-form-shell .p-options-panel .p-rush{margin-top:0!important;background:#fff!important;border-color:rgba(16,24,32,.08)!important;}
-.p-hero-form-shell .p-options-panel .p-rush.is-active{background:rgba(255,138,61,.14)!important;border-color:var(--p-orange)!important;}
-.p-hero-form-shell .p-upload{position:relative!important;overflow:hidden!important;transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease!important;}
-.p-hero-form-shell .p-upload:hover,.p-hero-form-shell .p-upload:focus-within,.p-hero-form-shell .p-upload.is-drag-over{background:radial-gradient(circle at 18% 20%,rgba(0,208,132,.23),transparent 34%),linear-gradient(135deg,#ffffff 0%,#eefdf6 55%,#e8f3ff 100%)!important;border-color:rgba(0,208,132,.65)!important;box-shadow:0 12px 30px rgba(0,208,132,.14)!important;transform:translateY(-1px)!important;}
-.p-hero-form-shell .p-upload:hover .p-upload-button,.p-hero-form-shell .p-upload:focus-within .p-upload-button,.p-hero-form-shell .p-upload.is-drag-over .p-upload-button{background:var(--p-green)!important;color:var(--p-dark)!important;}
-.p-hero-form-shell .p-upload.is-drag-over strong{color:#087443!important;}
-@media(max-width:640px){.p-hero-form-shell .p-options-panel{padding:8px!important;}}
+.p-hero-form-shell .p-options-panel{
+  margin-top:10px!important;
+  padding:12px!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.78)!important;
+  border:1px solid rgba(16,24,32,.07)!important;
+  display:grid!important;
+  gap:10px!important;
+}
+
+.p-hero-form-shell .p-options-panel .p-field-grid{
+  margin-top:0!important;
+}
+
+.p-hero-form-shell .p-options-panel .p-rush{
+  margin-top:0!important;
+  background:#fff!important;
+  border-color:rgba(16,24,32,.08)!important;
+}
+
+.p-hero-form-shell .p-options-panel .p-rush.is-active{
+  background:rgba(255,138,61,.14)!important;
+  border-color:var(--p-orange)!important;
+}
+
+.p-hero-form-shell .p-upload{
+  position:relative!important;
+  overflow:hidden!important;
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease!important;
+}
+
+.p-hero-form-shell .p-upload:hover,
+.p-hero-form-shell .p-upload:focus-within,
+.p-hero-form-shell .p-upload.is-drag-over{
+  background:radial-gradient(circle at 18% 20%,rgba(0,208,132,.23),transparent 34%),linear-gradient(135deg,#ffffff 0%,#eefdf6 55%,#e8f3ff 100%)!important;
+  border-color:rgba(0,208,132,.65)!important;
+  box-shadow:0 12px 30px rgba(0,208,132,.14)!important;
+  transform:translateY(-1px)!important;
+}
+
+.p-hero-form-shell .p-upload:hover .p-upload-button,
+.p-hero-form-shell .p-upload:focus-within .p-upload-button,
+.p-hero-form-shell .p-upload.is-drag-over .p-upload-button{
+  background:var(--p-green)!important;
+  color:var(--p-dark)!important;
+}
+
+.p-hero-form-shell .p-upload.is-drag-over strong{
+  color:#087443!important;
+}
