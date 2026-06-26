@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Modelbouw",
+        "heading": "3D prints voor modelbouw en hobby",
+        "intro": "Voor details, terrain, prototypes en onderdelen waarmee je hobbyproject verder komt. Ideaal als je iets kleins, specifieks of lastig verkrijgbaar nodig hebt.",
+        "image": "shopify://shop_images/Hobby_artikelen_laten_printen.png",
+        "image_label": "Hobby op maat",
+        "subheading": "Meer vrijheid in vorm, schaal en detail.",
+        "body": "Modelbouw vraagt vaak om specifieke onderdelen. Met 3D printen kun je snel testen, vervangen of uitbreiden zonder afhankelijk te zijn van standaard sets.",
+        "card_1_title": "Terrain en scenery",
+        "card_1_text": "Maak objecten, onderdelen, bases of aankleding voor diorama’s, tabletop en modelprojecten. Goed voor unieke details.",
+        "card_2_title": "Onderdelen en hulpstukken",
+        "card_2_text": "Denk aan afstandhouders, klemmen, passtukken, connectors of onderdelen die je project ondersteunen maar lastig te kopen zijn.",
+        "card_3_title": "Prototypes en testprints",
+        "card_3_text": "Eerst een vorm testen voordat je verder bouwt? Een snelle print helpt om maat, schaal en pasvorm te controleren.",
+        "note_title": "Let op detail en schaal",
+        "note_text": "Stuur je bestand of omschrijving mee en geef aan hoe groot het moet worden. Dan kijken we mee naar detail, materiaal en printbaarheid."
+      }
+    }
+  },
+  "order": ["main"]
+}
