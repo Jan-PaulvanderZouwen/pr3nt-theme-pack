@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Gaming",
+        "heading": "Upgrade je gaming setup",
+        "intro": "Maak je setup persoonlijker en praktischer met 3D-geprinte gaming-accessoires. Van controllerhouders tot mounts, stands en onderdelen voor je sim-rig.",
+        "image": "shopify://shop_images/Gamer-accessoires_laten_printen.png",
+        "image_label": "Setup upgrade",
+        "subheading": "Praktisch, strak en precies passend bij jouw gear.",
+        "body": "Gaming-accessoires zijn vaak heel persoonlijk. De ene headset, controller, desk setup of sim-rig is de andere niet. Daarom werkt maatwerk hier goed.",
+        "card_1_title": "Controller- en headsethouders",
+        "card_1_text": "Houd je setup netjes met houders voor controllers, headsets, kabels of handhelds. Ook leuk als cadeau of personalisatie.",
+        "card_2_title": "Mounts en brackets",
+        "card_2_text": "Voor streams, sim-rigs, stuurwielen, camera’s, microfoons of kleine schermpjes. Zeker handig als standaard mounts net niet passen.",
+        "card_3_title": "Desk accessoires",
+        "card_3_text": "Maak kabelclips, button boxes, stands, decoratie of custom onderdelen voor je bureau en gaminghoek.",
+        "note_title": "Wil je iets laten matchen met je setup?",
+        "note_text": "Geef kleur, afmetingen en toepassing door. Dan kijken we of PLA of PETG slim is en hoe stevig het moet worden."
+      }
+    }
+  },
+  "order": ["main"]
+}
