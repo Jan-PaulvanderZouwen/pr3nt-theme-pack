@@ -298,48 +298,42 @@
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Gereedschaps-organisers_laten_printen.png",
-            "title": "Werkplaats",
-            "linked_page": "print-voor-je-werkplaats"
+            "title": "Werkplaats"
           }
         },
         "image_pryjPF": {
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Vaas_laten_printen.png",
-            "title": "Woonaccessoires",
-            "linked_page": "print-woonaccessoires"
+            "title": "Woonaccessoires"
           }
         },
         "image_LhH8DC": {
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Bureau-accessoires_laten_printen.png",
-            "title": "Bureau-accessoires",
-            "linked_page": "print-jouw-accessoire"
+            "title": "Bureau-accessoires"
           }
         },
         "image_EYgFF8": {
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Desk_organizers_laten_printen.png",
-            "title": "Opbergers",
-            "linked_page": "opbergers-3d-printen"
+            "title": "Opbergers"
           }
         },
         "image_y9JfP3": {
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Gamer-accessoires_laten_printen.png",
-            "title": "Gaming",
-            "linked_page": "3d-print-gaming"
+            "title": "Gaming"
           }
         },
         "image_EQNXki": {
           "type": "image",
           "settings": {
             "image": "shopify://shop_images/Hobby_artikelen_laten_printen.png",
-            "title": "Modelbouw",
-            "linked_page": "3d-print-voor-modelbouw"
+            "title": "Modelbouw"
           }
         }
       },
