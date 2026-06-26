@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "main": {
+      "type": "pr3nt-category-page",
+      "settings": {
+        "kicker": "Opbergers",
+        "heading": "Opbergers precies op maat",
+        "intro": "Soms past een standaard bakje of organizer gewoon niet. Met 3D printen maak je opbergers, vakverdelers en houders precies voor jouw lade, kast of werkplek.",
+        "image": "shopify://shop_images/Desk_organizers_laten_printen.png",
+        "image_label": "Alles op z'n plek",
+        "subheading": "Rust in je lade, kast of werkplek.",
+        "body": "Opbergers zijn perfect voor 3D printen omdat ze vaak heel specifiek moeten passen. Een paar millimeter verschil kan bepalen of iets echt prettig werkt.",
+        "card_1_title": "Ladeverdelers",
+        "card_1_text": "Maak vakken voor precies de spullen die jij gebruikt. Handig voor kantoor, hobby, gereedschap of kleine elektronica.",
+        "card_2_title": "Bakjes en trays",
+        "card_2_text": "Een tray voor schroefjes, sieraden, adapters, sleutels of onderdelen. Praktisch, strak en precies in de juiste maat.",
+        "card_3_title": "Houders op maat",
+        "card_3_text": "Voor afstandsbedieningen, laders, tools, voorraad of kleine producten. Ideaal als je iets vast op één plek wilt hebben.",
+        "note_title": "Meet de ruimte even op",
+        "note_text": "Geef lengte, breedte en hoogte door, plus wat erin moet. Dan kunnen we snel inschatten wat slim en printbaar is."
+      }
+    }
+  },
+  "order": ["main"]
+}
