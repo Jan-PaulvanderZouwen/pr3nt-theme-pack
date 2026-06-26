@@ -1,3 +1,8 @@
+{% assign primary_href = section.settings.primary_link %}
+{% if primary_href == '#upload' or primary_href == blank %}
+  {% assign primary_href = '#offerte-formulier' %}
+{% endif %}
+
 <section id="top" class="p-section dark p-hero" style="--py:{{ section.settings.padding_y }}px">
   <div class="p-hero-glow p-hero-glow-left"></div>
   <div class="p-hero-glow p-hero-glow-right"></div>
@@ -15,34 +20,40 @@
       <p class="p-copy">{{ section.settings.text }}</p>
 
       <div class="p-button-row">
-        <a href="{{ section.settings.primary_link }}" class="p-btn p-btn-primary">{{ section.settings.primary_label }}</a>
+        <a href="{{ primary_href }}" class="p-btn p-btn-primary">{{ section.settings.primary_label }}</a>
         <a href="{{ section.settings.secondary_link }}" class="p-btn p-btn-ghost">{{ section.settings.secondary_label }}</a>
       </div>
-
-      <div class="p-hero-path" aria-label="Snel overzicht van het proces">
-        <div class="p-hero-path-item"><i>1</i><strong>Upload of omschrijf</strong><span>Bestand klaar? Top. Nog geen model? Foto of schets mag ook.</span></div>
-        <div class="p-hero-path-item"><i>2</i><strong>Wij checken je print</strong><span>We kijken naar materiaal, sterkte, support en printtijd.</span></div>
-        <div class="p-hero-path-item"><i>3</i><strong>Printen en versturen</strong><span>Na akkoord maken we hem netjes en sturen we hem op.</span></div>
-      </div>
-
-      {% if section.blocks.size > 0 %}
-        <div class="p-badges">
-          {% for block in section.blocks %}
-            <div class="p-badge" {{ block.shopify_attributes }}>
-              <small>{{ block.settings.label }}</small>
-              <strong>{{ block.settings.value }}</strong>
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
     </div>
 
-    {% if section.settings.show_form %}
-      <div class="p-form-shell" id="offerte-formulier" data-pr3nt-quote-target>
-        {% render 'pr3nt-quote-form', supported_formats: section.settings.supported_formats, form_id: 'Pr3ntHeroQuoteForm', quote_endpoint_url: section.settings.quote_endpoint_url %}
+    <div class="p-hero-showcase" aria-label="Pr3nt voorbeelden">
+      <div class="p-showcase-top">
+        <span class="p-showcase-logo">pr<span>3</span>nt</span>
+        <small>van idee naar bruikbare print</small>
       </div>
-    {% endif %}
+      <div class="p-showcase-object">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="p-showcase-list">
+        <div><strong>Onderdelen</strong><span>clips, adapters, kapjes</span></div>
+        <div><strong>Prototypes</strong><span>testen voordat je bouwt</span></div>
+        <div><strong>Kleine series</strong><span>meerdere stuks zonder gedoe</span></div>
+      </div>
+    </div>
   </div>
+
+  {% if section.settings.show_form %}
+    <div class="p-wrap">
+      <div class="p-hero-form-drop" id="offerte-formulier" data-pr3nt-quote-target>
+        <div class="p-hero-form-head">
+          <p class="p-eyebrow">Offerte aanvragen</p>
+          <h2 class="p-title-sm">Upload je bestand of omschrijf je idee.</h2>
+        </div>
+        <div class="p-form-shell">
+          {% render 'pr3nt-quote-form', supported_formats: section.settings.supported_formats, form_id: 'Pr3ntHeroQuoteForm', quote_endpoint_url: section.settings.quote_endpoint_url %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
 </section>
 
 {% schema %}
