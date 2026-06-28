@@ -18,13 +18,24 @@
     .p-request-type.is-active{background:var(--p-dark);color:#fff;border-color:var(--p-dark)}.p-request-type.is-active span{color:rgba(255,255,255,.7)}
     .p-design-help{margin-top:10px;padding:11px 12px;border-radius:16px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:12.5px;line-height:1.45;font-weight:760}
     .p-design-help strong{color:var(--p-dark)}
+    .p-color-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .p-color-choice{appearance:none;border:1px solid rgba(16,24,32,.09);background:#fff;border-radius:13px;padding:8px 7px;display:grid;gap:5px;place-items:center;cursor:pointer;color:var(--p-dark);font:inherit;font-weight:850;font-size:11.5px;line-height:1.1;text-align:center}
+    .p-color-choice i{width:24px;height:24px;border-radius:999px;background:var(--p-swatch);display:block;border:1px solid rgba(16,24,32,.14);box-shadow:inset 0 0 0 2px rgba(255,255,255,.2)}
+    .p-color-choice.is-active{border-color:var(--p-green);box-shadow:0 0 0 3px rgba(0,208,132,.14)}
+    .p-size-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+    .p-size-choice{appearance:none;border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:14px;padding:9px 7px;text-align:center;cursor:pointer;font:inherit;display:grid;gap:3px;min-width:0}
+    .p-size-choice strong{font-size:12px;line-height:1.05;letter-spacing:-.02em}.p-size-choice span{font-size:10.8px;line-height:1.1;color:rgba(16,24,32,.55);font-weight:900}
+    .p-size-choice.is-active{background:var(--p-dark);border-color:var(--p-dark);color:#fff}.p-size-choice.is-active span{color:rgba(255,255,255,.68)}
     @keyframes pQuotePrinterHead{from{left:9px}to{left:34px}}
     @keyframes pQuotePrintGrow{from{height:4px}to{height:16px}}
-    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row,.p-request-type-grid{grid-template-columns:1fr;gap:10px}}
+    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row,.p-request-type-grid{grid-template-columns:1fr;gap:10px}.p-color-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.p-size-grid{grid-template-columns:1fr 1fr}}
   </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
+    <input type="hidden" value="Zwart" data-p-color>
+    <input type="hidden" value="5 × 5 cm" data-p-print-size-input>
+    <input type="hidden" value="vanaf €9,95" data-p-print-price-input>
     <input type="hidden" value="Nee" data-p-rush-input>
     <input type="hidden" value="" data-p-file-name>
     <input type="hidden" value="3d_file" data-p-request-type-input>
@@ -68,10 +79,29 @@
               <button type="button" class="p-choice" data-p-material="PETG">PETG</button>
             </div>
           </div>
-          <label class="p-field">
+          <div class="p-field">
             <span>Gewenste kleur</span>
-            <input type="text" placeholder="Bijv. zwart, wit, rood..." required data-p-color>
-          </label>
+            <div class="p-color-grid" aria-label="Gewenste kleur">
+              <button type="button" class="p-color-choice is-active" data-p-color-choice="Zwart" style="--p-swatch:#101820"><i></i><span>Zwart</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Wit" style="--p-swatch:#ffffff"><i></i><span>Wit</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Grijs" style="--p-swatch:#9ca3af"><i></i><span>Grijs</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Rood" style="--p-swatch:#ef4444"><i></i><span>Rood</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Blauw" style="--p-swatch:#2563eb"><i></i><span>Blauw</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Groen" style="--p-swatch:#22c55e"><i></i><span>Groen</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Oranje" style="--p-swatch:#f97316"><i></i><span>Oranje</span></button>
+              <button type="button" class="p-color-choice" data-p-color-choice="Geel" style="--p-swatch:#facc15"><i></i><span>Geel</span></button>
+            </div>
+          </div>
+          <div class="p-field p-size-field">
+            <span>Selecteer het oppervlak</span>
+            <div class="p-size-grid" aria-label="Printgrootte en richtprijs">
+              <button type="button" class="p-size-choice is-active" data-p-print-size="5 × 5 cm" data-p-print-price="vanaf €9,95"><strong>5 × 5 cm</strong><span>vanaf €9,95</span></button>
+              <button type="button" class="p-size-choice" data-p-print-size="10 × 10 cm" data-p-print-price="vanaf €14,95"><strong>10 × 10 cm</strong><span>vanaf €14,95</span></button>
+              <button type="button" class="p-size-choice" data-p-print-size="15 × 15 cm" data-p-print-price="vanaf €24,95"><strong>15 × 15 cm</strong><span>vanaf €24,95</span></button>
+              <button type="button" class="p-size-choice" data-p-print-size="20 × 20 cm" data-p-print-price="vanaf €39,95"><strong>20 × 20 cm</strong><span>vanaf €39,95</span></button>
+              <button type="button" class="p-size-choice" data-p-print-size="25,5 × 25,5 cm" data-p-print-price="vanaf €59,95"><strong>25,5 × 25,5 cm</strong><span>vanaf €59,95</span></button>
+            </div>
+          </div>
         </div>
         <button type="button" class="p-rush" data-p-rush><strong>Spoed aanvragen</strong><span data-p-rush-text>Standaard · 3 dagen verzending</span></button>
       </div>
