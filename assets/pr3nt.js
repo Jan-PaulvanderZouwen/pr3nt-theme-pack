@@ -7,12 +7,7 @@
 
   function escapeHtml(value) {
     return String(value || '').replace(/[&<>"]/g, function (match) {
-      return {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;'
-      }[match];
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[match];
     });
   }
 
@@ -48,20 +43,15 @@
   function initQuoteAnchors(scope) {
     var root = scope || document;
     var selector = 'a[href="#upload"], a[href="/#upload"], a[href="#offerte-formulier"], a[href="/#offerte-formulier"]';
-
     root.querySelectorAll(selector).forEach(function (link) {
       if (link.dataset.pQuoteAnchorReady) return;
       link.dataset.pQuoteAnchorReady = 'true';
-
       link.addEventListener('click', function (event) {
-        var hasLocalQuoteForm = !!quoteTarget();
-
-        if (hasLocalQuoteForm) {
+        if (quoteTarget()) {
           event.preventDefault();
           scrollToQuote();
           return;
         }
-
         event.preventDefault();
         window.location.href = '/#offerte-formulier';
       });
@@ -88,13 +78,8 @@
         document.documentElement.classList.add('p-menu-open');
       }
 
-      toggle.addEventListener('click', function () {
-        menu.hidden ? open() : close();
-      });
-
-      menu.querySelectorAll('a').forEach(function (link) {
-        link.addEventListener('click', close);
-      });
+      toggle.addEventListener('click', function () { menu.hidden ? open() : close(); });
+      menu.querySelectorAll('a').forEach(function (link) { link.addEventListener('click', close); });
     });
 
     if (!menuKeydownReady) {
@@ -123,6 +108,7 @@
       'Kleur: ' + (fields.color || '-'),
       'Oppervlak: ' + (fields.printSize || '-'),
       'Richtprijs: ' + (fields.printSizePrice || '-'),
+      fields.paymentLink ? 'Betaallink: ' + fields.paymentLink : '',
       '\n--- Verzendadres ---',
       'Land: ' + (fields.shippingCountry || '-'),
       'Postcode: ' + (fields.shippingPostal || '-'),
@@ -133,9 +119,7 @@
     noteWithIntake = noteWithIntake ? noteWithIntake + '\n\n' + intakeNote : intakeNote;
 
     var data = new FormData();
-    chosenFiles.forEach(function (file) {
-      data.append('file', file);
-    });
+    chosenFiles.forEach(function (file) { data.append('file', file); });
     data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
     data.append('request_type', fields.requestType || '3d_file');
     data.append('description', fields.description || '');
@@ -143,6 +127,7 @@
     data.append('material', fields.material || '');
     data.append('print_size', fields.printSize || '');
     data.append('print_size_price', fields.printSizePrice || '');
+    data.append('payment_link', fields.paymentLink || '');
     data.append('name', fields.name);
     data.append('email', fields.email);
     data.append('phone', fields.phone || '');
@@ -175,16 +160,16 @@
       var fileError = form.querySelector('[data-p-file-error]');
       var nextButton = form.querySelector('[data-p-next]');
       var submitButton = form.querySelector('[data-p-submit]');
+      var paymentHint = form.querySelector('[data-p-payment-hint]');
       var stepOne = form.querySelector('[data-p-step="1"]');
       var stepTwo = form.querySelector('[data-p-step="2"]');
       var tabs = form.querySelectorAll('[data-p-tab]');
       var materialInput = form.querySelector('[data-p-material-input]');
       var materialButtons = form.querySelectorAll('[data-p-material]');
       var colorInput = form.querySelector('[data-p-color]');
-      var colorButtons = form.querySelectorAll('[data-p-color-choice]');
       var printSizeInput = form.querySelector('[data-p-print-size-input]');
       var printPriceInput = form.querySelector('[data-p-print-price-input]');
-      var printSizeButtons = form.querySelectorAll('[data-p-print-size]');
+      var paymentLinkInput = form.querySelector('[data-p-payment-link-input]');
       var rushInput = form.querySelector('[data-p-rush-input]');
       var rushButton = form.querySelector('[data-p-rush]');
       var requestTypeInput = form.querySelector('[data-p-request-type-input]');
@@ -205,9 +190,7 @@
       var formTitle = form.querySelector('[data-p-form-title]');
       var stepIcon = form.querySelector('[data-p-step-icon]');
 
-      function requestType() {
-        return requestTypeInput ? requestTypeInput.value : '3d_file';
-      }
+      function requestType() { return requestTypeInput ? requestTypeInput.value : '3d_file'; }
 
       function validFile(file) {
         if (!file || !file.name) return false;
@@ -221,18 +204,12 @@
         return chosenFiles.every(validFile);
       }
 
-      function validEmail(value) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
-      }
-
+      function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim()); }
       function validPhone(value) {
         var cleaned = String(value || '').replace(/[\s().-]/g, '');
         return cleaned === '' || /^\+?[0-9]{8,15}$/.test(cleaned);
       }
-
-      function valueOk(input, min) {
-        return !!input && String(input.value || '').trim().length >= (min || 1);
-      }
+      function valueOk(input, min) { return !!input && String(input.value || '').trim().length >= (min || 1); }
 
       function fileText() {
         var chosenFiles = filesOf(fileInput);
@@ -240,21 +217,22 @@
         return chosenFiles.length === 1 ? chosenFiles[0].name : chosenFiles.length + ' bestanden gekozen';
       }
 
-      function descriptionOk() {
-        return requestType() === '3d_file' || valueOk(descriptionInput, 12);
+      function selectedSizeOption() {
+        return printSizeInput && printSizeInput.selectedOptions ? printSizeInput.selectedOptions[0] : null;
       }
 
-      function stepOneOk() {
-        return validFiles() && descriptionOk() && valueOk(colorInput, 2) && valueOk(printSizeInput, 2);
+      function syncPrintMeta() {
+        var option = selectedSizeOption();
+        if (!option) return;
+        if (printPriceInput) printPriceInput.value = option.getAttribute('data-p-print-price') || '';
+        if (paymentLinkInput) paymentLinkInput.value = option.getAttribute('data-p-payment-link') || '';
       }
 
-      function addressOk() {
-        return valueOk(countryInput, 2) && valueOk(postalInput, 4) && valueOk(houseInput, 1) && valueOk(cityInput, 2);
-      }
-
-      function formOk() {
-        return stepOneOk() && nameInput.value.trim().length >= 2 && validEmail(emailInput.value) && validPhone(phoneInput.value) && addressOk();
-      }
+      function paymentLink() { return paymentLinkInput ? String(paymentLinkInput.value || '').trim() : ''; }
+      function descriptionOk() { return requestType() === '3d_file' || valueOk(descriptionInput, 12); }
+      function stepOneOk() { return validFiles() && descriptionOk() && valueOk(colorInput, 2) && valueOk(printSizeInput, 2); }
+      function addressOk() { return valueOk(countryInput, 2) && valueOk(postalInput, 4) && valueOk(houseInput, 1) && valueOk(cityInput, 2); }
+      function formOk() { return stepOneOk() && valueOk(nameInput, 2) && validEmail(emailInput.value) && validPhone(phoneInput.value) && addressOk(); }
 
       function updateSummary() {
         if (!summary) return;
@@ -264,7 +242,7 @@
         var fileSummary = requestType() === 'no_model' && !chosenFiles.length ? 'Omschrijving zonder bestand' : fileText();
         var sizeText = printSizeInput && printSizeInput.value ? printSizeInput.value : 'oppervlak niet gekozen';
         var priceText = printPriceInput && printPriceInput.value ? printPriceInput.value : 'prijs volgt';
-        var detailSummary = typeLabel + ' · ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet gekozen') + ' · ' + sizeText + ' · ' + priceText + ' · ' + rushText;
+        var detailSummary = typeLabel + ' · ' + (materialInput ? materialInput.value : '') + ' · ' + (colorInput.value || 'kleur niet gekozen') + ' · ' + sizeText + ' · ' + priceText + ' · ' + rushText;
         summary.innerHTML = '<strong style="display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2">' + escapeHtml(fileSummary) + '</strong><span style="display:block;margin-top:2px;color:rgba(16,24,32,.55);font-size:12.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(detailSummary) + '</span>';
         summary.style.overflow = 'hidden';
         summary.title = chosenFiles.map(function (file) { return file.name; }).join(', ') + ' · ' + detailSummary;
@@ -278,9 +256,7 @@
 
       function updateRequestTypeUi() {
         var noModel = requestType() === 'no_model';
-        requestTypeButtons.forEach(function (button) {
-          button.classList.toggle('is-active', button.dataset.pRequestType === requestType());
-        });
+        requestTypeButtons.forEach(function (button) { button.classList.toggle('is-active', button.dataset.pRequestType === requestType()); });
         if (fileLabel) fileLabel.textContent = noModel ? (filesOf(fileInput).length ? fileText() : 'Upload eventueel foto’s of een schets') : (filesOf(fileInput).length ? fileText() : 'Sleep je 3D-bestand hierheen');
         if (uploadHelp) uploadHelp.textContent = noModel ? 'Optioneel: JPG, PNG, WEBP, PDF, HEIC of 3D-bestand' : 'Verplicht: STL, 3MF, OBJ, STEP of STP';
         if (designHelp) designHelp.hidden = !noModel;
@@ -288,12 +264,19 @@
         if (fileError) fileError.textContent = noModel ? 'Upload een geldig referentiebestand of laat het uploadveld leeg.' : 'Upload een geldig 3D-bestand.';
       }
 
+      function updateSubmitUi() {
+        if (submitButton && !pending) submitButton.textContent = paymentLink() ? 'Bestand uploaden & afrekenen' : 'Offerte aanvragen';
+        if (paymentHint) paymentHint.textContent = paymentLink() ? 'Na upload sturen we je door naar de juiste Rabobank-betaallink.' : 'Voor dit formaat is nog geen betaallink ingevuld; de aanvraag wordt als offerte verstuurd.';
+      }
+
       function update() {
+        syncPrintMeta();
         updateRequestTypeUi();
         if (nextButton) nextButton.disabled = !stepOneOk();
         if (submitButton && !pending) submitButton.disabled = !formOk();
         updateHeader();
         updateSummary();
+        updateSubmitUi();
       }
 
       function setStep(nextStep) {
@@ -308,17 +291,8 @@
       if (fileInput) {
         fileInput.addEventListener('change', function () {
           var chosenFiles = filesOf(fileInput);
-          if (!chosenFiles.length) {
-            if (fileError) fileError.classList.remove('is-visible');
-            update();
-            return;
-          }
-          if (!chosenFiles.every(validFile)) {
-            fileInput.value = '';
-            if (fileError) fileError.classList.add('is-visible');
-            update();
-            return;
-          }
+          if (!chosenFiles.length) { if (fileError) fileError.classList.remove('is-visible'); update(); return; }
+          if (!chosenFiles.every(validFile)) { fileInput.value = ''; if (fileError) fileError.classList.add('is-visible'); update(); return; }
           if (fileError) fileError.classList.remove('is-visible');
           update();
         });
@@ -337,28 +311,14 @@
         button.addEventListener('click', function () {
           materialButtons.forEach(function (item) { item.classList.remove('is-active'); });
           button.classList.add('is-active');
-          materialInput.value = button.dataset.pMaterial;
+          if (materialInput) materialInput.value = button.dataset.pMaterial;
           update();
         });
       });
 
-      colorButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-          colorButtons.forEach(function (item) { item.classList.remove('is-active'); });
-          button.classList.add('is-active');
-          if (colorInput) colorInput.value = button.dataset.pColorChoice || '';
-          update();
-        });
-      });
-
-      printSizeButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-          printSizeButtons.forEach(function (item) { item.classList.remove('is-active'); });
-          button.classList.add('is-active');
-          if (printSizeInput) printSizeInput.value = button.dataset.pPrintSize || '';
-          if (printPriceInput) printPriceInput.value = button.dataset.pPrintPrice || '';
-          update();
-        });
+      [descriptionInput, colorInput, printSizeInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
+        if (input) input.addEventListener('input', update);
+        if (input && input.tagName === 'SELECT') input.addEventListener('change', update);
       });
 
       if (rushButton) {
@@ -371,10 +331,6 @@
         });
       }
 
-      [descriptionInput, colorInput, printSizeInput, printPriceInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
-        if (input) input.addEventListener('input', update);
-        if (input && input.tagName === 'SELECT') input.addEventListener('change', update);
-      });
       tabs.forEach(function (tab) { tab.addEventListener('click', function () { setStep(Number(tab.dataset.pTab)); }); });
       if (nextButton) nextButton.addEventListener('click', function () { setStep(2); });
       var change = form.querySelector('[data-p-change]');
@@ -382,18 +338,13 @@
 
       form.addEventListener('submit', async function (event) {
         event.preventDefault();
-        if (!formOk() || pending) {
-          update();
-          return;
-        }
+        if (!formOk() || pending) { update(); return; }
         pending = true;
         hideError(form);
-        if (submitButton) {
-          submitButton.disabled = true;
-          submitButton.textContent = 'Aanvraag versturen...';
-        }
+        if (submitButton) { submitButton.disabled = true; submitButton.textContent = paymentLink() ? 'Uploaden...' : 'Aanvraag versturen...'; }
 
         try {
+          var payLink = paymentLink();
           var result = await submitQuote(form, {
             fileInput: fileInput,
             requestType: requestType(),
@@ -402,6 +353,7 @@
             material: materialInput ? materialInput.value : '',
             printSize: printSizeInput ? printSizeInput.value : '',
             printSizePrice: printPriceInput ? printPriceInput.value : '',
+            paymentLink: payLink,
             name: nameInput.value,
             email: emailInput.value,
             phone: phoneInput.value,
@@ -412,10 +364,9 @@
             note: noteInput ? noteInput.value : '',
             rush: rushInput.value
           });
-          window.location.href = result.redirect || '/pages/offerte-aanvraag-ontvangen';
+          window.location.href = payLink || result.redirect || '/pages/offerte-aanvraag-ontvangen';
         } catch (error) {
           pending = false;
-          if (submitButton) submitButton.textContent = 'Offerte aanvragen';
           showError(form, error.message || 'De aanvraag kon niet worden verstuurd. Probeer het opnieuw.');
           update();
         }
