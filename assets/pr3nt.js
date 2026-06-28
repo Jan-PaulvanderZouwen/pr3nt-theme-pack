@@ -118,6 +118,11 @@
       '--- Aanvraagtype ---',
       requestTypeLabel,
       fields.description ? '\n--- Omschrijving / referentie ---\n' + fields.description : '',
+      '\n--- Printkeuze ---',
+      'Materiaal: ' + (fields.material || '-'),
+      'Kleur: ' + (fields.color || '-'),
+      'Oppervlak: ' + (fields.printSize || '-'),
+      'Richtprijs: ' + (fields.printSizePrice || '-'),
       '\n--- Verzendadres ---',
       'Land: ' + (fields.shippingCountry || '-'),
       'Postcode: ' + (fields.shippingPostal || '-'),
@@ -134,8 +139,10 @@
     data.append('file_name', chosenFiles.map(function (file) { return file.name; }).join(', '));
     data.append('request_type', fields.requestType || '3d_file');
     data.append('description', fields.description || '');
-    data.append('color', fields.color);
-    data.append('material', fields.material);
+    data.append('color', fields.color || '');
+    data.append('material', fields.material || '');
+    data.append('print_size', fields.printSize || '');
+    data.append('print_size_price', fields.printSizePrice || '');
     data.append('name', fields.name);
     data.append('email', fields.email);
     data.append('phone', fields.phone || '');
@@ -173,6 +180,11 @@
       var tabs = form.querySelectorAll('[data-p-tab]');
       var materialInput = form.querySelector('[data-p-material-input]');
       var materialButtons = form.querySelectorAll('[data-p-material]');
+      var colorInput = form.querySelector('[data-p-color]');
+      var colorButtons = form.querySelectorAll('[data-p-color-choice]');
+      var printSizeInput = form.querySelector('[data-p-print-size-input]');
+      var printPriceInput = form.querySelector('[data-p-print-price-input]');
+      var printSizeButtons = form.querySelectorAll('[data-p-print-size]');
       var rushInput = form.querySelector('[data-p-rush-input]');
       var rushButton = form.querySelector('[data-p-rush]');
       var requestTypeInput = form.querySelector('[data-p-request-type-input]');
@@ -180,7 +192,6 @@
       var designHelp = form.querySelector('[data-p-design-help]');
       var descriptionInput = form.querySelector('[data-p-description]');
       var descriptionLabel = form.querySelector('[data-p-description-label]');
-      var colorInput = form.querySelector('[data-p-color]');
       var nameInput = form.querySelector('[data-p-name]');
       var emailInput = form.querySelector('[data-p-email]');
       var phoneInput = form.querySelector('[data-p-phone]');
@@ -234,7 +245,7 @@
       }
 
       function stepOneOk() {
-        return validFiles() && descriptionOk() && colorInput && colorInput.value.trim().length >= 2;
+        return validFiles() && descriptionOk() && valueOk(colorInput, 2) && valueOk(printSizeInput, 2);
       }
 
       function addressOk() {
@@ -251,7 +262,9 @@
         var rushText = rushInput.value === 'Ja' ? 'spoed' : 'standaard';
         var typeLabel = requestType() === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand';
         var fileSummary = requestType() === 'no_model' && !chosenFiles.length ? 'Omschrijving zonder bestand' : fileText();
-        var detailSummary = typeLabel + ' · ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet ingevuld') + ' · ' + rushText;
+        var sizeText = printSizeInput && printSizeInput.value ? printSizeInput.value : 'oppervlak niet gekozen';
+        var priceText = printPriceInput && printPriceInput.value ? printPriceInput.value : 'prijs volgt';
+        var detailSummary = typeLabel + ' · ' + materialInput.value + ' · ' + (colorInput.value || 'kleur niet gekozen') + ' · ' + sizeText + ' · ' + priceText + ' · ' + rushText;
         summary.innerHTML = '<strong style="display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2">' + escapeHtml(fileSummary) + '</strong><span style="display:block;margin-top:2px;color:rgba(16,24,32,.55);font-size:12.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(detailSummary) + '</span>';
         summary.style.overflow = 'hidden';
         summary.title = chosenFiles.map(function (file) { return file.name; }).join(', ') + ' · ' + detailSummary;
@@ -329,6 +342,25 @@
         });
       });
 
+      colorButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          colorButtons.forEach(function (item) { item.classList.remove('is-active'); });
+          button.classList.add('is-active');
+          if (colorInput) colorInput.value = button.dataset.pColorChoice || '';
+          update();
+        });
+      });
+
+      printSizeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          printSizeButtons.forEach(function (item) { item.classList.remove('is-active'); });
+          button.classList.add('is-active');
+          if (printSizeInput) printSizeInput.value = button.dataset.pPrintSize || '';
+          if (printPriceInput) printPriceInput.value = button.dataset.pPrintPrice || '';
+          update();
+        });
+      });
+
       if (rushButton) {
         rushButton.addEventListener('click', function () {
           var active = rushButton.classList.toggle('is-active');
@@ -339,7 +371,7 @@
         });
       }
 
-      [descriptionInput, colorInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
+      [descriptionInput, colorInput, printSizeInput, printPriceInput, nameInput, emailInput, phoneInput, countryInput, postalInput, houseInput, cityInput, noteInput].forEach(function (input) {
         if (input) input.addEventListener('input', update);
         if (input && input.tagName === 'SELECT') input.addEventListener('change', update);
       });
@@ -366,8 +398,10 @@
             fileInput: fileInput,
             requestType: requestType(),
             description: descriptionInput ? descriptionInput.value : '',
-            color: colorInput.value,
-            material: materialInput.value,
+            color: colorInput ? colorInput.value : '',
+            material: materialInput ? materialInput.value : '',
+            printSize: printSizeInput ? printSizeInput.value : '',
+            printSizePrice: printPriceInput ? printPriceInput.value : '',
             name: nameInput.value,
             email: emailInput.value,
             phone: phoneInput.value,
