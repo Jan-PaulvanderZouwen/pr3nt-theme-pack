@@ -1,41 +1,43 @@
 <div class="p-form">
   <style>
-    .p-upload-progress{margin-top:14px;padding:14px;border-radius:18px;background:#fff;border:1px solid rgba(16,24,32,.08);display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;box-shadow:0 10px 28px rgba(16,24,32,.04)}
+    .p-upload-progress{margin-top:10px;padding:11px;border-radius:16px;background:#fff;border:1px solid rgba(16,24,32,.08);display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;box-shadow:0 10px 28px rgba(16,24,32,.04)}
     .p-upload-progress[hidden]{display:none!important}
-    .p-mini-printer{position:relative;width:62px;height:48px;border-radius:14px;background:#101820;overflow:hidden}
-    .p-mini-printer span{position:absolute;left:8px;right:8px;top:10px;height:4px;border-radius:999px;background:rgba(255,255,255,.7)}
-    .p-mini-printer i{position:absolute;top:6px;left:10px;width:18px;height:16px;border-radius:6px;background:#00d084;animation:pQuotePrinterHead 1.35s infinite alternate ease-in-out}
-    .p-mini-printer b{position:absolute;left:18px;right:18px;bottom:10px;height:8px;border-radius:8px 8px 3px 3px;background:#00d084;animation:pQuotePrintGrow 1.35s infinite alternate ease-in-out}
+    .p-mini-printer{position:relative;width:52px;height:42px;border-radius:13px;background:#101820;overflow:hidden}
+    .p-mini-printer span{position:absolute;left:8px;right:8px;top:9px;height:4px;border-radius:999px;background:rgba(255,255,255,.7)}
+    .p-mini-printer i{position:absolute;top:6px;left:10px;width:17px;height:15px;border-radius:6px;background:#00d084;animation:pQuotePrinterHead 1.35s infinite alternate ease-in-out}
+    .p-mini-printer b{position:absolute;left:17px;right:17px;bottom:9px;height:8px;border-radius:8px 8px 3px 3px;background:#00d084;animation:pQuotePrintGrow 1.35s infinite alternate ease-in-out}
     .p-upload-progress-copy{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;min-width:0}
-    .p-upload-progress-copy strong{font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .p-upload-progress-copy span{color:rgba(16,24,32,.55);font-size:13px;font-weight:900}
-    .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:9px;overflow:hidden}
+    .p-upload-progress-copy strong{font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .p-upload-progress-copy span{color:rgba(16,24,32,.55);font-size:12px;font-weight:900}
+    .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:8px;overflow:hidden}
     .p-upload-progress-bar span{display:block;height:100%;width:0;background:#00d084;border-radius:inherit;transition:width .18s ease}
-    .p-address-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .p-request-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-    .p-request-type{border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:18px;padding:14px;text-align:left;cursor:pointer;display:grid;gap:4px}
-    .p-request-type strong{font-size:14px;line-height:1.2}.p-request-type span{font-size:12.5px;line-height:1.35;color:rgba(16,24,32,.55);font-weight:750}
+    .p-request-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .p-request-type{border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:15px;padding:10px 11px;text-align:left;cursor:pointer;display:grid;gap:3px}
+    .p-request-type strong{font-size:13px;line-height:1.15}.p-request-type span{font-size:11.6px;line-height:1.25;color:rgba(16,24,32,.55);font-weight:750}
     .p-request-type.is-active{background:var(--p-dark);color:#fff;border-color:var(--p-dark)}.p-request-type.is-active span{color:rgba(255,255,255,.7)}
-    .p-design-help{margin-top:10px;padding:11px 12px;border-radius:16px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:12.5px;line-height:1.45;font-weight:760}
+    .p-design-help{margin-top:8px;padding:9px 10px;border-radius:14px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:12px;line-height:1.35;font-weight:760}
     .p-design-help strong{color:var(--p-dark)}
-    .p-color-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-    .p-color-choice{appearance:none;border:1px solid rgba(16,24,32,.09);background:#fff;border-radius:13px;padding:8px 7px;display:grid;gap:5px;place-items:center;cursor:pointer;color:var(--p-dark);font:inherit;font-weight:850;font-size:11.5px;line-height:1.1;text-align:center}
-    .p-color-choice i{width:24px;height:24px;border-radius:999px;background:var(--p-swatch);display:block;border:1px solid rgba(16,24,32,.14);box-shadow:inset 0 0 0 2px rgba(255,255,255,.2)}
-    .p-color-choice.is-active{border-color:var(--p-green);box-shadow:0 0 0 3px rgba(0,208,132,.14)}
-    .p-size-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-    .p-size-choice{appearance:none;border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:14px;padding:9px 7px;text-align:center;cursor:pointer;font:inherit;display:grid;gap:3px;min-width:0}
-    .p-size-choice strong{font-size:12px;line-height:1.05;letter-spacing:-.02em}.p-size-choice span{font-size:10.8px;line-height:1.1;color:rgba(16,24,32,.55);font-weight:900}
-    .p-size-choice.is-active{background:var(--p-dark);border-color:var(--p-dark);color:#fff}.p-size-choice.is-active span{color:rgba(255,255,255,.68)}
-    @keyframes pQuotePrinterHead{from{left:9px}to{left:34px}}
-    @keyframes pQuotePrintGrow{from{height:4px}to{height:16px}}
-    @media(max-width:640px){.p-upload-progress{grid-template-columns:52px 1fr;padding:12px}.p-mini-printer{width:52px;height:44px}.p-upload-progress-bar{grid-column:1/-1}.p-address-row,.p-request-type-grid{grid-template-columns:1fr;gap:10px}.p-color-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.p-size-grid{grid-template-columns:1fr 1fr}}
+    .p-select-stack{display:grid;gap:8px}
+    .p-select-field{width:100%}
+    .p-select-field select{width:100%;min-height:42px!important;border-radius:12px;border:1px solid rgba(16,24,32,.12);background:#fff;color:var(--p-dark);font:inherit;font-size:13.5px;font-weight:850;padding:9px 11px}
+    .p-compact-group{padding:11px!important;background:#fff!important;border-color:rgba(16,24,32,.07)!important;gap:8px!important}
+    .p-compact-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .p-compact-row-3{display:grid;grid-template-columns:.9fr 1fr .65fr;gap:8px}
+    .p-compact-field{padding:0!important;border:0!important;background:transparent!important;border-radius:0!important}
+    .p-compact-field span{margin-bottom:4px!important;font-size:12px!important}
+    .p-compact-field input,.p-compact-field select{min-height:42px!important;border-radius:12px!important;font-size:13px!important;padding:8px 10px!important}
+    .p-compact-note{margin-top:8px!important}.p-compact-note textarea{min-height:58px!important;font-size:13px!important;padding:9px 10px!important}
+    .p-pay-hint{margin:8px 0 0;color:rgba(16,24,32,.55);font-size:11.8px;line-height:1.35;font-weight:760;text-align:center}
+    .p-hero-form-shell .p-form{padding:14px!important}.p-hero-form-shell .p-form-progress{margin:10px 0 2px!important}.p-hero-form-shell .p-upload{min-height:62px!important;padding:9px 11px!important;margin-top:8px!important}.p-hero-form-shell .p-upload>span:first-child{font-size:20px!important}.p-hero-form-shell .p-upload strong{font-size:14px!important}.p-hero-form-shell .p-upload-help{font-size:11.5px!important}.p-hero-form-shell .p-upload-button{min-height:34px!important;padding:7px 10px!important;font-size:12px!important}.p-hero-form-shell .p-options-panel{padding:10px!important;gap:8px!important}.p-hero-form-shell [data-p-next],.p-hero-form-shell [data-p-submit]{margin-top:9px!important;min-height:42px!important}
+    @keyframes pQuotePrinterHead{from{left:9px}to{left:30px}}
+    @keyframes pQuotePrintGrow{from{height:4px}to{height:15px}}
+    @media(max-width:640px){.p-upload-progress{grid-template-columns:48px 1fr}.p-upload-progress-bar{grid-column:1/-1}.p-request-type-grid,.p-compact-row,.p-compact-row-3{grid-template-columns:1fr}}
   </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
   <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
-    <input type="hidden" value="Zwart" data-p-color>
-    <input type="hidden" value="5 × 5 cm" data-p-print-size-input>
     <input type="hidden" value="vanaf €9,95" data-p-print-price-input>
+    <input type="hidden" value="{{ payment_link_5 | escape }}" data-p-payment-link-input>
     <input type="hidden" value="Nee" data-p-rush-input>
     <input type="hidden" value="" data-p-file-name>
     <input type="hidden" value="3d_file" data-p-request-type-input>
@@ -71,72 +73,75 @@
       <textarea data-p-description hidden>Omschrijving volgt bij de laatste stap.</textarea>
 
       <div class="p-options-panel">
-        <div class="p-field-grid">
-          <div class="p-field">
+        <div class="p-select-stack">
+          <div class="p-field p-select-field">
             <span>Materiaal</span>
             <div class="p-choice-grid">
               <button type="button" class="p-choice is-active" data-p-material="PLA">PLA</button>
               <button type="button" class="p-choice" data-p-material="PETG">PETG</button>
             </div>
           </div>
-          <div class="p-field">
+          <label class="p-field p-select-field">
             <span>Gewenste kleur</span>
-            <div class="p-color-grid" aria-label="Gewenste kleur">
-              <button type="button" class="p-color-choice is-active" data-p-color-choice="Zwart" style="--p-swatch:#101820"><i></i><span>Zwart</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Wit" style="--p-swatch:#ffffff"><i></i><span>Wit</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Grijs" style="--p-swatch:#9ca3af"><i></i><span>Grijs</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Rood" style="--p-swatch:#ef4444"><i></i><span>Rood</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Blauw" style="--p-swatch:#2563eb"><i></i><span>Blauw</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Groen" style="--p-swatch:#22c55e"><i></i><span>Groen</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Oranje" style="--p-swatch:#f97316"><i></i><span>Oranje</span></button>
-              <button type="button" class="p-color-choice" data-p-color-choice="Geel" style="--p-swatch:#facc15"><i></i><span>Geel</span></button>
-            </div>
-          </div>
-          <div class="p-field p-size-field">
+            <select data-p-color required>
+              <option value="Zwart">Zwart</option>
+              <option value="Wit">Wit</option>
+              <option value="Grijs">Grijs</option>
+              <option value="Rood">Rood</option>
+              <option value="Blauw">Blauw</option>
+              <option value="Groen">Groen</option>
+              <option value="Oranje">Oranje</option>
+              <option value="Geel">Geel</option>
+            </select>
+          </label>
+          <label class="p-field p-select-field">
             <span>Selecteer het oppervlak</span>
-            <div class="p-size-grid" aria-label="Printgrootte en richtprijs">
-              <button type="button" class="p-size-choice is-active" data-p-print-size="5 × 5 cm" data-p-print-price="vanaf €9,95"><strong>5 × 5 cm</strong><span>vanaf €9,95</span></button>
-              <button type="button" class="p-size-choice" data-p-print-size="10 × 10 cm" data-p-print-price="vanaf €14,95"><strong>10 × 10 cm</strong><span>vanaf €14,95</span></button>
-              <button type="button" class="p-size-choice" data-p-print-size="15 × 15 cm" data-p-print-price="vanaf €24,95"><strong>15 × 15 cm</strong><span>vanaf €24,95</span></button>
-              <button type="button" class="p-size-choice" data-p-print-size="20 × 20 cm" data-p-print-price="vanaf €39,95"><strong>20 × 20 cm</strong><span>vanaf €39,95</span></button>
-              <button type="button" class="p-size-choice" data-p-print-size="25,5 × 25,5 cm" data-p-print-price="vanaf €59,95"><strong>25,5 × 25,5 cm</strong><span>vanaf €59,95</span></button>
-            </div>
-          </div>
+            <select data-p-print-size-input required>
+              <option value="5 × 5 cm" data-p-print-price="vanaf €9,95" data-p-payment-link="{{ payment_link_5 | escape }}">5 × 5 cm — vanaf €9,95</option>
+              <option value="10 × 10 cm" data-p-print-price="vanaf €14,95" data-p-payment-link="{{ payment_link_10 | escape }}">10 × 10 cm — vanaf €14,95</option>
+              <option value="15 × 15 cm" data-p-print-price="vanaf €24,95" data-p-payment-link="{{ payment_link_15 | escape }}">15 × 15 cm — vanaf €24,95</option>
+              <option value="20 × 20 cm" data-p-print-price="vanaf €39,95" data-p-payment-link="{{ payment_link_20 | escape }}">20 × 20 cm — vanaf €39,95</option>
+              <option value="25,5 × 25,5 cm" data-p-print-price="vanaf €59,95" data-p-payment-link="{{ payment_link_255 | escape }}">25,5 × 25,5 cm — vanaf €59,95</option>
+            </select>
+          </label>
         </div>
         <button type="button" class="p-rush" data-p-rush><strong>Spoed aanvragen</strong><span data-p-rush-text>Standaard · 3 dagen verzending</span></button>
       </div>
 
-      <button type="button" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-next disabled>Verder naar gegevens</button>
+      <button type="button" class="p-btn p-btn-primary" style="width:100%;margin-top:10px" data-p-next disabled>Verder naar gegevens</button>
     </div>
 
     <div class="p-form-step" data-p-step="2" hidden>
-      <div class="p-summary p-summary-field" style="margin-top:10px;padding:11px 12px;border-radius:16px">
-        <div class="p-summary-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;flex-wrap:nowrap">
-          <div class="p-summary-main" style="min-width:0;line-height:1.35" data-p-summary></div>
-          <button type="button" class="p-btn p-btn-outline" style="min-height:38px;padding:8px 13px;width:auto;font-size:13px" data-p-change>Wijzig</button>
+      <div class="p-summary p-summary-field" style="margin-top:8px;padding:9px 10px;border-radius:14px">
+        <div class="p-summary-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;flex-wrap:nowrap">
+          <div class="p-summary-main" style="min-width:0;line-height:1.3" data-p-summary></div>
+          <button type="button" class="p-btn p-btn-outline" style="min-height:34px;padding:7px 11px;width:auto;font-size:12px" data-p-change>Wijzig</button>
         </div>
       </div>
 
-      <div class="p-contact-group" style="padding:16px;background:#fff;border-color:rgba(16,24,32,.07);gap:12px">
+      <div class="p-contact-group p-compact-group" style="margin-top:8px">
         <p class="p-contact-group-title">Contactgegevens</p>
-        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">E-mailadres</span><input type="email" style="min-height:52px" placeholder="jij@example.nl" required data-p-email></label>
-        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Naam</span><input type="text" style="min-height:52px" placeholder="Je naam" required data-p-name></label>
-        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Telefoonnummer <small>(optioneel)</small></span><input type="tel" style="min-height:52px" placeholder="Bijv. 06 12 34 56 78" data-p-phone></label>
-      </div>
-
-      <div class="p-contact-group" style="margin-top:12px;padding:16px;background:#fff;border-color:rgba(16,24,32,.07);gap:12px">
-        <p class="p-contact-group-title">Verzendadres</p>
-        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Land</span><select style="min-height:52px" required data-p-shipping-country><option value="Nederland">Nederland</option><option value="België">België</option></select></label>
-        <div class="p-address-row">
-          <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Postcode</span><input type="text" style="min-height:52px" placeholder="Bijv. 1234 AB" required data-p-shipping-postal></label>
-          <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Huisnummer</span><input type="text" style="min-height:52px" placeholder="Bijv. 10" required data-p-shipping-house></label>
+        <div class="p-compact-row">
+          <label class="p-field p-compact-field"><span>Naam</span><input type="text" placeholder="Je naam" required data-p-name></label>
+          <label class="p-field p-compact-field"><span>E-mailadres</span><input type="email" placeholder="jij@example.nl" required data-p-email></label>
         </div>
-        <label class="p-field" style="padding:0;border:0;background:transparent;border-radius:0"><span style="margin-bottom:6px">Plaats</span><input type="text" style="min-height:52px" placeholder="Bijv. Utrecht" required data-p-shipping-city></label>
+        <label class="p-field p-compact-field"><span>Telefoonnummer <small>(optioneel)</small></span><input type="tel" placeholder="Bijv. 06 12 34 56 78" data-p-phone></label>
       </div>
 
-      <label class="p-field" style="margin-top:12px"><span>Omschrijving / extra opmerking</span><textarea style="min-height:96px" placeholder="Bijvoorbeeld: sterke uitvoering, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
+      <div class="p-contact-group p-compact-group" style="margin-top:8px">
+        <p class="p-contact-group-title">Verzendadres</p>
+        <div class="p-compact-row-3">
+          <label class="p-field p-compact-field"><span>Land</span><select required data-p-shipping-country><option value="Nederland">Nederland</option><option value="België">België</option></select></label>
+          <label class="p-field p-compact-field"><span>Postcode</span><input type="text" placeholder="1234 AB" required data-p-shipping-postal></label>
+          <label class="p-field p-compact-field"><span>Nr.</span><input type="text" placeholder="10" required data-p-shipping-house></label>
+        </div>
+        <label class="p-field p-compact-field"><span>Plaats</span><input type="text" placeholder="Bijv. Utrecht" required data-p-shipping-city></label>
+      </div>
 
-      <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:18px" data-p-submit disabled>Offerte aanvragen</button>
+      <label class="p-field p-compact-note"><span>Omschrijving / extra opmerking</span><textarea placeholder="Bijvoorbeeld: sterke uitvoering, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
+
+      <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:10px" data-p-submit disabled>Bestand uploaden & afrekenen</button>
+      <p class="p-pay-hint" data-p-payment-hint>Na upload sturen we je door naar de juiste Rabobank-betaallink.</p>
       <div class="p-upload-progress" data-p-upload-progress hidden>
         <div class="p-mini-printer" aria-hidden="true"><span></span><i></i><b></b></div>
         <div class="p-upload-progress-copy">
@@ -146,7 +151,7 @@
         <div class="p-upload-progress-bar"><span data-p-upload-bar style="width:0%"></span></div>
       </div>
       <div class="p-error" data-p-bridge-error>De aanvraag kon niet worden verstuurd. Controleer de koppeling en probeer het opnieuw.</div>
-      <p class="p-form-note">Je betaalt pas nadat je de offerte hebt goedgekeurd.</p>
+      <p class="p-form-note">Je betaling loopt via de geselecteerde Rabobank-betaallink.</p>
     </div>
   </form>
   <script>
@@ -156,35 +161,17 @@
           var postal = form.querySelector('[data-p-shipping-postal]');
           var house = form.querySelector('[data-p-shipping-house]');
           var city = form.querySelector('[data-p-shipping-city]');
-          if (postal) {
-            postal.placeholder = 'Bijv. 1234 AB';
-            if (/^6744\s?ws$/i.test(String(postal.value || '').trim())) postal.value = '';
-          }
-          if (house) {
-            house.placeholder = 'Bijv. 10';
-            if (String(house.value || '').trim() === '41') house.value = '';
-          }
-          if (city) {
-            city.placeholder = 'Bijv. Utrecht';
-            if (/^ederveen$/i.test(String(city.value || '').trim())) city.value = '';
-          }
+          if (postal) { postal.placeholder = 'Bijv. 1234 AB'; if (/^6744\s?ws$/i.test(String(postal.value || '').trim())) postal.value = ''; }
+          if (house) { house.placeholder = 'Bijv. 10'; if (String(house.value || '').trim() === '41') house.value = ''; }
+          if (city) { city.placeholder = 'Bijv. Utrecht'; if (/^ederveen$/i.test(String(city.value || '').trim())) city.value = ''; }
         });
       }
       function bindUploadFeedback(){
         document.querySelectorAll('[data-pr3nt-form] .p-upload').forEach(function(upload){
           if (upload.dataset.pUploadFeedbackReady) return;
           upload.dataset.pUploadFeedbackReady = 'true';
-          ['dragenter','dragover'].forEach(function(eventName){
-            upload.addEventListener(eventName, function(event){
-              event.preventDefault();
-              upload.classList.add('is-drag-over');
-            });
-          });
-          ['dragleave','drop'].forEach(function(eventName){
-            upload.addEventListener(eventName, function(){
-              upload.classList.remove('is-drag-over');
-            });
-          });
+          ['dragenter','dragover'].forEach(function(eventName){ upload.addEventListener(eventName, function(event){ event.preventDefault(); upload.classList.add('is-drag-over'); }); });
+          ['dragleave','drop'].forEach(function(eventName){ upload.addEventListener(eventName, function(){ upload.classList.remove('is-drag-over'); }); });
         });
       }
       neutralizeAddressExamples();
