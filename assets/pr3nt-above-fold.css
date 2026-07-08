@@ -1,0 +1,228 @@
+/* Keep the first viewport focused on: hero + quote form + 4 USP trustbar. */
+body:has(.p-hero) .p-header {
+  position: fixed;
+  inset: 0 0 auto 0;
+  transform: translateY(-110%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .24s ease, opacity .24s ease, box-shadow .24s ease;
+}
+
+body:has(.p-hero) .p-header.is-visible,
+body:has(.p-hero) .p-header:focus-within {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 0 14px 34px rgba(16,24,32,.10);
+}
+
+body:has(.p-hero) .p-header-wrap {
+  min-height: 58px;
+}
+
+body:has(.p-hero) .p-logo-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+}
+
+body:has(.p-hero) .p-logo-title {
+  font-size: 21px;
+}
+
+body:has(.p-hero) .p-logo-subtitle {
+  display: none;
+}
+
+body:has(.p-hero) .p-header .p-btn {
+  min-height: 40px;
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+body:has(.p-hero) .p-menu-toggle {
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+body:has(.p-hero) #offerte-formulier,
+body:has(.p-hero) #upload,
+body:has(.p-hero) #prijzen,
+body:has(.p-hero) #prijsuitleg,
+body:has(.p-hero) #top {
+  scroll-margin-top: 74px;
+}
+
+body:has(.p-hero) .p-hero {
+  --py: clamp(22px, 3.2vh, 36px) !important;
+}
+
+body:has(.p-hero) .p-hero .p-grid-2 {
+  gap: clamp(22px, 3.6vw, 46px);
+  align-items: center;
+}
+
+body:has(.p-hero) .p-hero-kicker {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+body:has(.p-hero) .p-hero-title {
+  margin-top: 14px;
+  font-size: clamp(32px, 4.8vw, 50px);
+  line-height: .98;
+}
+
+body:has(.p-hero) .p-hero .p-copy {
+  margin-top: 10px;
+  font-size: 15.5px;
+  line-height: 1.48;
+}
+
+body:has(.p-hero) .p-hero .p-button-row {
+  margin-top: 18px;
+  gap: 10px;
+}
+
+body:has(.p-hero) .p-hero .p-button-row .p-btn {
+  min-height: 43px;
+  padding: 10px 17px;
+  font-size: 13.5px;
+}
+
+body:has(.p-hero) .p-hero-form-shell {
+  max-width: 620px !important;
+  padding: 10px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-form {
+  min-height: 540px !important;
+  padding: 16px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell form[data-pr3nt-form] {
+  min-height: 500px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-form-head {
+  gap: 7px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-form-kicker {
+  font-size: 10.8px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-form-title {
+  font-size: 21px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-iconbox {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+body:has(.p-hero) form[data-pr3nt-form][data-p-native-steps] .p-form-progress {
+  margin: 12px 0 4px;
+  padding-bottom: 4px;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-upload {
+  min-height: 132px !important;
+  padding: 18px 18px !important;
+  row-gap: 7px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-upload > span:first-child {
+  width: 46px !important;
+  height: 46px !important;
+  font-size: 27px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-upload strong {
+  font-size: 15.5px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-upload-help {
+  font-size: 12px !important;
+}
+
+body:has(.p-hero) .p-hero-form-shell .p-upload-button {
+  min-height: 34px !important;
+  padding: 7px 14px !important;
+}
+
+body:has(.p-hero) .p-hero + .p-section.white {
+  padding: 0 !important;
+}
+
+body:has(.p-hero) .p-hero + .p-section.white .p-wrap {
+  padding: 12px 0 !important;
+  gap: 10px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  font-size: 13px !important;
+}
+
+body:has(.p-hero) .p-hero + .p-section.white .p-dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+}
+
+@media (max-width: 990px) {
+  body:has(.p-hero) .p-header-wrap {
+    min-height: 56px;
+  }
+
+  body:has(.p-hero) .p-hero {
+    --py: 24px !important;
+  }
+
+  body:has(.p-hero) .p-hero .p-grid-2 {
+    gap: 24px;
+  }
+
+  body:has(.p-hero) .p-hero-title {
+    font-size: clamp(32px, 8vw, 46px);
+  }
+
+  body:has(.p-hero) .p-hero-copy-block {
+    text-align: center;
+  }
+
+  body:has(.p-hero) .p-hero .p-button-row {
+    justify-content: center;
+  }
+
+  body:has(.p-hero) .p-hero + .p-section.white .p-wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body:has(.p-hero) .p-hero {
+    --py: 18px !important;
+  }
+
+  body:has(.p-hero) .p-hero-kicker {
+    font-size: 11.5px;
+    padding: 7px 10px;
+  }
+
+  body:has(.p-hero) .p-hero-title {
+    margin-top: 10px;
+    font-size: clamp(30px, 10vw, 39px);
+  }
+
+  body:has(.p-hero) .p-hero .p-button-row {
+    display: none;
+  }
+
+  body:has(.p-hero) .p-hero-form-shell .p-form {
+    min-height: auto !important;
+  }
+
+  body:has(.p-hero) .p-hero + .p-section.white .p-wrap {
+    grid-template-columns: 1fr !important;
+    padding: 10px 0 !important;
+  }
+}
