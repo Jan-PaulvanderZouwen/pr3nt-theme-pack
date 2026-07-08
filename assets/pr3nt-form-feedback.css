@@ -1,0 +1,165 @@
+/* Feedback fixes for the quote form: restore progress line, increase CTA presence, stabilize height. */
+form[data-pr3nt-form][data-p-native-steps] .p-step-tabs {
+  display: none !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0 8px;
+  padding: 0 4px 8px;
+  --p-progress-ratio: 0;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress::before,
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress::after {
+  content: '';
+  position: absolute;
+  left: calc(12.5% + 15px);
+  right: calc(12.5% + 15px);
+  top: 15px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(16, 24, 32, .10);
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress::after {
+  right: auto;
+  width: calc((75% - 30px) * var(--p-progress-ratio));
+  background: var(--p-green, #00d084);
+  transition: width .24s ease;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: rgba(16, 24, 32, .48);
+  padding: 0;
+  cursor: default;
+  font: inherit;
+  text-align: center;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-clickable {
+  cursor: pointer;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-progress-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 3px solid #e2e7e5;
+  background: #fff;
+  color: rgba(16, 24, 32, .42);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 950;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step span:last-child {
+  font-size: 11.5px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -.01em;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-active,
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-done {
+  color: var(--p-dark, #101820);
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-active .p-progress-dot,
+form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-done .p-progress-dot {
+  background: var(--p-green, #00d084);
+  border-color: var(--p-green, #00d084);
+  color: #082115;
+  box-shadow: 0 0 0 5px rgba(0, 208, 132, .13);
+}
+
+@media (min-width: 991px) {
+  body .p-hero-grid {
+    grid-template-columns: minmax(0, .82fr) minmax(520px, 1fr) !important;
+    gap: clamp(34px, 5vw, 78px) !important;
+  }
+
+  body .p-hero-form-shell {
+    width: min(100%, 650px) !important;
+    max-width: 650px !important;
+    margin-left: auto !important;
+    padding: 13px !important;
+    border-radius: 34px !important;
+    box-shadow: 0 34px 92px rgba(0,0,0,.34), 0 0 0 1px rgba(255,255,255,.08) !important;
+  }
+
+  body .p-hero-form-shell .p-form {
+    min-height: 620px !important;
+    padding: 20px !important;
+    border-radius: 26px !important;
+  }
+
+  body .p-hero-form-shell form[data-pr3nt-form] {
+    min-height: 580px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body .p-hero-form-shell .p-form-title {
+    font-size: 24px !important;
+  }
+
+  body .p-hero-form-shell .p-form-step:not([hidden]) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  body .p-hero-form-shell .p-step-actions {
+    margin-top: auto !important;
+  }
+}
+
+body .p-hero-form-shell .p-upload {
+  min-height: 72px !important;
+  border-width: 2px !important;
+}
+
+body .p-hero-form-shell [data-p-next],
+body .p-hero-form-shell [data-p-submit] {
+  min-height: 48px !important;
+  font-size: 14px !important;
+  font-weight: 950 !important;
+}
+
+body .p-hero-form-shell [data-p-next]:not([disabled]),
+body .p-hero-form-shell [data-p-submit]:not([disabled]) {
+  box-shadow: 0 12px 28px rgba(0,208,132,.24) !important;
+}
+
+@media (max-width: 640px) {
+  form[data-pr3nt-form][data-p-native-steps] .p-form-progress {
+    gap: 4px;
+  }
+
+  form[data-pr3nt-form][data-p-native-steps] .p-progress-dot {
+    width: 27px;
+    height: 27px;
+  }
+
+  form[data-pr3nt-form][data-p-native-steps] .p-form-progress::before,
+  form[data-pr3nt-form][data-p-native-steps] .p-form-progress::after {
+    top: 13.5px;
+  }
+
+  form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step span:last-child {
+    font-size: 10.5px;
+  }
+}
