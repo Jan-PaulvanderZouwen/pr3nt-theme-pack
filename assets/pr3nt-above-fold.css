@@ -222,7 +222,9 @@ body:has(.p-hero) .p-hero + .p-section.white .p-dot {
   }
 
   body:has(.p-hero) .p-hero + .p-section.white .p-wrap {
-    grid-template-columns: 1fr !important;
-    padding: 10px 0 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 9px 0 !important;
+    gap: 8px !important;
+    font-size: 12px !important;
   }
 }
