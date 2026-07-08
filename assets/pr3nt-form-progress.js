@@ -21,7 +21,7 @@
   }
 
   function initProgress(form) {
-    if (!form || form.dataset.pProgressReady) return;
+    if (!form || form.dataset.pProgressReady || form.hasAttribute('data-p-native-steps')) return;
     form.dataset.pProgressReady = 'true';
 
     var tabs = form.querySelector('.p-step-tabs');
@@ -55,7 +55,6 @@
 
     var shippingGroup = countryInput ? countryInput.closest('.p-contact-group') : null;
     var noteField = form.querySelector('[data-p-note]') ? form.querySelector('[data-p-note]').closest('.p-field') : null;
-    var submitArea = submitButton ? submitButton.parentElement : null;
     var bridgeError = form.querySelector('[data-p-bridge-error]');
     var formNote = form.querySelector('.p-form-note');
     var uploadProgress = form.querySelector('[data-p-upload-progress]');

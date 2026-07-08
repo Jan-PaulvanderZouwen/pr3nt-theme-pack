@@ -1,5 +1,11 @@
 <div class="p-form">
   <style>
+    [data-p-native-steps] .p-step-tabs{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}
+    [data-p-native-steps] .p-step-tab{padding:9px 8px;border-radius:13px;text-align:center}
+    [data-p-native-steps] .p-step-tab small{font-size:10px;letter-spacing:.05em}
+    [data-p-native-steps] .p-step-tab strong{font-size:12px;line-height:1.12;margin-top:3px}
+    [data-p-native-steps] .p-step-tab[aria-disabled="true"]{opacity:.42;cursor:not-allowed}
+    [data-p-native-steps] .p-step-tab.is-complete{border-color:rgba(0,208,132,.36)}
     .p-upload-progress{margin-top:10px;padding:11px;border-radius:16px;background:#fff;border:1px solid rgba(16,24,32,.08);display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;box-shadow:0 10px 28px rgba(16,24,32,.04)}
     .p-upload-progress[hidden]{display:none!important}
     .p-mini-printer{position:relative;width:52px;height:42px;border-radius:13px;background:#101820;overflow:hidden}
@@ -11,15 +17,15 @@
     .p-upload-progress-copy span{color:rgba(16,24,32,.55);font-size:12px;font-weight:900}
     .p-upload-progress-bar{grid-column:2;border-radius:999px;background:rgba(16,24,32,.08);height:8px;overflow:hidden}
     .p-upload-progress-bar span{display:block;height:100%;width:0;background:#00d084;border-radius:inherit;transition:width .18s ease}
-    .p-request-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
-    .p-request-type{border:1px solid rgba(16,24,32,.09);background:#fff;color:var(--p-dark);border-radius:14px;padding:8px 10px;text-align:left;cursor:pointer;display:grid;gap:2px}
-    .p-request-type strong{font-size:12.7px;line-height:1.12}.p-request-type span{font-size:11px;line-height:1.18;color:rgba(16,24,32,.55);font-weight:750}
-    .p-request-type.is-active{background:var(--p-dark);color:#fff;border-color:var(--p-dark)}.p-request-type.is-active span{color:rgba(255,255,255,.7)}
-    .p-design-help{margin-top:6px;padding:8px 9px;border-radius:13px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:11.8px;line-height:1.3;font-weight:760}
+    .p-request-type-grid{display:flex;gap:7px;margin-top:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+    .p-request-type{border:1px solid rgba(16,24,32,.08);background:rgba(255,255,255,.72);color:rgba(16,24,32,.62);border-radius:999px;padding:7px 10px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:900;line-height:1.1}
+    .p-request-type strong{font:inherit}.p-request-type span{display:none}
+    .p-request-type.is-active{background:var(--p-dark);color:#fff;border-color:var(--p-dark)}
+    .p-design-help{margin-top:8px;padding:9px 10px;border-radius:13px;background:rgba(0,208,132,.12);border:1px solid rgba(0,208,132,.22);color:rgba(16,24,32,.72);font-size:12px;line-height:1.35;font-weight:760}
     .p-design-help strong{color:var(--p-dark)}
-    .p-select-stack{display:grid;gap:6px}
+    .p-select-stack{display:grid;gap:9px}
     .p-select-field{width:100%}
-    .p-select-field select{width:100%;min-height:38px!important;border-radius:11px;border:1px solid rgba(16,24,32,.12);background:#fff;color:var(--p-dark);font:inherit;font-size:13px;font-weight:850;padding:7px 10px}
+    .p-select-field select{width:100%;min-height:44px!important;border-radius:13px;border:1px solid rgba(16,24,32,.12);background:#fff;color:var(--p-dark);font:inherit;font-size:14px;font-weight:850;padding:9px 11px}
     .p-compact-group{padding:10px!important;background:#fff!important;border-color:rgba(16,24,32,.07)!important;gap:7px!important}
     .p-compact-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
     .p-compact-row-3{display:grid;grid-template-columns:.9fr 1fr .65fr;gap:7px}
@@ -27,14 +33,17 @@
     .p-compact-field span{margin-bottom:4px!important;font-size:11.8px!important}
     .p-compact-field input,.p-compact-field select{min-height:39px!important;border-radius:11px!important;font-size:12.8px!important;padding:7px 9px!important}
     .p-compact-note{margin-top:7px!important}.p-compact-note textarea{min-height:52px!important;font-size:12.8px!important;padding:8px 9px!important}
+    .p-soft-note{margin:9px 0 0;color:rgba(16,24,32,.56);font-size:12px;line-height:1.35;font-weight:760;text-align:center}
+    .p-step-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+    .p-step-actions.has-back{grid-template-columns:.72fr 1fr}
     .p-pay-hint{margin:7px 0 0;color:rgba(16,24,32,.55);font-size:11.5px;line-height:1.3;font-weight:760;text-align:center}
-    .p-hero-form-shell .p-form{padding:13px!important;min-height:545px!important}.p-hero-form-shell .p-form-head{gap:9px!important}.p-hero-form-shell .p-form-kicker{font-size:11.4px!important}.p-hero-form-shell .p-form-title{font-size:20px!important}.p-hero-form-shell .p-iconbox{width:42px!important;height:42px!important;border-radius:14px!important}.p-hero-form-shell .p-form-progress{margin:8px 0 0!important}.p-hero-form-shell .p-step-tabs{margin-top:8px!important}.p-hero-form-shell .p-upload{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;column-gap:9px!important;row-gap:0!important;text-align:left!important;min-height:50px!important;padding:8px 10px!important;margin-top:7px!important}.p-hero-form-shell .p-upload>span:first-child{grid-column:1!important;grid-row:1 / span 2!important;font-size:18px!important;margin:0!important}.p-hero-form-shell .p-upload strong{grid-column:2!important;margin:0!important;font-size:13.5px!important;line-height:1.12!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p-hero-form-shell .p-upload-help{grid-column:2!important;margin:0!important;font-size:11px!important;line-height:1.15!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p-hero-form-shell .p-upload-button{grid-column:3!important;grid-row:1 / span 2!important;width:auto!important;min-height:31px!important;padding:6px 9px!important;margin:0!important;font-size:11.5px!important;white-space:nowrap!important}.p-hero-form-shell .p-options-panel{margin-top:7px!important;padding:8px!important;gap:6px!important}.p-hero-form-shell .p-options-panel .p-field{padding:7px 8px!important;border-radius:12px!important}.p-hero-form-shell .p-options-panel .p-field span{margin-bottom:4px!important;font-size:11.8px!important}.p-hero-form-shell .p-options-panel .p-choice{padding:7px!important;font-size:12.2px!important}.p-hero-form-shell .p-options-panel .p-rush{padding:8px 9px!important;font-size:12px!important;border-radius:12px!important}.p-hero-form-shell [data-p-next],.p-hero-form-shell [data-p-submit]{margin-top:8px!important;min-height:39px!important}
+    .p-hero-form-shell .p-form{padding:13px!important;min-height:545px!important}.p-hero-form-shell .p-form-head{gap:9px!important}.p-hero-form-shell .p-form-kicker{font-size:11.4px!important}.p-hero-form-shell .p-form-title{font-size:20px!important}.p-hero-form-shell .p-iconbox{width:42px!important;height:42px!important;border-radius:14px!important}.p-hero-form-shell .p-step-tabs{margin-top:8px!important}.p-hero-form-shell .p-upload{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;column-gap:9px!important;row-gap:0!important;text-align:left!important;min-height:58px!important;padding:10px 11px!important;margin-top:10px!important}.p-hero-form-shell .p-upload>span:first-child{grid-column:1!important;grid-row:1 / span 2!important;font-size:18px!important;margin:0!important}.p-hero-form-shell .p-upload strong{grid-column:2!important;margin:0!important;font-size:13.5px!important;line-height:1.12!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p-hero-form-shell .p-upload-help{grid-column:2!important;margin:0!important;font-size:11px!important;line-height:1.15!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p-hero-form-shell .p-upload-button{grid-column:3!important;grid-row:1 / span 2!important;width:auto!important;min-height:31px!important;padding:6px 9px!important;margin:0!important;font-size:11.5px!important;white-space:nowrap!important}.p-hero-form-shell .p-options-panel{margin-top:10px!important;padding:12px!important;gap:9px!important}.p-hero-form-shell .p-options-panel .p-field{padding:10px!important;border-radius:14px!important}.p-hero-form-shell .p-options-panel .p-field span{margin-bottom:6px!important;font-size:12.2px!important}.p-hero-form-shell .p-options-panel .p-choice{padding:9px!important;font-size:13px!important}.p-hero-form-shell .p-options-panel .p-rush{padding:10px 11px!important;font-size:12.5px!important;border-radius:14px!important}.p-hero-form-shell [data-p-next],.p-hero-form-shell [data-p-submit],.p-hero-form-shell [data-p-prev]{margin-top:0!important;min-height:39px!important}
     @keyframes pQuotePrinterHead{from{left:9px}to{left:30px}}
     @keyframes pQuotePrintGrow{from{height:4px}to{height:15px}}
-    @media(max-width:640px){.p-upload-progress{grid-template-columns:48px 1fr}.p-upload-progress-bar{grid-column:1/-1}.p-request-type-grid,.p-compact-row,.p-compact-row-3{grid-template-columns:1fr}.p-hero-form-shell .p-form{min-height:auto!important}.p-hero-form-shell .p-upload{grid-template-columns:1fr!important;text-align:center!important}.p-hero-form-shell .p-upload>span:first-child,.p-hero-form-shell .p-upload strong,.p-hero-form-shell .p-upload-help,.p-hero-form-shell .p-upload-button{grid-column:auto!important;grid-row:auto!important}.p-hero-form-shell .p-upload-button{width:100%!important;margin-top:5px!important}}
+    @media(max-width:640px){[data-p-native-steps] .p-step-tabs{grid-template-columns:repeat(4,1fr);gap:5px}[data-p-native-steps] .p-step-tab{padding:8px 4px}[data-p-native-steps] .p-step-tab small{display:none}[data-p-native-steps] .p-step-tab strong{font-size:11.5px}.p-upload-progress{grid-template-columns:48px 1fr}.p-upload-progress-bar{grid-column:1/-1}.p-compact-row,.p-compact-row-3,.p-step-actions.has-back{grid-template-columns:1fr}.p-hero-form-shell .p-form{min-height:auto!important}.p-hero-form-shell .p-upload{grid-template-columns:1fr!important;text-align:center!important}.p-hero-form-shell .p-upload>span:first-child,.p-hero-form-shell .p-upload strong,.p-hero-form-shell .p-upload-help,.p-hero-form-shell .p-upload-button{grid-column:auto!important;grid-row:auto!important}.p-hero-form-shell .p-upload-button{width:100%!important;margin-top:5px!important}}
   </style>
   {% assign pr3nt_form_id = form_id | default: 'Pr3ntQuoteForm' %}
-  <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
+  <form id="{{ pr3nt_form_id }}" data-pr3nt-form data-p-native-steps data-p-endpoint="{{ quote_endpoint_url | default: '' }}" novalidate>
     <input type="hidden" value="PLA" data-p-material-input>
     <input type="hidden" value="vanaf €9,95" data-p-print-price-input>
     <input type="hidden" value="{{ payment_link_5 | escape }}" data-p-payment-link-input>
@@ -44,74 +53,94 @@
 
     <div class="p-form-head">
       <div>
-        <p class="p-form-kicker">{{ form_kicker | default: 'Binnen 3 stappen jouw print geregeld' }}</p>
+        <p class="p-form-kicker">{{ form_kicker | default: 'Rustig in 4 korte stappen' }}</p>
         <h2 class="p-form-title" data-p-form-title>Bestand of idee</h2>
       </div>
       <div class="p-iconbox" data-p-step-icon>1</div>
     </div>
 
     <div class="p-step-tabs">
-      <button type="button" class="p-step-tab is-active" data-p-tab="1"><small>Stap 1</small><strong>Bestand of idee</strong></button>
-      <button type="button" class="p-step-tab" data-p-tab="2"><small>Stap 2</small><strong>Gegevens & verzending</strong></button>
+      <button type="button" class="p-step-tab is-active" data-p-tab="1"><small>Stap 1</small><strong>Bestand</strong></button>
+      <button type="button" class="p-step-tab" data-p-tab="2"><small>Stap 2</small><strong>Keuze</strong></button>
+      <button type="button" class="p-step-tab" data-p-tab="3"><small>Stap 3</small><strong>Formaat</strong></button>
+      <button type="button" class="p-step-tab" data-p-tab="4"><small>Stap 4</small><strong>Gegevens</strong></button>
     </div>
 
     <div class="p-form-step" data-p-step="1">
-      <div class="p-request-type-grid" aria-label="Type aanvraag">
-        <button type="button" class="p-request-type is-active" data-p-request-type="3d_file"><strong>Ik heb al een 3D-bestand</strong><span>STL, STEP, 3MF, OBJ of STP.</span></button>
-        <button type="button" class="p-request-type" data-p-request-type="no_model"><strong>Ik heb nog geen 3D-bestand</strong><span>Foto’s of schets mogen ook.</span></button>
-      </div>
-
       <label class="p-upload">
         <span style="font-size:30px">↑</span>
         <strong data-p-file-label>Sleep je 3D-bestand hierheen</strong>
-        <span class="p-upload-help" data-p-upload-help>Ondersteund: STL, 3MF, OBJ, STEP of STP</span>
+        <span class="p-upload-help" data-p-upload-help>STL, 3MF, OBJ, STEP of STP</span>
         <span class="p-btn p-btn-dark p-upload-button">Bestand kiezen</span>
         <input class="p-file-input" type="file" accept=".stl,.3mf,.obj,.step,.stp,.jpg,.jpeg,.png,.webp,.pdf,.heic" data-p-file multiple>
       </label>
-      <div class="p-error" data-p-file-error>Upload een geldig bestand of kies “Ik heb nog geen 3D-bestand”.</div>
-      <div class="p-design-help" data-p-design-help hidden><strong>Nog geen bestand?</strong> Je kunt foto’s of een schets uploaden. De omschrijving kun je aan het einde bij je aanvraag kwijt.</div>
-      <textarea data-p-description hidden>Omschrijving volgt bij de laatste stap.</textarea>
+      <div class="p-error" data-p-file-error>Upload een geldig 3D-bestand.</div>
 
-      <div class="p-options-panel">
-        <div class="p-select-stack">
-          <div class="p-field p-select-field">
-            <span>Materiaal</span>
-            <div class="p-choice-grid">
-              <button type="button" class="p-choice is-active" data-p-material="PLA">PLA</button>
-              <button type="button" class="p-choice" data-p-material="PETG">PETG</button>
-            </div>
-          </div>
-          <label class="p-field p-select-field">
-            <span>Gewenste kleur</span>
-            <select data-p-color required>
-              <option value="Zwart">Zwart</option>
-              <option value="Wit">Wit</option>
-              <option value="Grijs">Grijs</option>
-              <option value="Rood">Rood</option>
-              <option value="Blauw">Blauw</option>
-              <option value="Groen">Groen</option>
-              <option value="Oranje">Oranje</option>
-              <option value="Geel">Geel</option>
-            </select>
-          </label>
-          <label class="p-field p-select-field">
-            <span>Selecteer het oppervlak</span>
-            <select data-p-print-size-input required>
-              <option value="5 × 5 cm" data-p-print-price="vanaf €9,95" data-p-payment-link="{{ payment_link_5 | escape }}">5 × 5 cm — vanaf €9,95</option>
-              <option value="10 × 10 cm" data-p-print-price="vanaf €14,95" data-p-payment-link="{{ payment_link_10 | escape }}">10 × 10 cm — vanaf €14,95</option>
-              <option value="15 × 15 cm" data-p-print-price="vanaf €24,95" data-p-payment-link="{{ payment_link_15 | escape }}">15 × 15 cm — vanaf €24,95</option>
-              <option value="20 × 20 cm" data-p-print-price="vanaf €39,95" data-p-payment-link="{{ payment_link_20 | escape }}">20 × 20 cm — vanaf €39,95</option>
-              <option value="25,5 × 25,5 cm" data-p-print-price="vanaf €59,95" data-p-payment-link="{{ payment_link_255 | escape }}">25,5 × 25,5 cm — vanaf €59,95</option>
-            </select>
-          </label>
-        </div>
-        <button type="button" class="p-rush" data-p-rush><strong>Spoed aanvragen</strong><span data-p-rush-text>Standaard · 3 dagen verzending</span></button>
+      <div class="p-request-type-grid" aria-label="Type aanvraag">
+        <button type="button" class="p-request-type is-active" data-p-request-type="3d_file"><strong>Ik heb een 3D-bestand</strong><span>STL, STEP, 3MF, OBJ of STP.</span></button>
+        <button type="button" class="p-request-type" data-p-request-type="no_model"><strong>Alleen een idee/foto</strong><span>Foto’s of schets mogen ook.</span></button>
       </div>
 
-      <button type="button" class="p-btn p-btn-primary" style="width:100%;margin-top:8px" data-p-next disabled>Verder naar gegevens</button>
+      <div class="p-design-help" data-p-design-help hidden><strong>Geen 3D-bestand?</strong> Geen probleem. Upload eventueel een foto of schets en beschrijf kort wat je nodig hebt.</div>
+      <label class="p-field p-compact-note" data-p-description-field hidden><span data-p-description-label>Omschrijving <small>(verplicht)</small></span><textarea placeholder="Bijvoorbeeld: ik zoek een vervangend kapje, houder of adapter. Het onderdeel moet ongeveer..." data-p-description></textarea></label>
+
+      <div class="p-step-actions">
+        <button type="button" class="p-btn p-btn-primary" style="width:100%" data-p-next disabled>Verder</button>
+      </div>
     </div>
 
     <div class="p-form-step" data-p-step="2" hidden>
+      <div class="p-options-panel">
+        <div class="p-field p-select-field">
+          <span>Materiaal</span>
+          <div class="p-choice-grid">
+            <button type="button" class="p-choice is-active" data-p-material="PLA">PLA</button>
+            <button type="button" class="p-choice" data-p-material="PETG">PETG</button>
+          </div>
+        </div>
+        <label class="p-field p-select-field">
+          <span>Gewenste kleur</span>
+          <select data-p-color required>
+            <option value="Zwart">Zwart</option>
+            <option value="Wit">Wit</option>
+            <option value="Grijs">Grijs</option>
+            <option value="Rood">Rood</option>
+            <option value="Blauw">Blauw</option>
+            <option value="Groen">Groen</option>
+            <option value="Oranje">Oranje</option>
+            <option value="Geel">Geel</option>
+          </select>
+        </label>
+      </div>
+      <p class="p-soft-note">Twijfel je? Kies PLA voor normale prints en PETG voor stevigere onderdelen.</p>
+      <div class="p-step-actions has-back">
+        <button type="button" class="p-btn p-btn-outline" style="width:100%" data-p-prev>Terug</button>
+        <button type="button" class="p-btn p-btn-primary" style="width:100%" data-p-next disabled>Verder</button>
+      </div>
+    </div>
+
+    <div class="p-form-step" data-p-step="3" hidden>
+      <div class="p-options-panel">
+        <label class="p-field p-select-field">
+          <span>Selecteer het oppervlak</span>
+          <select data-p-print-size-input required>
+            <option value="5 × 5 cm" data-p-print-price="vanaf €9,95" data-p-payment-link="{{ payment_link_5 | escape }}">5 × 5 cm — vanaf €9,95</option>
+            <option value="10 × 10 cm" data-p-print-price="vanaf €14,95" data-p-payment-link="{{ payment_link_10 | escape }}">10 × 10 cm — vanaf €14,95</option>
+            <option value="15 × 15 cm" data-p-print-price="vanaf €24,95" data-p-payment-link="{{ payment_link_15 | escape }}">15 × 15 cm — vanaf €24,95</option>
+            <option value="20 × 20 cm" data-p-print-price="vanaf €39,95" data-p-payment-link="{{ payment_link_20 | escape }}">20 × 20 cm — vanaf €39,95</option>
+            <option value="25,5 × 25,5 cm" data-p-print-price="vanaf €59,95" data-p-payment-link="{{ payment_link_255 | escape }}">25,5 × 25,5 cm — vanaf €59,95</option>
+          </select>
+        </label>
+        <button type="button" class="p-rush" data-p-rush><strong>Spoed aanvragen</strong><span data-p-rush-text>Standaard · 3 dagen verzending</span></button>
+      </div>
+      <p class="p-soft-note">Dit is een richtprijs. Je ontvangt altijd eerst een controle/offerte.</p>
+      <div class="p-step-actions has-back">
+        <button type="button" class="p-btn p-btn-outline" style="width:100%" data-p-prev>Terug</button>
+        <button type="button" class="p-btn p-btn-primary" style="width:100%" data-p-next disabled>Verder naar gegevens</button>
+      </div>
+    </div>
+
+    <div class="p-form-step" data-p-step="4" hidden>
       <div class="p-summary p-summary-field" style="margin-top:8px;padding:9px 10px;border-radius:14px">
         <div class="p-summary-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;flex-wrap:nowrap">
           <div class="p-summary-main" style="min-width:0;line-height:1.3" data-p-summary></div>
@@ -138,9 +167,12 @@
         <label class="p-field p-compact-field"><span>Plaats</span><input type="text" placeholder="Bijv. Utrecht" required data-p-shipping-city></label>
       </div>
 
-      <label class="p-field p-compact-note"><span>Omschrijving / extra opmerking</span><textarea placeholder="Bijvoorbeeld: sterke uitvoering, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
+      <label class="p-field p-compact-note"><span>Extra opmerking <small>(optioneel)</small></span><textarea placeholder="Bijvoorbeeld: sterke uitvoering, glad uiterlijk, montagegat moet netjes blijven..." data-p-note></textarea></label>
 
-      <button type="submit" class="p-btn p-btn-primary" style="width:100%;margin-top:8px" data-p-submit disabled>Bestand uploaden & afrekenen</button>
+      <div class="p-step-actions has-back">
+        <button type="button" class="p-btn p-btn-outline" style="width:100%" data-p-prev>Terug</button>
+        <button type="submit" class="p-btn p-btn-primary" style="width:100%" data-p-submit disabled>Bestand uploaden & afrekenen</button>
+      </div>
       <p class="p-pay-hint" data-p-payment-hint>Na upload sturen we je door naar de juiste Rabobank-betaallink.</p>
       <div class="p-upload-progress" data-p-upload-progress hidden>
         <div class="p-mini-printer" aria-hidden="true"><span></span><i></i><b></b></div>
