@@ -85,6 +85,22 @@ form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step.is-done .p-prog
   box-shadow: 0 0 0 5px rgba(0, 208, 132, .13);
 }
 
+/* Hard hide fields removed from the quote flow. The inputs can stay in the DOM for existing app/betaallink logic. */
+form[data-pr3nt-form][data-p-native-steps] label:has([data-p-print-size-input]),
+form[data-pr3nt-form][data-p-native-steps] label:has([data-p-note]),
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] label:has([data-p-print-size-input]),
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] label:has([data-p-note]) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+}
+
 @media (min-width: 991px) {
   body .p-hero-grid {
     grid-template-columns: minmax(0, .82fr) minmax(520px, 1fr) !important;
