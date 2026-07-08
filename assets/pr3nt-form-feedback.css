@@ -101,18 +101,25 @@ body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] label:has([da
   overflow: hidden !important;
 }
 
-/* Hide old payment-copy lines completely. */
+/* Hide old payment-copy lines and the no-model help box completely. */
 form[data-pr3nt-form][data-p-native-steps] [data-p-payment-hint],
 form[data-pr3nt-form][data-p-native-steps] .p-pay-hint,
 form[data-pr3nt-form][data-p-native-steps] .p-form-note,
+form[data-pr3nt-form][data-p-native-steps] [data-p-design-help],
+form[data-pr3nt-form][data-p-native-steps] .p-design-help,
 body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] [data-p-payment-hint],
 body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-pay-hint,
-body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-form-note {
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-form-note,
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] [data-p-design-help],
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-design-help {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
+  border: 0 !important;
   overflow: hidden !important;
 }
 
