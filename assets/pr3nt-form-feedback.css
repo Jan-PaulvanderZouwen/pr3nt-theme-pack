@@ -101,6 +101,70 @@ body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] label:has([da
   overflow: hidden !important;
 }
 
+/* Hide old payment-copy lines completely. */
+form[data-pr3nt-form][data-p-native-steps] [data-p-payment-hint],
+form[data-pr3nt-form][data-p-native-steps] .p-pay-hint,
+form[data-pr3nt-form][data-p-native-steps] .p-form-note,
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] [data-p-payment-hint],
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-pay-hint,
+body .p-hero-form-shell form[data-pr3nt-form][data-p-native-steps] .p-form-note {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Give the last steps more breathing room so they do not sit in a tiny block with empty space below. */
+form[data-pr3nt-form][data-p-native-steps] .p-contact-group.p-compact-group {
+  padding: 16px !important;
+  gap: 12px !important;
+  display: grid !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-contact-group-title {
+  margin-bottom: 0 !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-compact-row {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-compact-row-3 {
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1fr) minmax(0, .65fr) !important;
+  gap: 10px !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-compact-field input,
+form[data-pr3nt-form][data-p-native-steps] .p-compact-field select {
+  min-height: 47px !important;
+  font-size: 14px !important;
+  padding: 10px 12px !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-compact-field span {
+  font-size: 12.5px !important;
+  margin-bottom: 6px !important;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-address-lookup-status {
+  margin: -2px 0 0;
+  color: rgba(16,24,32,.54);
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-weight: 760;
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-address-lookup-status.is-success {
+  color: rgba(0,120,74,.9);
+}
+
+form[data-pr3nt-form][data-p-native-steps] .p-address-lookup-status.is-error {
+  color: rgba(180,52,35,.9);
+}
+
 @media (min-width: 991px) {
   body .p-hero-grid {
     grid-template-columns: minmax(0, .82fr) minmax(520px, 1fr) !important;
@@ -177,5 +241,9 @@ body .p-hero-form-shell [data-p-submit]:not([disabled]) {
 
   form[data-pr3nt-form][data-p-native-steps] .p-form-progress-step span:last-child {
     font-size: 10.5px;
+  }
+
+  form[data-pr3nt-form][data-p-native-steps] .p-compact-row-3 {
+    grid-template-columns: 1fr !important;
   }
 }
