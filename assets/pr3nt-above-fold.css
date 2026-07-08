@@ -1,5 +1,5 @@
 /* Keep the first viewport focused on: hero + quote form + 4 USP trustbar. */
-body:has(.p-hero) .p-header {
+body.p-header-scroll-ready:has(.p-hero) .p-header {
   position: fixed;
   inset: 0 0 auto 0;
   transform: translateY(-110%);
@@ -8,8 +8,8 @@ body:has(.p-hero) .p-header {
   transition: transform .24s ease, opacity .24s ease, box-shadow .24s ease;
 }
 
-body:has(.p-hero) .p-header.is-visible,
-body:has(.p-hero) .p-header:focus-within {
+body.p-header-scroll-ready:has(.p-hero) .p-header.is-visible,
+body.p-header-scroll-ready:has(.p-hero) .p-header:focus-within {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
