@@ -1,3 +1,6 @@
+{{ 'pr3nt-above-fold.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'pr3nt-header-scroll.js' | asset_url }}" defer></script>
+
 {% assign primary_href = section.settings.primary_link %}
 {% if primary_href == '#upload' or primary_href == blank %}
   {% assign primary_href = '#offerte-formulier' %}
