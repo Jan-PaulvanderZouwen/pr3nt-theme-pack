@@ -208,8 +208,63 @@ form[data-pr3nt-form][data-p-native-steps] .p-address-lookup-status.is-error {
 }
 
 body .p-hero-form-shell .p-upload {
-  min-height: 72px !important;
+  min-height: 156px !important;
   border-width: 2px !important;
+  padding: 24px 22px !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  row-gap: 9px !important;
+  justify-items: center !important;
+  align-content: center !important;
+  text-align: center !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.88)) !important;
+  box-shadow: inset 0 0 0 1px rgba(0,208,132,.12), 0 18px 42px rgba(16,24,32,.08) !important;
+}
+
+body .p-hero-form-shell .p-upload > span:first-child {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: 54px !important;
+  height: 54px !important;
+  margin: 0 0 2px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 18px !important;
+  background: rgba(0,208,132,.14) !important;
+  font-size: 32px !important;
+  line-height: 1 !important;
+}
+
+body .p-hero-form-shell .p-upload strong {
+  grid-column: auto !important;
+  margin: 0 !important;
+  font-size: 17px !important;
+  line-height: 1.15 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+body .p-hero-form-shell .p-upload-help {
+  grid-column: auto !important;
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+body .p-hero-form-shell .p-upload-button {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: auto !important;
+  min-height: 38px !important;
+  margin: 2px 0 0 !important;
+  padding: 9px 16px !important;
+  font-size: 12.5px !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
 }
 
 body .p-hero-form-shell [data-p-next],
@@ -245,5 +300,21 @@ body .p-hero-form-shell [data-p-submit]:not([disabled]) {
 
   form[data-pr3nt-form][data-p-native-steps] .p-compact-row-3 {
     grid-template-columns: 1fr !important;
+  }
+
+  body .p-hero-form-shell .p-upload {
+    min-height: 128px !important;
+    padding: 18px 16px !important;
+    row-gap: 7px !important;
+  }
+
+  body .p-hero-form-shell .p-upload > span:first-child {
+    width: 46px !important;
+    height: 46px !important;
+    font-size: 27px !important;
+  }
+
+  body .p-hero-form-shell .p-upload strong {
+    font-size: 15px !important;
   }
 }
