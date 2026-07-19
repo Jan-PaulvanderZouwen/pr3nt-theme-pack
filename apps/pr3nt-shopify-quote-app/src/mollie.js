@@ -154,6 +154,11 @@ function removeManualPaymentField(html, quote) {
   return html.replace(/<label><span>Shopify betaallink<\/span><input name="paymentUrl" value="[^"]*"><\/label>/, adminPaymentInfoHtml(quote));
 }
 
+function mollieErrorHtml(error) {
+  const detail = e(error?.message || 'Onbekende Mollie-fout.');
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mollie betaallink niet aangemaakt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:720px;margin:70px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px;box-shadow:0 10px 28px rgba(0,0,0,.05)}.button{display:inline-flex;margin-top:18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;padding:11px 15px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:14px;white-space:pre-wrap}</style></head><body><section class="card"><h1>Mollie-betaallink kon niet worden aangemaakt</h1><p>De offerte is daarom niet opgeslagen als verstuurd en er is geen offertemail naar de klant gestuurd. Zo voorkomen we dat een klant een mail zonder betaallink krijgt.</p><div class="error">${detail}</div><p>Controleer je Mollie API-key, websiteprofiel en of iDEAL/Bancontact actief zijn. Probeer daarna opnieuw op te slaan.</p><a class="button" href="javascript:history.back()">Terug naar offerte</a></section></body></html>`;
+}
+
 export function registerMollieRoutes(app) {
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'GET') return next();
@@ -169,23 +174,23 @@ export function registerMollieRoutes(app) {
     next();
   });
 
-  app.use('/admin/quotes/:id', async (req, _res, next) => {
-    if (req.method !== 'POST' || !process.env.MOLLIE_API_KEY || req.body?.paymentUrl) return next();
+  app.use('/admin/quotes/:id', async (req, res, next) => {
+    if (req.method !== 'POST' || req.body?.paymentUrl) return next();
+
+    const amount = amountValue(quoteTotalFromBody(req.body));
+    if (money(amount) <= 0) return next();
+
     try {
       const quotes = await readQuotes();
       const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
       if (!quote || quote.paidAt || quote.status === 'paid') return next();
-      const amount = amountValue(quoteTotalFromBody(req.body));
-      if (money(amount) <= 0) return next();
+
       const now = new Date().toISOString();
       if (quote.molliePaymentUrl && quote.molliePaymentAmount === amount && quote.molliePaymentStatus !== 'paid') {
         req.body.paymentUrl = quote.molliePaymentUrl;
-        if (!quote.quoteSentAt) {
-          quote.quoteSentAt = now;
-          await writeQuotes(quotes);
-        }
         return next();
       }
+
       const paymentLink = await createPaymentLink(quote, amount);
       Object.assign(quote, {
         paymentUrl: paymentLink.molliePaymentUrl,
@@ -194,17 +199,17 @@ export function registerMollieRoutes(app) {
         molliePaymentStatus: paymentLink.molliePaymentStatus,
         molliePaymentAmount: paymentLink.molliePaymentAmount,
         molliePaymentCreatedAt: paymentLink.molliePaymentCreatedAt,
-        quoteSentAt: quote.quoteSentAt || now,
         updatedAt: now,
       });
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       if (!messageExists(quote, 'Mollie-betaallink aangemaakt')) quote.messages.push({ from: 'pr3nt', text: 'Mollie-betaallink aangemaakt.', createdAt: now });
       await writeQuotes(quotes);
       req.body.paymentUrl = paymentLink.molliePaymentUrl;
+      return next();
     } catch (error) {
       console.warn('Mollie betaallink kon niet automatisch worden aangemaakt:', error.message);
+      return res.status(400).send(mollieErrorHtml(error));
     }
-    return next();
   });
 
   app.post('/api/mollie/webhook', async (req, res) => {
