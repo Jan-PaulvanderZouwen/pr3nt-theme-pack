@@ -20,7 +20,7 @@ const labels = {
   received: 'Aanvraag ontvangen',
   creating_quote: 'Prijs wordt berekend',
   quote_sent: 'Prijsopgaaf klaar',
-  accepted: 'Prijsopgaaf akkoord',
+  waiting_customer: 'Wacht op klantreactie',
   paid: 'Betaling ontvangen',
   print_queue: 'Je print is in productie',
   ready_to_ship: 'Je print is klaar voor verzending',
@@ -31,7 +31,7 @@ const labels = {
 const messages = {
   creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we mee in de prijsopgaaf.',
   quote_sent: 'We hebben je 3D-print aanvraag bekeken. Hieronder staat je prijsopgaaf met het totaalbedrag. Via de knop onderaan kun je veilig betalen via Mollie.',
-  accepted: 'Je prijsopgaaf is akkoord. We starten met printen zodra de betaling is ontvangen.',
+  waiting_customer: 'We wachten nog op je reactie voordat we verder kunnen.',
   paid: 'We hebben je betaling ontvangen. Je print wordt nu ingepland.',
   print_queue: 'Je print staat in de wachtrij of is in productie.',
   ready_to_ship: 'Je print is klaar en wordt voorbereid voor verzending.',
@@ -109,13 +109,13 @@ function quoteRowsHtml(quote) {
 }
 
 function quoteSummaryHtml(quote) {
-  if (quote.status !== 'quote_sent') return '';
+  if (quote.status !== 'quote_sent' || quote.manualStatus === 'waiting_customer') return '';
   return `<table style="width:100%;border-collapse:collapse;margin:18px 0"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Omschrijving</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Aantal</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Prijs</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Totaal</th></tr></thead><tbody>${quoteRowsHtml(quote)}</tbody><tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:900">Totaal</td><td style="padding:12px;text-align:right;font-weight:900">€ ${fmt(quoteTotal(quote))}</td></tr></tfoot></table>`;
 }
 
 function html(quote, title, message, cta = 'Open mijn klantportaal') {
   const payUrl = paymentUrl(quote);
-  const useMollieCta = quote.status === 'quote_sent' && payUrl;
+  const useMollieCta = quote.status === 'quote_sent' && payUrl && quote.manualStatus !== 'waiting_customer';
   const url = useMollieCta ? payUrl : portalUrl(quote);
   const ctaText = useMollieCta ? 'betaal veilig via Mollie' : cta;
   const fallbackUrl = useMollieCta ? portalUrl(quote) : url;
@@ -183,8 +183,10 @@ export function registerStatusMailRoutes(app) {
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
 
     const now = new Date().toISOString();
-    if (!quote.acceptedAt) quote.acceptedAt = now;
-    quote.status = 'accepted';
+    quote.customerAcceptedAt = quote.customerAcceptedAt || now;
+    if (quote.manualStatus === 'waiting_customer') delete quote.manualStatus;
+    if (quote.waitingCustomerAt) delete quote.waitingCustomerAt;
+    if (quote.status !== 'paid') quote.status = 'quote_sent';
     addAcceptanceAudit(quote, req, now);
     quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
     if (!quote.messages.some((message) => String(message.text || '').includes('Ik ga akkoord met de offerte'))) {
@@ -193,7 +195,7 @@ export function registerStatusMailRoutes(app) {
     await writeQuotes(quotes);
 
     if (quote.paymentUrl) return res.redirect(quote.paymentUrl);
-    return res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Offerte%20akkoord%20gegeven`);
+    return res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Reactie%20ontvangen`);
   });
 
   app.use('/admin/quotes/:id', async (req, res, next) => {
@@ -203,7 +205,7 @@ export function registerStatusMailRoutes(app) {
     res.redirect = function patchedRedirect(...args) {
       Promise.resolve().then(async () => {
         const after = findQuote(await readQuotes(), req.params.id);
-        if (!after || after.archivedAt) return;
+        if (!after || after.archivedAt || after.manualStatus === 'waiting_customer') return;
         const oldStatus = before?.status || '';
         const newStatus = after.status || '';
         if (oldStatus !== newStatus && messages[newStatus]) {
