@@ -54,7 +54,7 @@ const upload = multer({
     destination: (_req, _file, cb) => cb(null, config.uploadDir),
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${randomUUID()}${path.extname(file.originalname || '').toLowerCase()}`),
   }),
-  limits: { fileSize: config.maxFileSizeMb * 1024 * 1024, files: config.maxFiles },
+  limits: { fileSize: config.maxFileSizeMb * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
     if (!allowedExtensions.has(ext)) return cb(new Error('Ongeldig bestandstype. Upload STL, 3MF, OBJ, STEP, STP, JPG, PNG, WEBP, PDF of HEIC.'));
@@ -101,6 +101,13 @@ function filesSummary(files = []) {
 function filesLinksHtml(files = []) {
   if (!files.length) return '-';
   return `<ul style="margin:0;padding-left:18px">${files.map(file => `<li><a href="${file.url}">${file.originalName}</a></li>`).join('')}</ul>`;
+}
+
+function normalizeUploadedFiles(req) {
+  const allowedFieldNames = new Set(['file', 'files', 'file[]', 'upload', 'uploads']);
+  const files = (req.files || []).filter((file) => allowedFieldNames.has(file.fieldname));
+  if (files.length > config.maxFiles) throw new Error(`Upload maximaal ${config.maxFiles} bestanden.`);
+  return files;
 }
 
 async function getShopifyAdminToken() {
@@ -228,9 +235,9 @@ app.get('/files/:quoteId/:fileName', async (req, res) => {
   res.download(path.join(config.uploadDir, `${safeQuoteId}-${safeFileName}`));
 });
 
-app.post('/api/quote', upload.array('file', config.maxFiles), async (req, res) => {
+app.post('/api/quote', upload.any(), async (req, res) => {
   try {
-    const uploadedFiles = req.files || [];
+    const uploadedFiles = normalizeUploadedFiles(req);
     const requestType = clean(req.body.request_type, 40) === 'no_model' ? 'no_model' : '3d_file';
     const description = clean(req.body.description, 3000);
     const shipping = {
