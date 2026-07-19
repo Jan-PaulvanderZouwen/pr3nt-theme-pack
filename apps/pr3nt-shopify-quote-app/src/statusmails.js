@@ -30,7 +30,7 @@ const labels = {
 
 const messages = {
   creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we mee in de prijsopgaaf.',
-  quote_sent: 'Je prijsopgaaf staat klaar. Controleer de regels en betaal veilig via Mollie. We starten met printen zodra de betaling is ontvangen.',
+  quote_sent: 'We hebben je 3D-print aanvraag bekeken. Hieronder staat je prijsopgaaf met het totaalbedrag. Via de knop onderaan kun je veilig betalen via Mollie.',
   accepted: 'Je prijsopgaaf is akkoord. We starten met printen zodra de betaling is ontvangen.',
   paid: 'We hebben je betaling ontvangen. Je print wordt nu ingepland.',
   print_queue: 'Je print staat in de wachtrij of is in productie.',
@@ -41,6 +41,25 @@ const messages = {
 
 function e(value = '') {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function money(value) {
+  const number = Number(String(value || '0').replace(',', '.'));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function fmt(value) {
+  return money(value).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function quoteLines(quote) {
+  if (Array.isArray(quote.quoteLines) && quote.quoteLines.length) return quote.quoteLines;
+  if (quote.quoteAmount) return [{ label: 'Offertebedrag', description: '', qty: '1', unit: quote.quoteAmount }];
+  return [];
+}
+
+function quoteTotal(quote) {
+  return quoteLines(quote).reduce((sum, line) => sum + money(line.qty || 1) * money(line.unit || 0), 0);
 }
 
 async function readQuotes() {
@@ -81,6 +100,19 @@ function mailer() {
   });
 }
 
+function quoteRowsHtml(quote) {
+  const rows = quoteLines(quote).map((line) => {
+    const lineTotal = money(line.qty || 1) * money(line.unit || 0);
+    return `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb"><strong>${e(line.label || 'Regel')}</strong>${line.description ? `<br><span style="color:#667085">${e(line.description)}</span>` : ''}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${e(line.qty || 1)}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">€ ${fmt(line.unit)}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>€ ${fmt(lineTotal)}</strong></td></tr>`;
+  }).join('');
+  return rows || '<tr><td colspan="4" style="padding:12px;color:#667085">De offerte-regels konden niet worden geladen. Bekijk je prijsopgaaf in het klantportaal.</td></tr>';
+}
+
+function quoteSummaryHtml(quote) {
+  if (quote.status !== 'quote_sent') return '';
+  return `<table style="width:100%;border-collapse:collapse;margin:18px 0"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Omschrijving</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Aantal</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Prijs</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Totaal</th></tr></thead><tbody>${quoteRowsHtml(quote)}</tbody><tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:900">Totaal</td><td style="padding:12px;text-align:right;font-weight:900">€ ${fmt(quoteTotal(quote))}</td></tr></tfoot></table>`;
+}
+
 function html(quote, title, message, cta = 'Open mijn klantportaal') {
   const payUrl = paymentUrl(quote);
   const useMollieCta = quote.status === 'quote_sent' && payUrl;
@@ -88,8 +120,9 @@ function html(quote, title, message, cta = 'Open mijn klantportaal') {
   const ctaText = useMollieCta ? 'betaal veilig via Mollie' : cta;
   const fallbackUrl = useMollieCta ? portalUrl(quote) : url;
   const tracking = quote.status === 'shipped' && quote.trackingCode ? `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px;margin:18px 0"><strong>Track & trace</strong><br>${e(quote.trackingCode)}</div>` : '';
+  const summary = quoteSummaryHtml(quote);
   const portalFallback = useMollieCta ? `<p style="font-size:14px;color:#667085;line-height:1.5">Je klantportaal blijft hier beschikbaar:<br><span style="word-break:break-all">${e(fallbackUrl)}</span></p>` : '';
-  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden"><div style="padding:28px;background:#101820;color:#fff"><div style="font-size:24px;font-weight:900">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:30px;line-height:1.08">${e(title)}</h1><p style="margin:0;color:#d7dde0">Project ${e(quote.id)}</p></div><div style="padding:28px"><p>Hoi ${e(quote.name || '')},</p><p style="line-height:1.6">${e(message)}</p>${tracking}<p style="margin:24px 0"><a href="${e(url)}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">${e(ctaText)}</a></p><p style="font-size:14px;color:#667085;line-height:1.5">Werkt de knop niet? Kopieer deze link:<br><span style="word-break:break-all">${e(url)}</span></p>${portalFallback}<p>Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
+  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:680px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden"><div style="padding:28px;background:#101820;color:#fff"><div style="font-size:24px;font-weight:900">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:30px;line-height:1.08">${e(title)}</h1><p style="margin:0;color:#d7dde0">Project ${e(quote.id)}</p></div><div style="padding:28px"><p>Hoi ${e(quote.name || '')},</p><p style="line-height:1.6">${e(message)}</p>${summary}${tracking}<p style="margin:24px 0"><a href="${e(url)}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">${e(ctaText)}</a></p><p style="font-size:14px;color:#667085;line-height:1.5">Werkt de knop niet? Kopieer deze link:<br><span style="word-break:break-all">${e(url)}</span></p>${portalFallback}<p>Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
 async function sendCustomerMail(quote, title, message, cta) {
