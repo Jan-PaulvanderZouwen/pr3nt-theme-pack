@@ -11,20 +11,12 @@
   "sections": {
     "quote_confirmation": {
       "type": "pr3nt-quote-confirmation",
-      "settings": {
-        "padding_y": 76,
-        "eyebrow": "Aanvraag ontvangen",
-        "heading": "Bedankt, je offerte-aanvraag is binnen.",
-        "text": "We controleren je 3D-bestand, beoordelen de printbaarheid en sturen je daarna een duidelijke offerte. Je betaalt pas nadat je akkoord hebt gegeven.",
-        "button_label": "Terug naar homepage",
-        "button_link": "/"
-      },
       "blocks": {
         "step_1": {
           "type": "step",
           "settings": {
             "title": "1. Controle",
-            "text": "We openen en slicen je bestand."
+            "text": "We openen en controleren je bestand."
           }
         },
         "step_2": {
@@ -38,12 +30,26 @@
           "type": "step",
           "settings": {
             "title": "3. Print",
-            "text": "Na akkoord starten we je print."
+            "text": "Na betaling starten we je print."
           }
         }
       },
-      "block_order": ["step_1", "step_2", "step_3"]
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ],
+      "settings": {
+        "padding_y": 76,
+        "eyebrow": "Aanvraag ontvangen",
+        "heading": "Bedankt, je offerte-aanvraag is verstuurd naar jouw e-mail.",
+        "text": "We controleren je 3D-bestand, beoordelen de printbaarheid en sturen je daarna een duidelijke offerte. Je betaalt pas nadat je akkoord hebt gegeven.",
+        "button_label": "Terug naar homepage",
+        "button_link": "/"
+      }
     }
   },
-  "order": ["quote_confirmation"]
+  "order": [
+    "quote_confirmation"
+  ]
 }
