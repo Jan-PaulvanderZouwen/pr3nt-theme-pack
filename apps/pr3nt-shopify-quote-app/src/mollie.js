@@ -187,6 +187,15 @@ function decorateAdminHtml(html, quote) {
   return output.replace(/Offerte akkoord/g, waitingCustomerLabel).replace(/Prijsopgaaf akkoord/g, waitingCustomerLabel);
 }
 
+function decoratePortalHtml(html, quote) {
+  let output = html.replace(/Offerte akkoord/g, waitingCustomerLabel).replace(/Prijsopgaaf akkoord/g, waitingCustomerLabel);
+  if (!isWaitingCustomer(quote)) return output;
+  return output
+    .replace(/<h1>Offerte staat klaar<\/h1>/, '<h1>In afwachting van reactie</h1>')
+    .replace(/Bekijk de regels en geef akkoord als alles klopt\./g, 'We wachten nog op je reactie voordat we verder kunnen.')
+    .replace(/<span>Offerte accepteren<\/span>/g, '<span>Reactie gevraagd</span>');
+}
+
 function mollieErrorHtml(error) {
   const detail = e(error?.message || 'Onbekende Mollie-fout.');
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mollie betaallink niet aangemaakt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:720px;margin:70px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px;box-shadow:0 10px 28px rgba(0,0,0,.05)}.button{display:inline-flex;margin-top:18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;padding:11px 15px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:14px;white-space:pre-wrap}</style></head><body><section class="card"><h1>Mollie-betaallink kon niet worden aangemaakt</h1><p>De offerte is daarom niet opgeslagen als verstuurd en er is geen offertemail naar de klant gestuurd. Zo voorkomen we dat een klant een mail zonder betaallink krijgt.</p><div class="error">${detail}</div><p>Controleer je Mollie API-key, websiteprofiel en of iDEAL/Bancontact actief zijn. Probeer daarna opnieuw op te slaan.</p><a class="button" href="/admin">Terug naar dashboard</a></section></body></html>`;
@@ -201,6 +210,20 @@ export function registerMollieRoutes(app) {
         if (typeof body !== 'string') return originalSend(body);
         const quote = (await readQuotes()).find((item) => item.id === req.params.id && !item.archivedAt);
         return originalSend(quote ? decorateAdminHtml(body, quote) : body);
+      }).catch(() => originalSend(body));
+      return res;
+    };
+    next();
+  });
+
+  app.use('/portal/:token', async (req, res, next) => {
+    if (req.method !== 'GET' || req.path.split('/').filter(Boolean).length !== 2) return next();
+    const originalSend = res.send.bind(res);
+    res.send = (body) => {
+      Promise.resolve().then(async () => {
+        if (typeof body !== 'string') return originalSend(body);
+        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+        return originalSend(quote ? decoratePortalHtml(body, quote) : body);
       }).catch(() => originalSend(body));
       return res;
     };
