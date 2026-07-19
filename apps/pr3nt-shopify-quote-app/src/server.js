@@ -16,6 +16,7 @@ import { registerPortalDomFixRoutes } from './portaldomfix.js';
 import { registerStatusMailRoutes } from './statusmails.js';
 import { registerQuoteContextRoutes } from './quotecontext.js';
 import { registerShippingContextRoutes } from './shippingcontext.js';
+import { registerMollieRoutes } from './mollie.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -209,6 +210,7 @@ app.get('/health', (_req, res) => {
 
 registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);
+registerMollieRoutes(app);
 
 // Statusmail middleware must run before admin routes so it can detect changes after admin saves.
 registerStatusMailRoutes(app);
