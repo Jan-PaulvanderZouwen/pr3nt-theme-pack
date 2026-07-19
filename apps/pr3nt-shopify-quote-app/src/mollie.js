@@ -9,6 +9,8 @@ const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
+const waitingCustomerStatus = 'waiting_customer';
+const waitingCustomerLabel = 'Wacht op klantreactie';
 
 function e(value = '') {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -144,19 +146,50 @@ function paymentUrl(quote) {
   return quote?.molliePaymentUrl || quote?.paymentUrl || '';
 }
 
+function isWaitingCustomer(quote) {
+  return quote?.manualStatus === waitingCustomerStatus;
+}
+
+function markWaitingCustomer(quote, now) {
+  quote.manualStatus = waitingCustomerStatus;
+  quote.waitingCustomerAt = quote.waitingCustomerAt || now;
+  quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+  if (!messageExists(quote, waitingCustomerLabel)) {
+    quote.messages.push({ from: 'pr3nt', text: `${waitingCustomerLabel}: er wordt gewacht op een reactie van de klant.`, createdAt: now });
+  }
+}
+
+function clearWaitingCustomer(quote) {
+  if (quote.manualStatus === waitingCustomerStatus) delete quote.manualStatus;
+  if (quote.waitingCustomerAt) delete quote.waitingCustomerAt;
+}
+
 function adminPaymentInfoHtml(quote) {
   const url = paymentUrl(quote);
   if (url) return `<div class="info-card"><small>Mollie betaallink</small><strong><a href="${e(url)}" target="_blank" rel="noopener">Open betaallink</a></strong><span class="muted">De betaallink wordt automatisch aangemaakt op basis van de offerte-regels.</span></div>`;
   return '<div class="info-card"><small>Mollie betaallink</small><strong>Automatisch</strong><span class="muted">Vul offerte-regels in en sla op. De Mollie-link wordt automatisch aangemaakt.</span></div>';
 }
 
-function removeManualPaymentField(html, quote) {
-  return html.replace(/<label><span>Shopify betaallink<\/span><input name="paymentUrl" value="[^"]*"><\/label>/, adminPaymentInfoHtml(quote));
+function replaceStatusOption(html, quote) {
+  const waiting = isWaitingCustomer(quote);
+  const quoteSentSelected = quote.status === 'quote_sent' && !waiting ? 'selected' : '';
+  const waitingSelected = waiting ? 'selected' : '';
+  return html.replace(
+    /<option value="quote_sent"[^>]*>Offerte verstuurd<\/option><option value="accepted"[^>]*>Offerte akkoord<\/option>/,
+    `<option value="quote_sent" ${quoteSentSelected}>Offerte verstuurd</option><option value="${waitingCustomerStatus}" ${waitingSelected}>${waitingCustomerLabel}</option>`
+  );
+}
+
+function decorateAdminHtml(html, quote) {
+  let output = html.replace(/<label><span>Shopify betaallink<\/span><input name="paymentUrl" value="[^"]*"><\/label>/, adminPaymentInfoHtml(quote));
+  output = replaceStatusOption(output, quote);
+  if (isWaitingCustomer(quote)) output = output.replace(/<span class="badge">Offerte verstuurd<\/span>/, `<span class="badge">${waitingCustomerLabel}</span>`);
+  return output.replace(/Offerte akkoord/g, waitingCustomerLabel).replace(/Prijsopgaaf akkoord/g, waitingCustomerLabel);
 }
 
 function mollieErrorHtml(error) {
   const detail = e(error?.message || 'Onbekende Mollie-fout.');
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mollie betaallink niet aangemaakt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:720px;margin:70px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px;box-shadow:0 10px 28px rgba(0,0,0,.05)}.button{display:inline-flex;margin-top:18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;padding:11px 15px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:14px;white-space:pre-wrap}</style></head><body><section class="card"><h1>Mollie-betaallink kon niet worden aangemaakt</h1><p>De offerte is daarom niet opgeslagen als verstuurd en er is geen offertemail naar de klant gestuurd. Zo voorkomen we dat een klant een mail zonder betaallink krijgt.</p><div class="error">${detail}</div><p>Controleer je Mollie API-key, websiteprofiel en of iDEAL/Bancontact actief zijn. Probeer daarna opnieuw op te slaan.</p><a class="button" href="javascript:history.back()">Terug naar offerte</a></section></body></html>`;
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mollie betaallink niet aangemaakt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:720px;margin:70px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px;box-shadow:0 10px 28px rgba(0,0,0,.05)}.button{display:inline-flex;margin-top:18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;padding:11px 15px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:14px;white-space:pre-wrap}</style></head><body><section class="card"><h1>Mollie-betaallink kon niet worden aangemaakt</h1><p>De offerte is daarom niet opgeslagen als verstuurd en er is geen offertemail naar de klant gestuurd. Zo voorkomen we dat een klant een mail zonder betaallink krijgt.</p><div class="error">${detail}</div><p>Controleer je Mollie API-key, websiteprofiel en of iDEAL/Bancontact actief zijn. Probeer daarna opnieuw op te slaan.</p><a class="button" href="/admin">Terug naar dashboard</a></section></body></html>`;
 }
 
 export function registerMollieRoutes(app) {
@@ -167,7 +200,7 @@ export function registerMollieRoutes(app) {
       Promise.resolve().then(async () => {
         if (typeof body !== 'string') return originalSend(body);
         const quote = (await readQuotes()).find((item) => item.id === req.params.id && !item.archivedAt);
-        return originalSend(quote ? removeManualPaymentField(body, quote) : body);
+        return originalSend(quote ? decorateAdminHtml(body, quote) : body);
       }).catch(() => originalSend(body));
       return res;
     };
@@ -177,16 +210,30 @@ export function registerMollieRoutes(app) {
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'POST' || req.body?.paymentUrl) return next();
 
-    const amount = amountValue(quoteTotalFromBody(req.body));
-    if (money(amount) <= 0) return next();
-
     try {
       const quotes = await readQuotes();
       const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
       if (!quote || quote.paidAt || quote.status === 'paid') return next();
 
       const now = new Date().toISOString();
+      let manualChanged = false;
+      if (req.body.status === waitingCustomerStatus) {
+        markWaitingCustomer(quote, now);
+        req.body.status = 'quote_sent';
+        manualChanged = true;
+      } else if (quote.manualStatus === waitingCustomerStatus && req.body.status && req.body.status !== waitingCustomerStatus) {
+        clearWaitingCustomer(quote);
+        manualChanged = true;
+      }
+
+      const amount = amountValue(quoteTotalFromBody(req.body));
+      if (money(amount) <= 0) {
+        if (manualChanged) await writeQuotes(quotes);
+        return next();
+      }
+
       if (quote.molliePaymentUrl && quote.molliePaymentAmount === amount && quote.molliePaymentStatus !== 'paid') {
+        if (manualChanged) await writeQuotes(quotes);
         req.body.paymentUrl = quote.molliePaymentUrl;
         return next();
       }
@@ -228,6 +275,7 @@ export function registerMollieRoutes(app) {
       quote.molliePaymentMethod = payment.method || quote.molliePaymentMethod || '';
       quote.molliePaymentUpdatedAt = now;
       if (payment.status === 'paid') {
+        clearWaitingCustomer(quote);
         quote.status = 'paid';
         quote.paidAt = payment.paidAt || now;
         quote.molliePaymentPaidAt = payment.paidAt || now;
