@@ -47,12 +47,12 @@ function script(quote) {
           var t = (el.textContent || '').trim().toLowerCase();
           if(t === 'offerte accepteren') el.textContent = hasPaymentUrl ? 'Accepteren en betalen' : 'Offerte accepteren';
           if(t === 'betaal je print' || t === 'betaling afronden') el.textContent = 'betaal veilig via Mollie';
-          if(t === 'betaallink volgt') el.textContent = 'Betaling wordt handmatig klaargezet';
+          if(t === 'betaallink volgt') el.textContent = 'Mollie-betaallink wordt automatisch klaargezet';
         });
         document.querySelectorAll('.status-hero p').forEach(function(el){
           var t = (el.textContent || '').trim();
-          if(t === 'Bekijk de regels en geef akkoord als alles klopt.') el.textContent = hasPaymentUrl ? 'Bekijk de offerte-regels. Als alles klopt, accepteer je de offerte en ga je direct door naar betalen.' : 'Bekijk de offerte-regels en geef akkoord als alles klopt.';
-          if(t === 'We zetten de betaallink voor je klaar.') el.textContent = 'We starten pas met printen zodra de betaling is ontvangen.';
+          if(t === 'Bekijk de regels en geef akkoord als alles klopt.') el.textContent = hasPaymentUrl ? 'Bekijk de offerte-regels. Als alles klopt, accepteer je de offerte en ga je direct door naar betalen via Mollie.' : 'Bekijk de offerte-regels en geef akkoord als alles klopt.';
+          if(t === 'We zetten de betaallink voor je klaar.') el.textContent = 'We starten pas met printen zodra de betaling via Mollie is ontvangen.';
         });
         document.querySelectorAll('.bubble,.message').forEach(function(node){
           var t = (node.textContent || '').toLowerCase();
@@ -60,7 +60,7 @@ function script(quote) {
         });
         if(isQuoteReady && !document.querySelector('[data-pr3nt-payment-note]')){
           var table = document.querySelector('.quote-table');
-          if(table) table.insertAdjacentHTML('afterend','<div class="pr3nt-payment-note" data-pr3nt-payment-note><strong>Printen start na betaling</strong>Controleer de offerte-regels goed. Na akkoord word je doorgestuurd naar de betaling. We starten met printen zodra de betaling is ontvangen.</div>');
+          if(table) table.insertAdjacentHTML('afterend','<div class="pr3nt-payment-note" data-pr3nt-payment-note><strong>Printen start na betaling</strong>Controleer de offerte-regels goed. Na akkoord word je doorgestuurd naar de betaling via Mollie. We starten met printen zodra de betaling is ontvangen.</div>');
         }
       }
       update();
