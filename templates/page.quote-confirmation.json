@@ -42,7 +42,7 @@
       "settings": {
         "padding_y": 76,
         "eyebrow": "Aanvraag ontvangen",
-        "heading": "Bedankt, je offerte-aanvraag is verstuurd naar jouw e-mail.",
+        "heading": "Bedankt, de bevestiging is verstuurd naar jouw e-mail.",
         "text": "We controleren je 3D-bestand, beoordelen de printbaarheid en sturen je daarna een duidelijke offerte. Je betaalt pas nadat je akkoord hebt gegeven.",
         "button_label": "Terug naar homepage",
         "button_link": "/"
