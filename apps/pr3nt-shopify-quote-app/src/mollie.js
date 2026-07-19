@@ -65,29 +65,32 @@ function mollieHeaders() {
   return { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
 }
 
+function normalizePaymentMethod(method = '') {
+  const normalized = String(method).trim().toLowerCase();
+  if (normalized === 'bankcontact') return 'bancontact';
+  return normalized;
+}
+
 function configuredAllowedMethods() {
-  const raw = String(process.env.MOLLIE_ALLOWED_METHODS || '').trim();
-  if (!raw) return undefined;
-  const methods = raw.split(',').map((method) => method.trim()).filter(Boolean);
-  return methods.length ? methods : undefined;
+  const raw = String(process.env.MOLLIE_ALLOWED_METHODS || 'ideal,bancontact').trim();
+  const methods = raw.split(',').map(normalizePaymentMethod).filter(Boolean);
+  return methods.length ? [...new Set(methods)] : ['ideal', 'bancontact'];
 }
 
 function paymentLinkUrl(body) {
   return body?._links?.paymentUrl?.href || body?._links?.checkout?.href || body?.paymentUrl || '';
 }
 
-function paymentLinkPayload(quote, amount, includeAllowedMethods = true) {
+function paymentLinkPayload(quote, amount) {
   const token = encodeURIComponent(ensurePortalToken(quote));
-  const payload = {
+  return {
     description: `Pr3nt offerte ${quote.id}`.slice(0, 255),
     amount: { currency: 'EUR', value: amount },
     reusable: false,
     redirectUrl: `${baseUrl}/portal/${token}?saved=Betaling%20wordt%20verwerkt`,
     webhookUrl: `${baseUrl}/api/mollie/webhook`,
+    allowedMethods: configuredAllowedMethods(),
   };
-  const methods = configuredAllowedMethods();
-  if (includeAllowedMethods && methods) payload.allowedMethods = methods;
-  return payload;
 }
 
 async function postPaymentLink(payload) {
@@ -101,13 +104,8 @@ async function postPaymentLink(payload) {
 }
 
 async function createPaymentLink(quote, amount) {
-  let payload = paymentLinkPayload(quote, amount, true);
-  let result = await postPaymentLink(payload);
-  if (!result.response.ok && result.response.status === 422 && payload.allowedMethods) {
-    console.warn('Mollie weigerde MOLLIE_ALLOWED_METHODS. Nieuwe poging met alle ingeschakelde betaalmethodes.');
-    payload = paymentLinkPayload(quote, amount, false);
-    result = await postPaymentLink(payload);
-  }
+  const payload = paymentLinkPayload(quote, amount);
+  const result = await postPaymentLink(payload);
   if (!result.response.ok) throw new Error(`Mollie betaallink kon niet worden aangemaakt: ${JSON.stringify(result.body)}`);
   const url = paymentLinkUrl(result.body);
   if (!url) throw new Error('Mollie gaf geen paymentUrl terug.');
