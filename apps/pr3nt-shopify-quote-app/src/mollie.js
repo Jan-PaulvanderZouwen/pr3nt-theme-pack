@@ -10,6 +10,10 @@ const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
 
+function e(value = '') {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
 function money(value) {
   const number = Number(String(value || '0').replace(',', '.'));
   return Number.isFinite(number) ? number : 0;
@@ -137,7 +141,39 @@ function messageExists(quote, text) {
   return Array.isArray(quote.messages) && quote.messages.some((message) => String(message.text || '').includes(text));
 }
 
+function paymentUrl(quote) {
+  return quote?.molliePaymentUrl || quote?.paymentUrl || '';
+}
+
+function adminPaymentInfoHtml(quote) {
+  const url = paymentUrl(quote);
+  if (url) {
+    return `<div class="info-card"><small>Mollie betaallink</small><strong><a href="${e(url)}" target="_blank" rel="noopener">Open betaallink</a></strong><span class="muted">De betaallink wordt automatisch aangemaakt op basis van de offerte-regels.</span></div>`;
+  }
+  return `<div class="info-card"><small>Mollie betaallink</small><strong>Automatisch</strong><span class="muted">Vul offerte-regels in en sla op. De Mollie-link wordt automatisch aangemaakt.</span></div>`;
+}
+
+function removeManualPaymentField(html, quote) {
+  return html.replace(/<label><span>Shopify betaallink<\/span><input name="paymentUrl" value="[^"]*"><\/label>/, adminPaymentInfoHtml(quote));
+}
+
 export function registerMollieRoutes(app) {
+  app.use('/admin/quotes/:id', async (req, res, next) => {
+    if (req.method !== 'GET') return next();
+    const originalSend = res.send.bind(res);
+    res.send = (body) => {
+      Promise.resolve().then(async () => {
+        if (typeof body !== 'string') return originalSend(body);
+        const quotes = await readQuotes();
+        const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+        if (!quote) return originalSend(body);
+        return originalSend(removeManualPaymentField(body, quote));
+      }).catch(() => originalSend(body));
+      return res;
+    };
+    next();
+  });
+
   app.use('/admin/quotes/:id', async (req, _res, next) => {
     if (req.method !== 'POST') return next();
     if (!process.env.MOLLIE_API_KEY) return next();
@@ -151,19 +187,25 @@ export function registerMollieRoutes(app) {
       const amount = amountValue(quoteTotalFromBody(req.body));
       if (money(amount) <= 0) return next();
 
+      const now = new Date().toISOString();
+
       if (quote.molliePaymentUrl && quote.molliePaymentAmount === amount && quote.molliePaymentStatus !== 'paid') {
         req.body.paymentUrl = quote.molliePaymentUrl;
+        if (!quote.quoteSentAt) {
+          quote.quoteSentAt = now;
+          await writeQuotes(quotes);
+        }
         return next();
       }
 
       const paymentLink = await createMolliePaymentLink(quote, amount);
-      const now = new Date().toISOString();
       quote.paymentUrl = paymentLink.molliePaymentUrl;
       quote.molliePaymentLinkId = paymentLink.molliePaymentLinkId;
       quote.molliePaymentUrl = paymentLink.molliePaymentUrl;
       quote.molliePaymentStatus = paymentLink.molliePaymentStatus;
       quote.molliePaymentAmount = paymentLink.molliePaymentAmount;
       quote.molliePaymentCreatedAt = paymentLink.molliePaymentCreatedAt;
+      quote.quoteSentAt = quote.quoteSentAt || now;
       quote.updatedAt = now;
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       if (!messageExists(quote, 'Mollie-betaallink aangemaakt')) {
