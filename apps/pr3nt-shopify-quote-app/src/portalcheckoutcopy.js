@@ -27,7 +27,7 @@ function quoteTotal(quote) {
 }
 
 function script(quote) {
-  const hasPaymentUrl = Boolean(quote.paymentUrl);
+  const hasPaymentUrl = Boolean(quote.paymentUrl || quote.molliePaymentUrl);
   const isQuoteReady = quoteTotal(quote) > 0;
   return `<style id="pr3nt-accept-pay-copy-css">
     .pr3nt-payment-note{margin:14px 0 0;padding:14px 16px;border:1px solid rgba(0,208,132,.28);background:rgba(0,208,132,.12);border-radius:18px;color:#0f3d2b;font-weight:760;line-height:1.45}
@@ -41,12 +41,12 @@ function script(quote) {
         document.querySelectorAll('button,a').forEach(function(el){
           var t = (el.textContent || '').trim().toLowerCase();
           if(t === 'akkoord met offerte' || t === 'offerte accepteren') el.textContent = hasPaymentUrl ? 'Offerte accepteren en betalen' : 'Offerte accepteren';
-          if(t === 'nu betalen') el.textContent = 'Betalen';
+          if(t === 'nu betalen' || t === 'betalen') el.textContent = 'betaal veilig via Mollie';
         });
         document.querySelectorAll('.next-action span').forEach(function(el){
           var t = (el.textContent || '').trim().toLowerCase();
           if(t === 'offerte accepteren') el.textContent = hasPaymentUrl ? 'Accepteren en betalen' : 'Offerte accepteren';
-          if(t === 'betaal je print') el.textContent = 'Betaling afronden';
+          if(t === 'betaal je print' || t === 'betaling afronden') el.textContent = 'betaal veilig via Mollie';
           if(t === 'betaallink volgt') el.textContent = 'Betaling wordt handmatig klaargezet';
         });
         document.querySelectorAll('.status-hero p').forEach(function(el){
