@@ -140,6 +140,23 @@ function sendLater(quote, title, message, cta) {
   Promise.resolve().then(() => sendCustomerMail(quote, title, message, cta)).catch((error) => console.warn('Statusmail kon niet worden verzonden:', error.message));
 }
 
+async function sendQuoteReadyMailIfNeeded(quotes, quote) {
+  if (!quote || quote.archivedAt || quote.manualStatus === 'waiting_customer') return false;
+  if (quote.status !== 'quote_sent' || quoteTotal(quote) <= 0 || !paymentUrl(quote)) return false;
+  if (quote.mollieQuoteMailSentAt) return false;
+
+  await sendCustomerMail(quote, labels.quote_sent, messages.quote_sent, 'betaal veilig via Mollie');
+  const now = new Date().toISOString();
+  quote.mollieQuoteMailSentAt = now;
+  quote.quoteSentAt = quote.quoteSentAt || now;
+  quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+  if (!quote.messages.some((message) => String(message.text || '').includes('De offerte is verstuurd naar je e-mailadres'))) {
+    quote.messages.push({ from: 'pr3nt', text: 'De offerte is verstuurd naar je e-mailadres.', createdAt: now });
+  }
+  await writeQuotes(quotes);
+  return true;
+}
+
 function addAcceptanceAudit(quote, req, now) {
   quote.acceptance = {
     method: quote.paymentUrl ? 'portal_accept_and_pay' : 'portal_accept_button',
@@ -204,12 +221,17 @@ export function registerStatusMailRoutes(app) {
     const originalRedirect = res.redirect.bind(res);
     res.redirect = function patchedRedirect(...args) {
       Promise.resolve().then(async () => {
-        const after = findQuote(await readQuotes(), req.params.id);
-        if (!after || after.archivedAt || after.manualStatus === 'waiting_customer') return;
+        const quotes = await readQuotes();
+        const after = findQuote(quotes, req.params.id);
+        if (!after || after.archivedAt) return;
+
+        const quoteMailSent = await sendQuoteReadyMailIfNeeded(quotes, after);
+        if (quoteMailSent || after.manualStatus === 'waiting_customer') return;
+
         const oldStatus = before?.status || '';
         const newStatus = after.status || '';
         if (oldStatus !== newStatus && messages[newStatus]) {
-          const cta = newStatus === 'quote_sent' ? 'betaal veilig via Mollie' : newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
+          const cta = newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
           sendLater(after, labels[newStatus] || 'Status bijgewerkt', messages[newStatus], cta);
         }
       }).catch((error) => console.warn('Statusmail middleware fout:', error.message));
