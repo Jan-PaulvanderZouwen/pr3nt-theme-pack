@@ -30,7 +30,7 @@ const labels = {
 
 const messages = {
   creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we mee in de prijsopgaaf.',
-  quote_sent: 'Je prijsopgaaf staat klaar in je klantportaal. Controleer de regels en rond akkoord + betaling af. We starten met printen zodra de betaling is ontvangen.',
+  quote_sent: 'Je prijsopgaaf staat klaar. Controleer de regels en betaal veilig via Mollie. We starten met printen zodra de betaling is ontvangen.',
   accepted: 'Je prijsopgaaf is akkoord. We starten met printen zodra de betaling is ontvangen.',
   paid: 'We hebben je betaling ontvangen. Je print wordt nu ingepland.',
   print_queue: 'Je print staat in de wachtrij of is in productie.',
@@ -68,6 +68,10 @@ function portalUrl(quote) {
   return `${baseUrl}/portal/${encodeURIComponent(quote.portalToken || quote.id)}`;
 }
 
+function paymentUrl(quote) {
+  return quote.molliePaymentUrl || quote.paymentUrl || '';
+}
+
 function mailer() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.transip.email',
@@ -78,9 +82,14 @@ function mailer() {
 }
 
 function html(quote, title, message, cta = 'Open mijn klantportaal') {
-  const url = portalUrl(quote);
+  const payUrl = paymentUrl(quote);
+  const useMollieCta = quote.status === 'quote_sent' && payUrl;
+  const url = useMollieCta ? payUrl : portalUrl(quote);
+  const ctaText = useMollieCta ? 'betaal veilig via Mollie' : cta;
+  const fallbackUrl = useMollieCta ? portalUrl(quote) : url;
   const tracking = quote.status === 'shipped' && quote.trackingCode ? `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px;margin:18px 0"><strong>Track & trace</strong><br>${e(quote.trackingCode)}</div>` : '';
-  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden"><div style="padding:28px;background:#101820;color:#fff"><div style="font-size:24px;font-weight:900">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:30px;line-height:1.08">${e(title)}</h1><p style="margin:0;color:#d7dde0">Project ${e(quote.id)}</p></div><div style="padding:28px"><p>Hoi ${e(quote.name || '')},</p><p style="line-height:1.6">${e(message)}</p>${tracking}<p style="margin:24px 0"><a href="${url}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">${e(cta)}</a></p><p style="font-size:14px;color:#667085;line-height:1.5">Werkt de knop niet? Kopieer deze link:<br><span style="word-break:break-all">${url}</span></p><p>Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
+  const portalFallback = useMollieCta ? `<p style="font-size:14px;color:#667085;line-height:1.5">Je klantportaal blijft hier beschikbaar:<br><span style="word-break:break-all">${e(fallbackUrl)}</span></p>` : '';
+  return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:640px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden"><div style="padding:28px;background:#101820;color:#fff"><div style="font-size:24px;font-weight:900">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:30px;line-height:1.08">${e(title)}</h1><p style="margin:0;color:#d7dde0">Project ${e(quote.id)}</p></div><div style="padding:28px"><p>Hoi ${e(quote.name || '')},</p><p style="line-height:1.6">${e(message)}</p>${tracking}<p style="margin:24px 0"><a href="${e(url)}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">${e(ctaText)}</a></p><p style="font-size:14px;color:#667085;line-height:1.5">Werkt de knop niet? Kopieer deze link:<br><span style="word-break:break-all">${e(url)}</span></p>${portalFallback}<p>Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
 async function sendCustomerMail(quote, title, message, cta) {
@@ -165,7 +174,7 @@ export function registerStatusMailRoutes(app) {
         const oldStatus = before?.status || '';
         const newStatus = after.status || '';
         if (oldStatus !== newStatus && messages[newStatus]) {
-          const cta = newStatus === 'quote_sent' ? 'Prijsopgaaf bekijken en betalen' : newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
+          const cta = newStatus === 'quote_sent' ? 'betaal veilig via Mollie' : newStatus === 'shipped' ? 'Bekijk verzending' : 'Open mijn klantportaal';
           sendLater(after, labels[newStatus] || 'Status bijgewerkt', messages[newStatus], cta);
         }
       }).catch((error) => console.warn('Statusmail middleware fout:', error.message));
