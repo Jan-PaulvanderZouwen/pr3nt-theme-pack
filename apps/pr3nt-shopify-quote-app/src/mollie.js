@@ -143,7 +143,7 @@ function messageExists(quote, text) {
 }
 
 function paymentUrl(quote) {
-  return quote?.molliePaymentUrl || quote?.paymentUrl || '';
+  return quote?.paymentUrl || quote?.molliePaymentUrl || '';
 }
 
 function isWaitingCustomer(quote) {
@@ -166,8 +166,9 @@ function clearWaitingCustomer(quote) {
 
 function adminPaymentInfoHtml(quote) {
   const url = paymentUrl(quote);
-  if (url) return `<div class="info-card"><small>Mollie betaallink</small><strong><a href="${e(url)}" target="_blank" rel="noopener">Open betaallink</a></strong><span class="muted">De betaallink wordt automatisch aangemaakt op basis van de offerte-regels.</span></div>`;
-  return '<div class="info-card"><small>Mollie betaallink</small><strong>Automatisch</strong><span class="muted">Vul offerte-regels in en sla op. De Mollie-link wordt automatisch aangemaakt.</span></div>';
+  const link = url ? `<strong><a href="${e(url)}" target="_blank" rel="noopener">Open huidige betaallink</a></strong>` : '<strong>Automatisch via Mollie</strong>';
+  const note = url ? 'De huidige link wordt gebruikt in de mail en het portaal.' : 'Laat dit leeg voor automatisch aanmaken via Mollie.';
+  return `<div class="info-card"><small>Betaallink</small>${link}<span class="muted">${note}</span><details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:#6d7175;font-weight:750">Handmatige betaallink gebruiken</summary><label style="display:block;margin-top:10px"><span style="font-size:13px;color:#6d7175">Eigen betaallink / overschrijven</span><input name="paymentUrl" value="${e(quote?.paymentUrl || '')}" placeholder="https://..." autocomplete="off"></label><span class="muted" style="display:block;margin-top:6px;font-size:12px">Alleen invullen als je bewust een eigen betaallink wilt meesturen. Deze link krijgt voorrang op de automatische Mollie-link.</span></details></div>`;
 }
 
 function replaceStatusOption(html, quote) {
