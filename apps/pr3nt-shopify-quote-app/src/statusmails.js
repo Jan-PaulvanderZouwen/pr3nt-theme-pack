@@ -142,12 +142,14 @@ function sendLater(quote, title, message, cta) {
 
 async function sendQuoteReadyMailIfNeeded(quotes, quote) {
   if (!quote || quote.archivedAt || quote.manualStatus === 'waiting_customer') return false;
-  if (quote.status !== 'quote_sent' || quoteTotal(quote) <= 0 || !paymentUrl(quote)) return false;
-  if (quote.mollieQuoteMailSentAt) return false;
+  const payUrl = paymentUrl(quote);
+  if (quote.status !== 'quote_sent' || quoteTotal(quote) <= 0 || !payUrl) return false;
+  if (quote.mollieQuoteMailSentAt && quote.mollieQuoteMailSentUrl === payUrl) return false;
 
   await sendCustomerMail(quote, labels.quote_sent, messages.quote_sent, 'betaal veilig via Mollie');
   const now = new Date().toISOString();
   quote.mollieQuoteMailSentAt = now;
+  quote.mollieQuoteMailSentUrl = payUrl;
   quote.quoteSentAt = quote.quoteSentAt || now;
   quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
   if (!quote.messages.some((message) => String(message.text || '').includes('De offerte is verstuurd naar je e-mailadres'))) {
