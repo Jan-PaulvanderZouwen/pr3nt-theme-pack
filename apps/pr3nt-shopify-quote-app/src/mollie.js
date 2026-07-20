@@ -164,6 +164,16 @@ function clearWaitingCustomer(quote) {
   if (quote.waitingCustomerAt) delete quote.waitingCustomerAt;
 }
 
+function resetQuoteMailForManualLink(quote, manualUrl, now) {
+  if (!quote || !manualUrl || manualUrl === paymentUrl(quote)) return false;
+  quote.paymentUrl = manualUrl;
+  delete quote.mollieQuoteMailSentAt;
+  delete quote.quoteSentAt;
+  quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+  quote.messages.push({ from: 'pr3nt', text: 'Handmatige betaallink ingesteld. De offertemail kan opnieuw worden verstuurd.', createdAt: now });
+  return true;
+}
+
 function adminPaymentInfoHtml(quote) {
   const url = paymentUrl(quote);
   const link = url ? `<strong><a href="${e(url)}" target="_blank" rel="noopener">Open huidige betaallink</a></strong>` : '<strong>Automatisch via Mollie</strong>';
@@ -232,7 +242,7 @@ export function registerMollieRoutes(app) {
   });
 
   app.use('/admin/quotes/:id', async (req, res, next) => {
-    if (req.method !== 'POST' || req.body?.paymentUrl) return next();
+    if (req.method !== 'POST') return next();
 
     try {
       const quotes = await readQuotes();
@@ -240,6 +250,12 @@ export function registerMollieRoutes(app) {
       if (!quote || quote.paidAt || quote.status === 'paid') return next();
 
       const now = new Date().toISOString();
+      const manualUrl = String(req.body?.paymentUrl || '').trim();
+      if (manualUrl) {
+        if (resetQuoteMailForManualLink(quote, manualUrl, now)) await writeQuotes(quotes);
+        return next();
+      }
+
       let manualChanged = false;
       if (req.body.status === waitingCustomerStatus) {
         markWaitingCustomer(quote, now);
