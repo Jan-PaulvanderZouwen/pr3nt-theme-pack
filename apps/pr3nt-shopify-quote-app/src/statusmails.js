@@ -88,7 +88,7 @@ function portalUrl(quote) {
 }
 
 function paymentUrl(quote) {
-  return quote.molliePaymentUrl || quote.paymentUrl || '';
+  return quote.paymentUrl || quote.molliePaymentUrl || '';
 }
 
 function mailer() {
