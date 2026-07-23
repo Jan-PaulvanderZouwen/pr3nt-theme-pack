@@ -17,6 +17,10 @@ function escapeHtml(value = '') {
     .replaceAll("'", '&#039;');
 }
 
+function clean(value = '', max = 240) {
+  return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
+}
+
 async function readQuotes() {
   try {
     const quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));
@@ -26,33 +30,71 @@ async function readQuotes() {
   }
 }
 
+function getLabeledValue(text = '', labels = []) {
+  const lines = String(text || '').split(/\r?\n/);
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (!cleaned) continue;
+    for (const label of labels) {
+      const pattern = new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[:=-]\\s*(.+)$`, 'i');
+      const match = cleaned.match(pattern);
+      if (match?.[1]) return match[1].trim();
+    }
+  }
+  return '';
+}
+
 function parseShippingFromNote(note = '') {
   const text = String(note || '');
-  const get = (label) => {
-    const match = text.match(new RegExp(`${label}:\\s*([^\\n]+)`, 'i'));
-    return match ? match[1].trim() : '';
-  };
+  const street = getLabeledValue(text, ['Straat', 'Straatnaam', 'Street']);
+  const houseNumber = getLabeledValue(text, ['Huisnummer', 'Nummer', 'House number']);
+  const address = getLabeledValue(text, ['Adres', 'Straat en huisnummer', 'Verzendadres', 'Address']);
   return {
-    country: get('Land'),
-    postalCode: get('Postcode'),
-    houseNumber: get('Huisnummer'),
-    city: get('Plaats'),
+    name: getLabeledValue(text, ['Naam ontvanger', 'Ontvanger']),
+    company: getLabeledValue(text, ['Bedrijf', 'Company']),
+    address: address || [street, houseNumber].filter(Boolean).join(' '),
+    street,
+    country: getLabeledValue(text, ['Land', 'Country']),
+    postalCode: getLabeledValue(text, ['Postcode', 'Postal code', 'Zip']),
+    houseNumber,
+    city: getLabeledValue(text, ['Plaats', 'Woonplaats', 'Stad', 'City']),
   };
 }
 
+function looksLikeHouseNumberOnly(value = '') {
+  const text = String(value || '').trim();
+  return !!text && /^[0-9]+\s*[a-zA-Z]{0,4}(?:\s*[-/]\s*[0-9a-zA-Z]+)?$/.test(text);
+}
+
+function fullAddress(shipping = {}, parsed = {}) {
+  const street = shipping.street || parsed.street || '';
+  const houseNumber = shipping.houseNumber || shipping.house || shipping.number || parsed.houseNumber || '';
+  const address = shipping.address || parsed.address || '';
+  if (street && houseNumber) return `${street} ${houseNumber}`.trim();
+  if (street) return street;
+  if (address && looksLikeHouseNumberOnly(address) && houseNumber && address !== houseNumber) return [address, houseNumber].filter(Boolean).join(' ');
+  return address || houseNumber || '';
+}
+
 function shippingOf(quote = {}) {
-  const parsed = parseShippingFromNote(quote.note);
+  const parsed = parseShippingFromNote(`${quote.description || ''}\n${quote.note || ''}`);
   const shipping = quote.shipping || {};
+  const address = fullAddress(shipping, parsed);
+  const houseNumber = shipping.houseNumber || shipping.house || shipping.number || parsed.houseNumber || '';
   return {
+    name: shipping.name || parsed.name || quote.name || '',
+    company: shipping.company || parsed.company || '',
+    address,
+    street: shipping.street || parsed.street || '',
     country: shipping.country || parsed.country || '',
     postalCode: shipping.postalCode || parsed.postalCode || '',
-    houseNumber: shipping.houseNumber || shipping.house || shipping.number || parsed.houseNumber || '',
+    houseNumber,
     city: shipping.city || parsed.city || '',
   };
 }
 
 function hasShipping(shipping) {
-  return !!(shipping.country || shipping.postalCode || shipping.houseNumber || shipping.city);
+  return !!(shipping.address || shipping.country || shipping.postalCode || shipping.houseNumber || shipping.city);
 }
 
 function css() {
@@ -71,12 +113,43 @@ function portalCardHtml(shipping) {
   return `<div class="pr3nt-shipping-card" data-pr3nt-shipping-card>
     <h2>Verzendadres</h2>
     <div class="pr3nt-shipping-kv">
-      <div class="pr3nt-shipping-muted">Land</div><div>${escapeHtml(shipping.country || '-')}</div>
+      <div class="pr3nt-shipping-muted">Naam</div><div>${escapeHtml(shipping.name || '-')}</div>
+      ${shipping.company ? `<div class="pr3nt-shipping-muted">Bedrijf</div><div>${escapeHtml(shipping.company)}</div>` : ''}
+      <div class="pr3nt-shipping-muted">Adres</div><div>${escapeHtml(shipping.address || '-')}</div>
       <div class="pr3nt-shipping-muted">Postcode</div><div>${escapeHtml(shipping.postalCode || '-')}</div>
-      <div class="pr3nt-shipping-muted">Huisnummer</div><div>${escapeHtml(shipping.houseNumber || '-')}</div>
       <div class="pr3nt-shipping-muted">Plaats</div><div>${escapeHtml(shipping.city || '-')}</div>
+      <div class="pr3nt-shipping-muted">Land</div><div>${escapeHtml(shipping.country || '-')}</div>
     </div>
   </div>`;
+}
+
+function normaliseIncomingQuoteShipping(req) {
+  if (req.method !== 'POST' || req.path !== '/api/quote' || !req.body) return;
+  const body = req.body;
+  const read = (...names) => {
+    for (const name of names) {
+      const value = body[name];
+      if (Array.isArray(value) && value[0]) return clean(value[0]);
+      if (value) return clean(value);
+    }
+    return '';
+  };
+
+  const description = read('description', 'omschrijving', 'message', 'bericht', 'contact[body]', 'body');
+  const parsed = parseShippingFromNote(description);
+  const street = read('shipping_street', 'shippingStreet', 'shipping_street_name', 'shippingStreetName', 'street', 'streetName', 'street_name', 'straat', 'straatnaam', 'adres_straat', 'address_street') || parsed.street;
+  const houseNumber = read('shipping_house', 'shippingHouse', 'shipping_house_number', 'shippingHouseNumber', 'houseNumber', 'house_number', 'huisnummer', 'nummer', 'number', 'nr') || parsed.houseNumber;
+  const currentAddress = read('shipping_address', 'shippingAddress', 'shipping_address1', 'shippingAddress1', 'address', 'adres', 'street_address', 'straat_huisnummer') || parsed.address;
+  const combinedAddress = street ? [street, houseNumber].filter(Boolean).join(' ') : currentAddress;
+
+  if (combinedAddress) body.shipping_address = combinedAddress;
+  if (street) body.shipping_street = street;
+  if (houseNumber) body.shipping_house = houseNumber;
+  body.shipping_postal = read('shipping_postal', 'shippingPostal', 'shipping_postal_code', 'shippingPostalCode', 'postalCode', 'postal_code', 'postcode', 'zip') || parsed.postalCode || body.shipping_postal;
+  body.shipping_city = read('shipping_city', 'shippingCity', 'city', 'plaats', 'woonplaats', 'stad') || parsed.city || body.shipping_city;
+  body.shipping_country = read('shipping_country', 'shippingCountry', 'country', 'land') || parsed.country || body.shipping_country || 'Nederland';
+  body.shipping_name = read('shipping_name', 'shippingName', 'shipping_recipient', 'shippingRecipient', 'recipient', 'ontvanger') || parsed.name || body.shipping_name || body.name;
+  body.shipping_company = read('shipping_company', 'shippingCompany', 'company', 'bedrijf') || parsed.company || body.shipping_company;
 }
 
 function script(quote) {
@@ -100,11 +173,13 @@ function script(quote) {
       }
       function prefillAccount(){
         if(location.pathname.indexOf('/account') === -1) return;
-        var address = shipping.houseNumber || '';
         setIfEmpty('country', shipping.country || 'Nederland');
         setIfEmpty('postalCode', shipping.postalCode || '');
         setIfEmpty('city', shipping.city || '');
-        setIfEmpty('address', address || '');
+        setIfEmpty('address', shipping.address || '');
+        setIfEmpty('shippingAddress', shipping.address || '');
+        setIfEmpty('shippingStreet', shipping.street || '');
+        setIfEmpty('shippingHouse', shipping.houseNumber || '');
       }
       addPortalShipping();
       prefillAccount();
@@ -115,6 +190,11 @@ function script(quote) {
 }
 
 export function registerShippingContextRoutes(app) {
+  app.use((req, _res, next) => {
+    normaliseIncomingQuoteShipping(req);
+    next();
+  });
+
   app.use(async (req, res, next) => {
     if (req.method !== 'GET') return next();
     const isPortal = /^\/portal\/[^/]+(?:\/account)?$/.test(req.path);
