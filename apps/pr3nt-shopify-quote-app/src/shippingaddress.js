@@ -33,20 +33,46 @@ function findQuote(quotes, token) {
   return quotes.find((quote) => !quote.archivedAt && (quote.portalToken === token || quote.id === token));
 }
 
-function addressComplete(address = {}) {
-  return Boolean(address.name && address.address && address.postalCode && address.city && address.country);
+function looksLikeHouseNumberOnly(value = '') {
+  const text = String(value || '').trim();
+  return !!text && /^[0-9]+\s*[a-zA-Z]{0,4}(?:\s*[-/]\s*[0-9a-zA-Z]+)?$/.test(text);
 }
 
-function addressHtml(address = {}) {
-  if (!addressComplete(address)) return '<p class="muted">Vul je verzendadres in zodra je print verzonden mag worden.</p>';
-  return `<div class="pr3nt-address-lines"><strong>${e(address.name)}</strong><span>${e(address.address)}</span><span>${e(address.postalCode)} ${e(address.city)}</span><span>${e(address.country)}</span></div>`;
+function fullAddress(address = {}) {
+  const street = address.street || '';
+  const houseNumber = address.houseNumber || address.house || address.number || '';
+  const line = address.address || '';
+  if (street && houseNumber) return `${street} ${houseNumber}`.trim();
+  if (street) return street;
+  if (line && looksLikeHouseNumberOnly(line) && houseNumber && line !== houseNumber) return [line, houseNumber].filter(Boolean).join(' ');
+  return line || houseNumber || '';
+}
+
+function normalizedAddress(address = {}, fallbackName = '') {
+  return {
+    ...address,
+    name: address.name || fallbackName || '',
+    address: fullAddress(address),
+    country: address.country || 'Nederland',
+  };
+}
+
+function addressComplete(address = {}) {
+  const normalized = normalizedAddress(address);
+  return Boolean(normalized.name && normalized.address && normalized.postalCode && normalized.city && normalized.country);
+}
+
+function addressHtml(address = {}, fallbackName = '') {
+  const normalized = normalizedAddress(address, fallbackName);
+  if (!addressComplete(normalized)) return '<p class="muted">Vul je verzendadres in zodra je print verzonden mag worden.</p>';
+  return `<div class="pr3nt-address-lines"><strong>${e(normalized.name)}</strong><span>${e(normalized.address)}</span><span>${e(normalized.postalCode)} ${e(normalized.city)}</span><span>${e(normalized.country)}</span></div>`;
 }
 
 function cardHtml(quote) {
   const token = encodeURIComponent(quote.portalToken || quote.id);
-  const shipping = quote.shipping || {};
+  const shipping = normalizedAddress(quote.shipping || {}, quote.name || '');
   const completed = addressComplete(shipping);
-  return `<section class="card pr3nt-shipping-card"><div class="pr3nt-shipping-head"><div><span class="eyebrow">Verzending</span><h2>Verzendadres</h2></div><span class="badge ${completed ? 'green' : ''}">${completed ? 'Ingevuld' : 'Nog nodig'}</span></div>${addressHtml(shipping)}<details class="pr3nt-address-details" ${completed ? '' : 'open'}><summary class="btn btn-light">${completed ? 'Adres wijzigen' : 'Adres invullen'}</summary><form method="post" action="/portal/${token}/shipping" class="pr3nt-shipping-form"><div class="form-grid"><label><span>Naam ontvanger</span><input name="shippingName" value="${e(shipping.name || quote.name || '')}" required></label><label><span>Bedrijf <small>(optioneel)</small></span><input name="shippingCompany" value="${e(shipping.company || '')}"></label><label><span>Straat en huisnummer</span><input name="shippingAddress" value="${e(shipping.address || '')}" required></label><label><span>Postcode</span><input name="shippingPostalCode" value="${e(shipping.postalCode || '')}" required></label><label><span>Plaats</span><input name="shippingCity" value="${e(shipping.city || '')}" required></label><label><span>Land</span><input name="shippingCountry" value="${e(shipping.country || 'Nederland')}" required></label></div><button class="btn btn-primary" type="submit">Verzendadres opslaan</button></form></details></section>`;
+  return `<section class="card pr3nt-shipping-card"><div class="pr3nt-shipping-head"><div><span class="eyebrow">Verzending</span><h2>Verzendadres</h2></div><span class="badge ${completed ? 'green' : ''}">${completed ? 'Ingevuld' : 'Nog nodig'}</span></div>${addressHtml(shipping, quote.name || '')}<details class="pr3nt-address-details" ${completed ? '' : 'open'}><summary class="btn btn-light">${completed ? 'Adres wijzigen' : 'Adres invullen'}</summary><form method="post" action="/portal/${token}/shipping" class="pr3nt-shipping-form"><div class="form-grid"><label><span>Naam ontvanger</span><input name="shippingName" value="${e(shipping.name || quote.name || '')}" required></label><label><span>Bedrijf <small>(optioneel)</small></span><input name="shippingCompany" value="${e(shipping.company || '')}"></label><label><span>Straat en huisnummer</span><input name="shippingAddress" value="${e(shipping.address || '')}" required></label><label><span>Postcode</span><input name="shippingPostalCode" value="${e(shipping.postalCode || '')}" required></label><label><span>Plaats</span><input name="shippingCity" value="${e(shipping.city || '')}" required></label><label><span>Land</span><input name="shippingCountry" value="${e(shipping.country || 'Nederland')}" required></label></div><button class="btn btn-primary" type="submit">Verzendadres opslaan</button></form></details></section>`;
 }
 
 function css() {
