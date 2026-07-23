@@ -7,6 +7,7 @@ import { registerShippingAddressRoutes } from './shippingaddress.js';
 import { registerPortalMobileRoutes } from './portalmobile.js';
 import { registerPortalCheckoutCopyRoutes } from './portalcheckoutcopy.js';
 import { exportQuoteDesigns } from './designsync.js';
+import { fmt, money, quoteLines, quoteSubtotalExVat, quoteVatAmount, quoteTotalInclVat, vatRatePercent } from './vat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +31,7 @@ const labels = {
 
 const messages = {
   creating_quote: 'We bekijken je bestand en berekenen de prijs. Verzending nemen we mee in de prijsopgaaf.',
-  quote_sent: 'We hebben je 3D-print aanvraag bekeken. Hieronder staat je prijsopgaaf met het totaalbedrag. Via de knop onderaan kun je veilig betalen via Mollie.',
+  quote_sent: 'We hebben je 3D-print aanvraag bekeken. Hieronder staat je prijsopgaaf met het totaalbedrag inclusief 21% btw. Via de knop onderaan kun je veilig betalen via Mollie.',
   waiting_customer: 'We wachten nog op je reactie voordat we verder kunnen.',
   paid: 'We hebben je betaling ontvangen. Je print wordt nu ingepland.',
   print_queue: 'Je print staat in de wachtrij of is in productie.',
@@ -41,25 +42,6 @@ const messages = {
 
 function e(value = '') {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
-}
-
-function money(value) {
-  const number = Number(String(value || '0').replace(',', '.'));
-  return Number.isFinite(number) ? number : 0;
-}
-
-function fmt(value) {
-  return money(value).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function quoteLines(quote) {
-  if (Array.isArray(quote.quoteLines) && quote.quoteLines.length) return quote.quoteLines;
-  if (quote.quoteAmount) return [{ label: 'Offertebedrag', description: '', qty: '1', unit: quote.quoteAmount }];
-  return [];
-}
-
-function quoteTotal(quote) {
-  return quoteLines(quote).reduce((sum, line) => sum + money(line.qty || 1) * money(line.unit || 0), 0);
 }
 
 async function readQuotes() {
@@ -108,9 +90,13 @@ function quoteRowsHtml(quote) {
   return rows || '<tr><td colspan="4" style="padding:12px;color:#667085">De offerte-regels konden niet worden geladen. Bekijk je prijsopgaaf in het klantportaal.</td></tr>';
 }
 
+function vatRowsHtml(quote) {
+  return `<tr><td colspan="3" style="padding:10px;text-align:right;color:#667085">Subtotaal excl. btw</td><td style="padding:10px;text-align:right">€ ${fmt(quoteSubtotalExVat(quote))}</td></tr><tr><td colspan="3" style="padding:10px;text-align:right;color:#667085">Btw ${fmt(vatRatePercent())}%</td><td style="padding:10px;text-align:right">€ ${fmt(quoteVatAmount(quote))}</td></tr><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:900;border-top:1px solid #e5e7eb">Totaal incl. btw</td><td style="padding:12px;text-align:right;font-weight:900;border-top:1px solid #e5e7eb">€ ${fmt(quoteTotalInclVat(quote))}</td></tr>`;
+}
+
 function quoteSummaryHtml(quote) {
   if (quote.status !== 'quote_sent' || quote.manualStatus === 'waiting_customer') return '';
-  return `<table style="width:100%;border-collapse:collapse;margin:18px 0"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Omschrijving</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Aantal</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Prijs</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Totaal</th></tr></thead><tbody>${quoteRowsHtml(quote)}</tbody><tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:900">Totaal</td><td style="padding:12px;text-align:right;font-weight:900">€ ${fmt(quoteTotal(quote))}</td></tr></tfoot></table>`;
+  return `<table style="width:100%;border-collapse:collapse;margin:18px 0"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Omschrijving</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Aantal</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Prijs excl. btw</th><th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Totaal excl. btw</th></tr></thead><tbody>${quoteRowsHtml(quote)}</tbody><tfoot>${vatRowsHtml(quote)}</tfoot></table>`;
 }
 
 function html(quote, title, message, cta = 'Open mijn klantportaal') {
@@ -143,7 +129,7 @@ function sendLater(quote, title, message, cta) {
 async function sendQuoteReadyMailIfNeeded(quotes, quote) {
   if (!quote || quote.archivedAt || quote.manualStatus === 'waiting_customer') return false;
   const payUrl = paymentUrl(quote);
-  if (quote.status !== 'quote_sent' || quoteTotal(quote) <= 0 || !payUrl) return false;
+  if (quote.status !== 'quote_sent' || quoteSubtotalExVat(quote) <= 0 || !payUrl) return false;
   if (quote.mollieQuoteMailSentAt && quote.mollieQuoteMailSentUrl === payUrl) return false;
 
   await sendCustomerMail(quote, labels.quote_sent, messages.quote_sent, 'betaal veilig via Mollie');
