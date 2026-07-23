@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fmt, quoteSubtotalExVat, quoteVatAmount, quoteTotalInclVat, vatRatePercent } from './vat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,18 +18,15 @@ async function readQuotes() {
   }
 }
 
-function quoteTotal(quote) {
-  const lines = Array.isArray(quote.quoteLines) && quote.quoteLines.length ? quote.quoteLines : quote.quoteAmount ? [{ qty: 1, unit: quote.quoteAmount }] : [];
-  return lines.reduce((sum, line) => {
-    const qty = Number(String(line.qty || 1).replace(',', '.')) || 1;
-    const unit = Number(String(line.unit || 0).replace(',', '.')) || 0;
-    return sum + qty * unit;
-  }, 0);
-}
-
 function script(quote) {
   const hasPaymentUrl = Boolean(quote.paymentUrl || quote.molliePaymentUrl);
-  const isQuoteReady = quoteTotal(quote) > 0;
+  const isQuoteReady = quoteSubtotalExVat(quote) > 0;
+  const vat = {
+    subtotal: fmt(quoteSubtotalExVat(quote)),
+    vat: fmt(quoteVatAmount(quote)),
+    total: fmt(quoteTotalInclVat(quote)),
+    rate: fmt(vatRatePercent()),
+  };
   return `<style id="pr3nt-accept-pay-copy-css">
     .pr3nt-payment-note{margin:14px 0 0;padding:14px 16px;border:1px solid rgba(0,208,132,.28);background:rgba(0,208,132,.12);border-radius:18px;color:#0f3d2b;font-weight:760;line-height:1.45}
     .pr3nt-payment-note strong{display:block;color:#082115;margin-bottom:3px}
@@ -37,6 +35,23 @@ function script(quote) {
     (function(){
       var hasPaymentUrl = ${JSON.stringify(hasPaymentUrl)};
       var isQuoteReady = ${JSON.stringify(isQuoteReady)};
+      var vat = ${JSON.stringify(vat)};
+      function updateVat(){
+        var table = document.querySelector('.quote-table table');
+        if(table && !table.querySelector('[data-pr3nt-vat-total]')){
+          var foot = table.querySelector('tfoot') || table.createTFoot();
+          foot.innerHTML = '<tr><td colspan="3">Subtotaal excl. btw</td><td>€ '+vat.subtotal+'</td></tr><tr><td colspan="3">Btw '+vat.rate+'%</td><td>€ '+vat.vat+'</td></tr><tr data-pr3nt-vat-total><td colspan="3"><strong>Totaal incl. btw</strong></td><td><strong>€ '+vat.total+'</strong></td></tr>';
+          table.querySelectorAll('thead th').forEach(function(th){
+            var t=(th.textContent||'').trim();
+            if(t==='Prijs') th.textContent='Prijs excl. btw';
+            if(t==='Totaal') th.textContent='Totaal excl. btw';
+          });
+        }
+        document.querySelectorAll('.inline-facts span').forEach(function(span){
+          var t=(span.textContent||'').trim();
+          if(t.indexOf('€')===0) span.textContent='€ '+vat.total+' incl. btw';
+        });
+      }
       function update(){
         document.querySelectorAll('button,a').forEach(function(el){
           var t = (el.textContent || '').trim().toLowerCase();
@@ -58,9 +73,10 @@ function script(quote) {
           var t = (node.textContent || '').toLowerCase();
           if(t.indexOf('betaallink') !== -1 && (t.indexOf('automatisch') !== -1 || t.indexOf('kon niet') !== -1 || t.indexOf('aangemaakt') !== -1)) node.remove();
         });
+        updateVat();
         if(isQuoteReady && !document.querySelector('[data-pr3nt-payment-note]')){
           var table = document.querySelector('.quote-table');
-          if(table) table.insertAdjacentHTML('afterend','<div class="pr3nt-payment-note" data-pr3nt-payment-note><strong>Printen start na betaling</strong>Controleer de offerte-regels goed. Na akkoord word je doorgestuurd naar de betaling via Mollie. We starten met printen zodra de betaling is ontvangen.</div>');
+          if(table) table.insertAdjacentHTML('afterend','<div class="pr3nt-payment-note" data-pr3nt-payment-note><strong>Printen start na betaling</strong>Controleer de offerte-regels goed. Na akkoord word je doorgestuurd naar de betaling via Mollie. Het te betalen bedrag is € '+vat.total+' incl. btw.</div>');
         }
       }
       update();
