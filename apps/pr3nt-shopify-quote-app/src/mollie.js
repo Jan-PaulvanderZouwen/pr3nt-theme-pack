@@ -74,9 +74,14 @@ function normalizePaymentMethod(method = '') {
 }
 
 function configuredAllowedMethods() {
-  const raw = String(process.env.MOLLIE_ALLOWED_METHODS || 'ideal,bancontact').trim();
+  const raw = String(process.env.MOLLIE_ALLOWED_METHODS || '').trim();
+  if (!raw) return undefined;
   const methods = raw.split(',').map(normalizePaymentMethod).filter(Boolean);
-  return methods.length ? [...new Set(methods)] : ['ideal', 'bancontact'];
+  return methods.length ? [...new Set(methods)] : undefined;
+}
+
+function configuredProfileId() {
+  return String(process.env.MOLLIE_PROFILE_ID || '').trim();
 }
 
 function paymentLinkUrl(body) {
@@ -85,14 +90,18 @@ function paymentLinkUrl(body) {
 
 function paymentLinkPayload(quote, amount) {
   const token = encodeURIComponent(ensurePortalToken(quote));
-  return {
+  const payload = {
     description: `Pr3nt offerte ${quote.id}`.slice(0, 255),
     amount: { currency: 'EUR', value: amount },
     reusable: false,
     redirectUrl: `${baseUrl}/portal/${token}?saved=Betaling%20wordt%20verwerkt`,
     webhookUrl: `${baseUrl}/api/mollie/webhook`,
-    allowedMethods: configuredAllowedMethods(),
   };
+  const profileId = configuredProfileId();
+  if (profileId) payload.profileId = profileId;
+  const methods = configuredAllowedMethods();
+  if (methods) payload.allowedMethods = methods;
+  return payload;
 }
 
 async function postPaymentLink(payload) {
@@ -105,10 +114,24 @@ async function postPaymentLink(payload) {
   return { response, body };
 }
 
+function safePayloadForLog(payload) {
+  return {
+    amount: payload?.amount,
+    profileId: payload?.profileId || '',
+    allowedMethods: payload?.allowedMethods || [],
+  };
+}
+
 async function createPaymentLink(quote, amount) {
-  const payload = paymentLinkPayload(quote, amount);
-  const result = await postPaymentLink(payload);
-  if (!result.response.ok) throw new Error(`Mollie betaallink kon niet worden aangemaakt: ${JSON.stringify(result.body)}`);
+  let payload = paymentLinkPayload(quote, amount);
+  let result = await postPaymentLink(payload);
+  if (!result.response.ok && result.response.status === 422 && payload.allowedMethods) {
+    console.warn('Mollie weigerde de opgegeven MOLLIE_ALLOWED_METHODS. Nieuwe poging zonder forced methods.');
+    payload = { ...payload };
+    delete payload.allowedMethods;
+    result = await postPaymentLink(payload);
+  }
+  if (!result.response.ok) throw new Error(`Mollie betaallink kon niet worden aangemaakt: ${JSON.stringify(result.body)} payload=${JSON.stringify(safePayloadForLog(payload))}`);
   const url = paymentLinkUrl(result.body);
   if (!url) throw new Error('Mollie gaf geen paymentUrl terug.');
   return {
