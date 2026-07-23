@@ -74,6 +74,99 @@ function clean(value, max = 2000) {
   return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
 }
 
+function normalizeKey(value = '') {
+  return String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function bodyValue(body = {}, keys = []) {
+  for (const key of keys) {
+    const value = body[key];
+    if (value !== undefined && value !== null && String(value).trim()) return value;
+  }
+  const normalized = new Map(Object.entries(body || {}).map(([key, value]) => [normalizeKey(key), value]));
+  for (const key of keys) {
+    const value = normalized.get(normalizeKey(key));
+    if (value !== undefined && value !== null && String(value).trim()) return value;
+  }
+  return '';
+}
+
+function descriptionFromBody(body = {}) {
+  return clean(bodyValue(body, ['description', 'omschrijving', 'message', 'bericht', 'note', 'opmerking', 'contact[body]', 'body']), 3000);
+}
+
+const shippingLabels = {
+  name: ['naam ontvanger', 'ontvanger', 'verzendnaam', 'shipping name', 'shippingname'],
+  company: ['bedrijf', 'company', 'organisatie'],
+  address: ['adres', 'straat en huisnummer', 'straat huisnummer', 'verzendadres', 'address', 'shipping address'],
+  street: ['straat', 'street'],
+  houseNumber: ['huisnummer', 'nummer', 'house number', 'housenumber'],
+  postalCode: ['postcode', 'postal code', 'zipcode', 'zip'],
+  city: ['plaats', 'woonplaats', 'stad', 'city'],
+  country: ['land', 'country'],
+};
+
+function labeledValue(text = '', labels = []) {
+  const lines = String(text || '').split(/\r?\n/);
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (!cleaned) continue;
+    for (const label of labels) {
+      const pattern = new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[:=-]\\s*(.+)$`, 'i');
+      const match = cleaned.match(pattern);
+      if (match?.[1]) return match[1].trim();
+    }
+  }
+  return '';
+}
+
+function shippingFromDescription(text = '') {
+  return {
+    name: labeledValue(text, shippingLabels.name),
+    company: labeledValue(text, shippingLabels.company),
+    address: labeledValue(text, shippingLabels.address),
+    street: labeledValue(text, shippingLabels.street),
+    houseNumber: labeledValue(text, shippingLabels.houseNumber),
+    postalCode: labeledValue(text, shippingLabels.postalCode),
+    city: labeledValue(text, shippingLabels.city),
+    country: labeledValue(text, shippingLabels.country),
+  };
+}
+
+function stripShippingFromDescription(text = '') {
+  const allLabels = Object.values(shippingLabels).flat().map(normalizeKey);
+  return String(text || '')
+    .split(/\r?\n/)
+    .filter((line) => {
+      const normalized = normalizeKey(line.split(/[:=-]/)[0] || '');
+      if (!line.trim()) return true;
+      if (['verzendgegevens', 'verzendadres', 'adresgegevens', 'shippingaddress'].includes(normalized)) return false;
+      return !allLabels.includes(normalized);
+    })
+    .join('\n')
+    .trim();
+}
+
+function normalizeShipping(body = {}, fallbackName = '', rawDescription = '') {
+  const parsed = shippingFromDescription(rawDescription);
+  const street = clean(bodyValue(body, ['shipping_street', 'shippingStreet', 'street', 'straat', 'adres_straat', 'address_street']) || parsed.street, 180);
+  const houseNumber = clean(bodyValue(body, ['shipping_house', 'shippingHouse', 'shipping_house_number', 'shippingHouseNumber', 'houseNumber', 'huisnummer', 'number']) || parsed.houseNumber, 40);
+  const address = clean(bodyValue(body, ['shipping_address', 'shippingAddress', 'shipping_address1', 'shippingAddress1', 'shippingAddressLine1', 'address', 'adres', 'street_address', 'straat_huisnummer']) || parsed.address || [street, houseNumber].filter(Boolean).join(' '), 240);
+  const postalCode = clean(bodyValue(body, ['shipping_postal', 'shippingPostal', 'shipping_postal_code', 'shippingPostalCode', 'postalCode', 'postcode', 'zip']) || parsed.postalCode, 40);
+  const city = clean(bodyValue(body, ['shipping_city', 'shippingCity', 'city', 'plaats', 'woonplaats']) || parsed.city, 120);
+  const country = clean(bodyValue(body, ['shipping_country', 'shippingCountry', 'country', 'land']) || parsed.country || 'Nederland', 120);
+  return {
+    name: clean(bodyValue(body, ['shipping_name', 'shippingName', 'shipping_recipient', 'shippingRecipient', 'recipient', 'ontvanger']) || parsed.name || fallbackName, 200),
+    company: clean(bodyValue(body, ['shipping_company', 'shippingCompany', 'company', 'bedrijf']) || parsed.company, 200),
+    address,
+    street,
+    houseNumber,
+    postalCode,
+    city,
+    country,
+  };
+}
+
 function quoteStatusLabel(status = 'received') {
   const labels = { received: 'Order ontvangen', creating_quote: 'Offerte wordt aangemaakt', quote_sent: 'Offerte verstuurd', accepted: 'Offerte akkoord', paid: 'Betaling voltooid', print_queue: 'Print in queue', ready_to_ship: 'Print is klaar voor verzending', shipped: 'Print is verzonden', delivered: 'Print is geleverd' };
   return labels[status] || labels.received;
@@ -88,8 +181,9 @@ function requestTypeLabel(quote) {
 }
 
 function shippingSummary(shipping = {}) {
-  const line = [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' ');
-  return [shipping.country, line, shipping.city].filter(Boolean).join(' · ') || '-';
+  const line1 = shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' ');
+  const line2 = [shipping.postalCode, shipping.city].filter(Boolean).join(' ');
+  return [shipping.name, shipping.company, line1, line2, shipping.country].filter(Boolean).join(' · ') || '-';
 }
 
 function filesSummary(files = []) {
@@ -238,16 +332,13 @@ app.get('/files/:quoteId/:fileName', async (req, res) => {
 app.post('/api/quote', upload.any(), async (req, res) => {
   try {
     const uploadedFiles = normalizeUploadedFiles(req);
+    const name = clean(req.body.name, 200);
+    const rawDescription = descriptionFromBody(req.body);
+    const description = clean(stripShippingFromDescription(rawDescription), 3000);
+    const shipping = normalizeShipping(req.body, name, rawDescription);
     const requestType = clean(req.body.request_type, 40) === 'no_model' ? 'no_model' : '3d_file';
-    const description = clean(req.body.description, 3000);
-    const shipping = {
-      country: clean(req.body.shipping_country, 120),
-      postalCode: clean(req.body.shipping_postal, 40),
-      houseNumber: clean(req.body.shipping_house, 40),
-      city: clean(req.body.shipping_city, 120),
-    };
     if (requestType === '3d_file' && !uploadedFiles.length) throw new Error('Upload minimaal één 3D-bestand.');
-    if (requestType === 'no_model' && !description) throw new Error('Omschrijf kort wat je nodig hebt.');
+    if (requestType === 'no_model' && !description && !rawDescription) throw new Error('Omschrijf kort wat je nodig hebt.');
 
     const quoteId = `quote-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const files = [];
@@ -261,7 +352,7 @@ app.post('/api/quote', upload.any(), async (req, res) => {
     }
 
     const firstFile = files[0] || {};
-    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, shipping, name: clean(req.body.name, 200), email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), billing: { name: clean(req.body.name, 200), address: [shipping.postalCode, shipping.houseNumber].filter(Boolean).join(' '), postalCode: shipping.postalCode, city: shipping.city, country: shipping.country || 'Nederland' }, messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, shipping, name, email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), billing: { name, address: shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' '), postalCode: shipping.postalCode, city: shipping.city, country: shipping.country || 'Nederland' }, messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
     if (!quote.name || !quote.email || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
 
     const customer = await findOrCreateCustomer(quote);
