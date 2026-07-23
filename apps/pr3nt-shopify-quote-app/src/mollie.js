@@ -67,45 +67,30 @@ function mollieHeaders() {
   return { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
 }
 
-function normalizePaymentMethod(method = '') {
-  const normalized = String(method).trim().toLowerCase();
-  if (normalized === 'bankcontact') return 'bancontact';
-  return normalized;
-}
-
-function configuredAllowedMethods() {
-  const raw = String(process.env.MOLLIE_ALLOWED_METHODS || '').trim();
-  if (!raw) return undefined;
-  const methods = raw.split(',').map(normalizePaymentMethod).filter(Boolean);
-  return methods.length ? [...new Set(methods)] : undefined;
-}
-
 function configuredProfileId() {
   return String(process.env.MOLLIE_PROFILE_ID || '').trim();
 }
 
-function paymentLinkUrl(body) {
-  return body?._links?.paymentUrl?.href || body?._links?.checkout?.href || body?.paymentUrl || '';
+function checkoutUrl(body) {
+  return body?._links?.checkout?.href || body?.checkoutUrl || '';
 }
 
-function paymentLinkPayload(quote, amount) {
+function paymentPayload(quote, amount) {
   const token = encodeURIComponent(ensurePortalToken(quote));
   const payload = {
     description: `Pr3nt offerte ${quote.id}`.slice(0, 255),
     amount: { currency: 'EUR', value: amount },
-    reusable: false,
     redirectUrl: `${baseUrl}/portal/${token}?saved=Betaling%20wordt%20verwerkt`,
     webhookUrl: `${baseUrl}/api/mollie/webhook`,
+    metadata: { quoteId: quote.id },
   };
   const profileId = configuredProfileId();
   if (profileId) payload.profileId = profileId;
-  const methods = configuredAllowedMethods();
-  if (methods) payload.allowedMethods = methods;
   return payload;
 }
 
-async function postPaymentLink(payload) {
-  const response = await fetch('https://api.mollie.com/v2/payment-links', {
+async function postPayment(payload) {
+  const response = await fetch('https://api.mollie.com/v2/payments', {
     method: 'POST',
     headers: mollieHeaders(),
     body: JSON.stringify(payload),
@@ -118,24 +103,26 @@ function safePayloadForLog(payload) {
   return {
     amount: payload?.amount,
     profileId: payload?.profileId || '',
-    allowedMethods: payload?.allowedMethods || [],
+    redirectUrl: payload?.redirectUrl || '',
+    webhookUrl: payload?.webhookUrl || '',
   };
 }
 
-async function createPaymentLink(quote, amount) {
-  let payload = paymentLinkPayload(quote, amount);
-  let result = await postPaymentLink(payload);
-  if (!result.response.ok && result.response.status === 422 && payload.allowedMethods) {
-    console.warn('Mollie weigerde de opgegeven MOLLIE_ALLOWED_METHODS. Nieuwe poging zonder forced methods.');
-    payload = { ...payload };
-    delete payload.allowedMethods;
-    result = await postPaymentLink(payload);
+async function createMollieCheckoutPayment(quote, amount) {
+  const payload = paymentPayload(quote, amount);
+  const result = await postPayment(payload);
+  if (!result.response.ok) {
+    throw new Error(`Mollie betaling kon niet worden aangemaakt: ${JSON.stringify(result.body)} payload=${JSON.stringify(safePayloadForLog(payload))}`);
   }
-  if (!result.response.ok) throw new Error(`Mollie betaallink kon niet worden aangemaakt: ${JSON.stringify(result.body)} payload=${JSON.stringify(safePayloadForLog(payload))}`);
-  const url = paymentLinkUrl(result.body);
-  if (!url) throw new Error('Mollie gaf geen paymentUrl terug.');
+
+  const url = checkoutUrl(result.body);
+  if (!url) {
+    throw new Error(`Mollie gaf geen checkout-link terug: ${JSON.stringify(result.body)}`);
+  }
+
   return {
-    molliePaymentLinkId: result.body.id || '',
+    molliePaymentId: result.body.id || '',
+    molliePaymentLinkId: '',
     molliePaymentUrl: url,
     molliePaymentStatus: result.body.status || 'open',
     molliePaymentAmount: amount,
@@ -151,7 +138,7 @@ function extractPaymentLinkId(payment) {
 }
 
 function extractQuoteId(payment) {
-  return String(payment?.description || '').match(/Pr3nt offerte\s+(quote-[a-zA-Z0-9_-]+)/)?.[1] || '';
+  return payment?.metadata?.quoteId || String(payment?.description || '').match(/Pr3nt offerte\s+(quote-[a-zA-Z0-9_-]+)/)?.[1] || '';
 }
 
 async function getMolliePayment(paymentId) {
@@ -297,24 +284,25 @@ export function registerMollieRoutes(app) {
 
       if (quote.molliePaymentUrl && quote.molliePaymentAmount === amount && quote.molliePaymentStatus !== 'paid') {
         if (manualChanged) await writeQuotes(quotes);
-        req.body.paymentUrl = quote.molliePaymentUrl;
+        req.body.paymentUrl = quote.paymentUrl || quote.molliePaymentUrl;
         return next();
       }
 
-      const paymentLink = await createPaymentLink(quote, amount);
+      const payment = await createMollieCheckoutPayment(quote, amount);
       Object.assign(quote, {
-        paymentUrl: paymentLink.molliePaymentUrl,
-        molliePaymentLinkId: paymentLink.molliePaymentLinkId,
-        molliePaymentUrl: paymentLink.molliePaymentUrl,
-        molliePaymentStatus: paymentLink.molliePaymentStatus,
-        molliePaymentAmount: paymentLink.molliePaymentAmount,
-        molliePaymentCreatedAt: paymentLink.molliePaymentCreatedAt,
+        paymentUrl: payment.molliePaymentUrl,
+        molliePaymentId: payment.molliePaymentId,
+        molliePaymentLinkId: payment.molliePaymentLinkId,
+        molliePaymentUrl: payment.molliePaymentUrl,
+        molliePaymentStatus: payment.molliePaymentStatus,
+        molliePaymentAmount: payment.molliePaymentAmount,
+        molliePaymentCreatedAt: payment.molliePaymentCreatedAt,
         updatedAt: now,
       });
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       if (!messageExists(quote, 'Mollie-betaallink aangemaakt')) quote.messages.push({ from: 'pr3nt', text: 'Mollie-betaallink aangemaakt.', createdAt: now });
       await writeQuotes(quotes);
-      req.body.paymentUrl = paymentLink.molliePaymentUrl;
+      req.body.paymentUrl = payment.molliePaymentUrl;
       return next();
     } catch (error) {
       console.warn('Mollie betaallink kon niet automatisch worden aangemaakt:', error.message);
@@ -330,7 +318,7 @@ export function registerMollieRoutes(app) {
       const quoteId = extractQuoteId(payment);
       const paymentLinkId = extractPaymentLinkId(payment);
       const quotes = await readQuotes();
-      const quote = quotes.find((item) => !item.archivedAt && ((quoteId && item.id === quoteId) || (paymentLinkId && item.molliePaymentLinkId === paymentLinkId)));
+      const quote = quotes.find((item) => !item.archivedAt && ((quoteId && item.id === quoteId) || item.molliePaymentId === paymentId || (paymentLinkId && item.molliePaymentLinkId === paymentLinkId)));
       if (!quote) return res.status(200).send('OK');
       const now = new Date().toISOString();
       quote.molliePaymentId = payment.id || paymentId;
