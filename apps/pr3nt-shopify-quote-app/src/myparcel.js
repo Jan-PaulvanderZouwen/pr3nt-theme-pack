@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { timingSafeEqual } from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +24,13 @@ function enabled() {
 
 function authHeader() {
   return `basic ${Buffer.from(process.env.MYPARCEL_API_KEY || '').toString('base64')}`;
+}
+
+function safeEquals(a = '', b = '') {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (!left.length || left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
 }
 
 async function readQuotes() {
@@ -202,15 +210,24 @@ export async function createMissingMyParcelLabels() {
   return { skipped: false, results };
 }
 
-function requireWorker(req, res, next) {
+function workerLoginHtml(error = '') {
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Printmedewerker · pr3nt</title><style>body{margin:0;background:#f6f6f7;font-family:Inter,system-ui,sans-serif;color:#101820}.card{max-width:420px;margin:80px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px}input{width:100%;padding:11px;border:1px solid #c9cccf;border-radius:10px}button{margin-top:12px;width:100%;border:0;border-radius:10px;background:#111827;color:#fff;padding:12px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:10px;margin-bottom:12px}</style></head><body><section class="card"><h1>Printmedewerker</h1><p>Vul de medewerker-sleutel in om printorders te bekijken.</p>${error ? `<div class="error">${e(error)}</div>` : ''}<form method="post" action="/print/login"><input name="workerKey" type="password" autocomplete="current-password" required><button type="submit">Inloggen</button></form></section></body></html>`;
+}
+
+function hasWorkerAccess(req) {
   const adminKey = process.env.ADMIN_KEY || '';
   const workerKey = process.env.PRINT_WORKER_KEY || '';
-  const key = req.query.key || req.get('x-worker-key') || req.cookies?.pr3nt_worker_key || req.cookies?.pr3nt_admin_key;
-  if ((adminKey && key === adminKey) || (workerKey && key === workerKey)) {
-    res.cookie?.('pr3nt_worker_key', key, { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 1000 * 60 * 60 * 12 });
-    return next();
-  }
-  return res.status(401).send(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Printmedewerker · pr3nt</title><style>body{margin:0;background:#f6f6f7;font-family:Inter,system-ui,sans-serif;color:#101820}.card{max-width:420px;margin:80px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px}input{width:100%;padding:11px;border:1px solid #c9cccf;border-radius:10px}button{margin-top:12px;width:100%;border:0;border-radius:10px;background:#111827;color:#fff;padding:12px;font-weight:800}</style></head><body><section class="card"><h1>Printmedewerker</h1><p>Vul de medewerker-sleutel in om printorders te bekijken.</p><form method="get" action="/print"><input name="key" type="password" required><button type="submit">Inloggen</button></form></section></body></html>`);
+  const cookieKey = req.cookies?.pr3nt_worker_key || req.cookies?.pr3nt_admin_key || '';
+  const headerKey = req.get('x-worker-key') || '';
+  return Boolean(
+    (workerKey && (safeEquals(cookieKey, workerKey) || safeEquals(headerKey, workerKey))) ||
+    (adminKey && (safeEquals(cookieKey, adminKey) || safeEquals(headerKey, adminKey)))
+  );
+}
+
+function requireWorker(req, res, next) {
+  if (hasWorkerAccess(req)) return next();
+  return res.status(401).send(workerLoginHtml());
 }
 
 function statusLabel(status = '') {
@@ -227,7 +244,7 @@ function fileLinks(quote) {
 function renderPrintDashboard(quotes) {
   const active = quotes.filter((q) => !q.archivedAt && ['paid', 'print_queue', 'ready_to_ship'].includes(q.status));
   const rows = active.map((quote) => `<tr><td><strong>${e(quote.name || '-')}</strong><br><span>${e(quote.id)}</span></td><td>${e(quote.material || '-')} · ${e(quote.color || '-')}<br>${quote.rush === 'Ja' ? '<b>Spoed</b>' : ''}</td><td>${e(statusLabel(quote.status))}</td><td>${fileLinks(quote)}</td><td>${quote.myParcelLabelUrl ? `<a href="${e(quote.myParcelLabelUrl)}" target="_blank">Label openen</a>` : e(quote.myParcelStatus === 'error' ? quote.myParcelError : quote.myParcelMessage || 'Nog geen label')}</td><td><form method="post" action="/print/quotes/${encodeURIComponent(quote.id)}"><select name="status"><option value="print_queue" ${quote.status === 'print_queue' ? 'selected' : ''}>Print in queue</option><option value="ready_to_ship" ${quote.status === 'ready_to_ship' ? 'selected' : ''}>Klaar voor verzending</option><option value="shipped" ${quote.status === 'shipped' ? 'selected' : ''}>Verzonden</option></select><button type="submit">Opslaan</button></form></td></tr>`).join('');
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Printorders · pr3nt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,sans-serif}.shell{max-width:1280px;margin:0 auto;padding:22px}.card{background:#fff;border:1px solid #e1e3e5;border-radius:16px;padding:20px}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #e1e3e5;text-align:left;vertical-align:top}th{font-size:12px;color:#6d7175;text-transform:uppercase;letter-spacing:.06em}button,select{border:1px solid #c9cccf;border-radius:10px;padding:8px 10px;font:inherit}button{background:#111827;color:#fff;font-weight:800;cursor:pointer}a{color:#2c6ecb;text-decoration:none}span{color:#6d7175;font-size:12px}@media(max-width:760px){table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.card{padding:12px}}</style></head><body><main class="shell"><h1>Printorders</h1><p>Alle betaalde orders die geprint of verzonden moeten worden.</p><section class="card"><table><thead><tr><th>Klant</th><th>Print</th><th>Status</th><th>Bestanden</th><th>MyParcel</th><th>Actie</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Geen actieve printorders.</td></tr>'}</tbody></table></section></main></body></html>`;
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Printorders · pr3nt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,sans-serif}.shell{max-width:1280px;margin:0 auto;padding:22px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.card{background:#fff;border:1px solid #e1e3e5;border-radius:16px;padding:20px}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #e1e3e5;text-align:left;vertical-align:top}th{font-size:12px;color:#6d7175;text-transform:uppercase;letter-spacing:.06em}button,select{border:1px solid #c9cccf;border-radius:10px;padding:8px 10px;font:inherit}button{background:#111827;color:#fff;font-weight:800;cursor:pointer}a{color:#2c6ecb;text-decoration:none}span{color:#6d7175;font-size:12px}.logout{border:1px solid #c9cccf;border-radius:10px;background:#fff;color:#202223;padding:8px 10px;text-decoration:none;font-weight:800}@media(max-width:760px){table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.card{padding:12px}.top{align-items:flex-start;flex-direction:column}}</style></head><body><main class="shell"><div class="top"><div><h1>Printorders</h1><p>Alle betaalde orders die geprint of verzonden moeten worden.</p></div><form method="post" action="/print/logout"><button class="logout" type="submit">Uitloggen</button></form></div><section class="card"><table><thead><tr><th>Klant</th><th>Print</th><th>Status</th><th>Bestanden</th><th>MyParcel</th><th>Actie</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Geen actieve printorders.</td></tr>'}</tbody></table></section></main></body></html>`;
 }
 
 export function registerMyParcelRoutes(app) {
@@ -236,6 +253,21 @@ export function registerMyParcelRoutes(app) {
       createMissingMyParcelLabels().catch((error) => console.warn('MyParcel automatische labels mislukt:', error.message));
     });
     next();
+  });
+
+  app.post('/print/login', (req, res) => {
+    const adminKey = process.env.ADMIN_KEY || '';
+    const workerKey = process.env.PRINT_WORKER_KEY || '';
+    const submittedKey = String(req.body?.workerKey || '');
+    const valid = (workerKey && safeEquals(submittedKey, workerKey)) || (adminKey && safeEquals(submittedKey, adminKey));
+    if (!valid) return res.status(401).send(workerLoginHtml('Sleutel is onjuist.'));
+    res.cookie?.('pr3nt_worker_key', submittedKey, { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 1000 * 60 * 60 * 12 });
+    return res.redirect('/print');
+  });
+
+  app.post('/print/logout', (req, res) => {
+    res.clearCookie?.('pr3nt_worker_key');
+    res.redirect('/print');
   });
 
   app.get('/print', requireWorker, async (_req, res) => {
@@ -256,7 +288,7 @@ export function registerMyParcelRoutes(app) {
 
   app.post('/admin/quotes/:id/myparcel', async (req, res) => {
     const adminKey = process.env.ADMIN_KEY || '';
-    const key = req.query.key || req.get('x-admin-key') || req.cookies?.pr3nt_admin_key;
+    const key = req.get('x-admin-key') || req.cookies?.pr3nt_admin_key;
     if (adminKey && key !== adminKey) return res.status(401).send('Niet ingelogd');
     const quotes = await readQuotes();
     const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
