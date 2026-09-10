@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createInvoiceForPaidQuote } from './eboekhouden.js';
-import { applyVatFields, quoteTotalInclVat, quoteVatSummary, money as vatMoney } from './vat.js';
+import { applyVatFields, quoteTotalInclVat, quoteVatSummary } from './vat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +20,10 @@ function e(value = '') {
 function money(value) {
   const number = Number(String(value || '0').replace(',', '.'));
   return Number.isFinite(number) ? number : 0;
+}
+
+function fmt(value) {
+  return money(value).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function amountValue(value) {
@@ -48,6 +51,12 @@ function quoteLinesFromBody(body = {}) {
 
 function quoteTotalFromBody(body = {}) {
   return quoteLinesFromBody(body).reduce((sum, line) => sum + money(line.qty || 1) * money(line.unit || 0), 0);
+}
+
+function quoteLines(quote) {
+  if (Array.isArray(quote.quoteLines) && quote.quoteLines.length) return quote.quoteLines;
+  if (quote.quoteAmount) return [{ label: 'Offertebedrag', description: '', qty: '1', unit: quote.quoteAmount }];
+  return [];
 }
 
 async function readQuotes() {
@@ -199,6 +208,57 @@ function adminPaymentInfoHtml(quote) {
   return `<div class="info-card"><small>Betaallink</small>${link}<span class="muted">${note}</span><details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:#6d7175;font-weight:750">Handmatige betaallink gebruiken</summary><label style="display:block;margin-top:10px"><span style="font-size:13px;color:#6d7175">Eigen betaallink / overschrijven</span><input name="paymentUrl" value="${e(quote?.paymentUrl || '')}" placeholder="https://..." autocomplete="off"></label><span class="muted" style="display:block;margin-top:6px;font-size:12px">Alleen invullen als je bewust een eigen betaallink wilt meesturen. Deze link krijgt voorrang op de automatische Mollie-link.</span></details></div>`;
 }
 
+function customerInvoiceButtonHtml(quote) {
+  if (!quote?.paidAt && quote?.status !== 'paid') return '';
+  const token = encodeURIComponent(quote.portalToken || quote.id);
+  return `<section class="tracking-card" id="invoice"><div class="tracking-icon">🧾</div><div><span class="eyebrow">Administratie</span><h2>Factuur nodig?</h2><p class="muted">Je betaling is ontvangen. Open hieronder je factuur met btw-specificatie. Vanuit daar kun je hem printen of opslaan als pdf.</p><a class="btn btn-dark" href="/portal/${token}/invoice" target="_blank" rel="noopener">Factuur bekijken</a></div></section>`;
+}
+
+function invoiceNumberForQuote(quote, allQuotes, now = new Date()) {
+  if (quote.portalInvoiceNumber) return quote.portalInvoiceNumber;
+  const year = now.getFullYear();
+  const prefix = `PR3NT-${year}-`;
+  const numbers = allQuotes
+    .map((item) => String(item.portalInvoiceNumber || ''))
+    .filter((number) => number.startsWith(prefix))
+    .map((number) => Number(number.slice(prefix.length)))
+    .filter((number) => Number.isFinite(number));
+  const next = Math.max(0, ...numbers) + 1;
+  return `${prefix}${String(next).padStart(4, '0')}`;
+}
+
+function customerAddressHtml(quote) {
+  const shipping = quote.shipping || quote.billing || {};
+  const address = shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' ');
+  const postalCity = [shipping.postalCode || shipping.postalcode || quote.billing?.postalCode, shipping.city || quote.billing?.city].filter(Boolean).join(' ');
+  const rows = [
+    quote.name || shipping.name,
+    shipping.company || quote.company,
+    address,
+    postalCity,
+    shipping.country || quote.billing?.country || 'Nederland',
+    quote.email,
+  ].filter(Boolean);
+  return rows.map((row) => e(row)).join('<br>');
+}
+
+function invoiceHtml(quote) {
+  const summary = quoteVatSummary(quote);
+  const lines = quoteLines(quote);
+  const invoiceNumber = quote.portalInvoiceNumber || quote.id;
+  const invoiceDate = (quote.portalInvoiceCreatedAt || quote.paidAt || new Date().toISOString()).slice(0, 10);
+  const paidDate = (quote.paidAt || quote.molliePaymentPaidAt || '').slice(0, 10);
+  const rows = lines.map((line) => {
+    const qty = money(line.qty || 1) || 1;
+    const unit = money(line.unit || 0);
+    const total = qty * unit;
+    return `<tr><td><strong>${e(line.label || '3D-print')}</strong>${line.description ? `<br><span>${e(line.description)}</span>` : ''}</td><td>${e(qty)}</td><td>€ ${fmt(unit)}</td><td>€ ${fmt(total)}</td></tr>`;
+  }).join('');
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Factuur ${e(invoiceNumber)} · pr3nt.nl</title><style>
+  :root{--ink:#101820;--muted:#667085;--line:#e5e7eb;--soft:#f6f7f8;--green:#00d084}*{box-sizing:border-box}body{margin:0;background:#eef1f3;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}.page{max-width:900px;margin:30px auto;background:#fff;border:1px solid var(--line);border-radius:24px;padding:42px;box-shadow:0 18px 50px rgba(16,24,32,.08)}.top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:38px}.brand{font-size:34px;font-weight:950;letter-spacing:-.06em}.badge{display:inline-flex;border-radius:999px;background:#e9fbf2;color:#087443;padding:6px 12px;font-weight:850;font-size:12px}.meta{text-align:right;color:var(--muted)}h1{font-size:42px;line-height:1;margin:0 0 8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:28px 0}.box{background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:18px}.box small{display:block;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{padding:14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-size:12px}td:nth-child(2),td:nth-child(3),td:nth-child(4),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:right}.totals{margin-left:auto;width:min(360px,100%);margin-top:18px}.totals div{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.totals .grand{font-size:22px;font-weight:950}.footer{margin-top:34px;color:var(--muted);font-size:13px}.actions{max-width:900px;margin:16px auto 30px;display:flex;justify-content:flex-end}.button{border:0;border-radius:999px;background:var(--ink);color:#fff;padding:12px 18px;font-weight:850;cursor:pointer}@media print{body{background:#fff}.page{box-shadow:none;border:0;margin:0;max-width:none;border-radius:0}.actions{display:none}}@media(max-width:720px){.page{margin:0;border-radius:0;padding:24px}.top,.grid{display:grid;grid-template-columns:1fr}.meta{text-align:left}h1{font-size:34px}}
+  </style></head><body><main class="page"><div class="top"><div><div class="brand">pr3nt.nl</div><span class="badge">Betaald via Mollie</span></div><div class="meta"><strong>Factuur ${e(invoiceNumber)}</strong><br>Factuurdatum: ${e(invoiceDate)}${paidDate ? `<br>Betaaldatum: ${e(paidDate)}` : ''}<br>Referentie: ${e(quote.id)}</div></div><h1>Factuur</h1><p style="color:var(--muted);margin-top:0">Bedankt voor je bestelling bij pr3nt.nl.</p><section class="grid"><div class="box"><small>Van</small><strong>${e(process.env.INVOICE_COMPANY_NAME || 'pr3nt.nl')}</strong><br>${e(process.env.INVOICE_ADDRESS || '')}${process.env.INVOICE_ADDRESS ? '<br>' : ''}${e(process.env.INVOICE_POSTAL_CITY || '')}${process.env.INVOICE_POSTAL_CITY ? '<br>' : ''}${process.env.INVOICE_EMAIL ? e(process.env.INVOICE_EMAIL) + '<br>' : 'info@pr3nt.nl<br>'}${process.env.INVOICE_KVK ? `KvK: ${e(process.env.INVOICE_KVK)}<br>` : ''}${process.env.INVOICE_VAT_ID ? `Btw-id: ${e(process.env.INVOICE_VAT_ID)}` : ''}</div><div class="box"><small>Aan</small>${customerAddressHtml(quote)}</div></section><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Prijs excl. btw</th><th>Totaal excl. btw</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotaal excl. btw</span><strong>€ ${fmt(summary.subtotalExVat)}</strong></div><div><span>BTW ${e(Math.round((summary.rate || 0.21) * 100))}%</span><strong>€ ${fmt(summary.vatAmount)}</strong></div><div class="grand"><span>Totaal incl. btw</span><strong>€ ${fmt(summary.totalInclVat)}</strong></div></div><div class="footer">Deze factuur is automatisch gegenereerd vanuit het klantportaal van pr3nt.nl. Betaling is ontvangen via Mollie${quote.molliePaymentId ? `, betalingsreferentie ${e(quote.molliePaymentId)}` : ''}.</div></main><div class="actions"><button class="button" onclick="window.print()">Printen / opslaan als PDF</button></div></body></html>`;
+}
+
 function replaceStatusOption(html, quote) {
   const waiting = isWaitingCustomer(quote);
   const quoteSentSelected = quote.status === 'quote_sent' && !waiting ? 'selected' : '';
@@ -218,6 +278,8 @@ function decorateAdminHtml(html, quote) {
 
 function decoratePortalHtml(html, quote) {
   let output = html.replace(/Offerte akkoord/g, waitingCustomerLabel).replace(/Prijsopgaaf akkoord/g, waitingCustomerLabel);
+  const invoiceButton = customerInvoiceButtonHtml(quote);
+  if (invoiceButton && !output.includes('id="invoice"')) output = output.replace(/(<\/main>)/, `${invoiceButton}$1`);
   if (!isWaitingCustomer(quote)) return output;
   return output
     .replace(/<h1>Offerte staat klaar<\/h1>/, '<h1>In afwachting van reactie</h1>')
@@ -228,31 +290,6 @@ function decoratePortalHtml(html, quote) {
 function mollieErrorHtml(error) {
   const detail = e(error?.message || 'Onbekende Mollie-fout.');
   return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mollie betaallink niet aangemaakt</title><style>body{margin:0;background:#f6f6f7;color:#202223;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{max-width:720px;margin:70px auto;background:#fff;border:1px solid #e1e3e5;border-radius:18px;padding:24px;box-shadow:0 10px 28px rgba(0,0,0,.05)}.button{display:inline-flex;margin-top:18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;padding:11px 15px;font-weight:800}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:14px;white-space:pre-wrap}</style></head><body><section class="card"><h1>Mollie-betaallink kon niet worden aangemaakt</h1><p>De offerte is daarom niet opgeslagen als verstuurd en er is geen offertemail naar de klant gestuurd. Zo voorkomen we dat een klant een mail zonder betaallink krijgt.</p><div class="error">${detail}</div><p>Controleer je Mollie API-key, websiteprofiel en of iDEAL/Bancontact actief zijn. Probeer daarna opnieuw op te slaan.</p><a class="button" href="/admin">Terug naar dashboard</a></section></body></html>`;
-}
-
-async function createInvoiceAfterPaid(quote, now) {
-  if (quote.eboekhoudenInvoiceId) return;
-  try {
-    const result = await createInvoiceForPaidQuote(quote);
-    if (result.skipped) {
-      quote.eboekhoudenInvoiceStatus = 'skipped';
-      quote.eboekhoudenInvoiceMessage = result.reason;
-      console.warn(`e-Boekhouden factuur overgeslagen voor ${quote.id}: ${result.reason}`);
-      return;
-    }
-    quote.eboekhoudenRelationId = result.relationId;
-    quote.eboekhoudenInvoiceId = result.invoiceId;
-    quote.eboekhoudenInvoiceNumber = result.invoiceNumber;
-    quote.eboekhoudenInvoiceCreatedAt = now;
-    quote.eboekhoudenInvoiceStatus = 'created';
-    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
-    quote.messages.push({ from: 'pr3nt', text: `Factuur aangemaakt in e-Boekhouden${result.invoiceNumber ? `: ${result.invoiceNumber}` : ''}.`, createdAt: now });
-  } catch (error) {
-    quote.eboekhoudenInvoiceStatus = 'error';
-    quote.eboekhoudenInvoiceError = error.message;
-    quote.eboekhoudenInvoiceTriedAt = now;
-    console.warn('e-Boekhouden factuur kon niet worden aangemaakt:', error.message);
-  }
 }
 
 export function registerMollieRoutes(app) {
@@ -284,6 +321,29 @@ export function registerMollieRoutes(app) {
     next();
   });
 
+  app.get('/portal/:token/invoice', async (req, res) => {
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    if (!quote) return res.status(404).send('Factuur niet gevonden.');
+    if (!quote.paidAt && quote.status !== 'paid') return res.status(403).send('Factuur is beschikbaar nadat de betaling is ontvangen.');
+
+    const now = new Date();
+    let changed = false;
+    if (!quote.portalInvoiceNumber) {
+      quote.portalInvoiceNumber = invoiceNumberForQuote(quote, quotes, now);
+      quote.portalInvoiceCreatedAt = now.toISOString();
+      changed = true;
+    }
+    if (!quote.portalInvoiceRequestedAt) {
+      quote.portalInvoiceRequestedAt = now.toISOString();
+      changed = true;
+    }
+    if (changed) await writeQuotes(quotes);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(invoiceHtml(quote));
+  });
+
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'POST') return next();
 
@@ -309,14 +369,14 @@ export function registerMollieRoutes(app) {
         manualChanged = true;
       }
 
-      const quoteLines = quoteLinesFromBody(req.body);
+      const quoteLinesForSave = quoteLinesFromBody(req.body);
       const subtotalExVat = quoteTotalFromBody(req.body);
       if (money(subtotalExVat) <= 0) {
         if (manualChanged) await writeQuotes(quotes);
         return next();
       }
 
-      const quoteForVat = { ...quote, quoteLines };
+      const quoteForVat = { ...quote, quoteLines: quoteLinesForSave };
       const totalInclVat = amountValue(quoteTotalInclVat(quoteForVat));
       const vatSummary = applyVatFields(quoteForVat);
       Object.assign(quote, {
@@ -376,7 +436,6 @@ export function registerMollieRoutes(app) {
         quote.molliePaymentPaidAt = payment.paidAt || now;
         quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
         if (!messageExists(quote, 'Betaling ontvangen via Mollie')) quote.messages.push({ from: 'pr3nt', text: 'Betaling ontvangen via Mollie.', createdAt: quote.paidAt });
-        await createInvoiceAfterPaid(quote, now);
       }
       await writeQuotes(quotes);
     } catch (error) {
