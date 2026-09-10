@@ -17,6 +17,8 @@ import { registerStatusMailRoutes } from './statusmails.js';
 import { registerQuoteContextRoutes } from './quotecontext.js';
 import { registerShippingContextRoutes } from './shippingcontext.js';
 import { registerMollieRoutes } from './mollie.js';
+import { registerMyParcelRoutes } from './myparcel.js';
+import { registerQuoteTemplateRoutes } from './quotetemplate.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -311,10 +313,12 @@ app.get('/health', (_req, res) => {
 
 registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);
+registerMyParcelRoutes(app);
 registerMollieRoutes(app);
 
 // Statusmail middleware must run before admin routes so it can detect changes after admin saves.
 registerStatusMailRoutes(app);
+registerQuoteTemplateRoutes(app);
 registerAdminRoutes(app);
 
 // Customer portal routes. Keep the final portal DOM layer before the base portal renderer.
