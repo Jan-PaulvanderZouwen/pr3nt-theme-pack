@@ -220,7 +220,7 @@ export async function createMissingMyParcelLabels() {
 }
 
 function loginHtml(error = '') {
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login · pr3nt</title><style>:root{--ink:#101820;--muted:#8b98a5;--green:#00d084;--line:rgba(255,255,255,.15)}*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff;background:radial-gradient(circle at 20% 20%,rgba(0,208,132,.22),transparent 28%),radial-gradient(circle at 80% 10%,rgba(255,255,255,.12),transparent 24%),linear-gradient(135deg,#07110d 0%,#101820 52%,#17212b 100%);display:grid;place-items:center;padding:24px}.login{width:min(1040px,100%);display:grid;grid-template-columns:1.2fr .8fr;gap:32px;align-items:center}.brand{font-size:48px;font-weight:950;letter-spacing:-.07em;margin-bottom:18px}.hero h1{font-size:54px;line-height:.96;margin:0 0 16px;letter-spacing:-.06em}.hero p{max-width:560px;color:#d4dde5;font-size:17px;line-height:1.65}.card{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);color:var(--ink);border:1px solid rgba(255,255,255,.55);border-radius:28px;padding:30px;box-shadow:0 24px 80px rgba(0,0,0,.28)}label{display:block;font-weight:800;margin-bottom:8px}input{width:100%;padding:14px 14px;border:1px solid #cbd5e1;border-radius:14px;font:inherit;background:#fff}button{margin-top:14px;width:100%;border:0;border-radius:14px;background:var(--ink);color:#fff;padding:14px;font-weight:900;cursor:pointer}.hint{color:#667085;font-size:13px;line-height:1.5}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:12px;padding:10px;margin-bottom:12px}@media(max-width:820px){.login{grid-template-columns:1fr}.hero h1{font-size:40px}.brand{font-size:36px}}</style></head><body><main class="login"><section class="hero"><div class="brand">pr3nt</div><h1>Interne omgeving voor productie en orders.</h1><p>Beheer orders, planning, labels en productie vanuit één afgeschermde omgeving in dezelfde Pr3nt-stijl.</p></section><section class="card"><h2>Login</h2><p class="hint">Vul je toegangssleutel in om verder te gaan.</p>${error ? `<div class="error">${e(error)}</div>` : ''}<form method="post" action="/admin/work/login"><label>Toegangssleutel</label><input name="workerKey" type="password" autocomplete="current-password" required><button type="submit">Inloggen</button></form></section></main></body></html>`;
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login · pr3nt</title><style>:root{--ink:#101820;--green:#00d084;--muted:#d7dde0}*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff;background:radial-gradient(circle at 20% 15%,rgba(0,208,132,.35),transparent 26%),radial-gradient(circle at 85% 20%,rgba(255,255,255,.12),transparent 22%),linear-gradient(135deg,#101820 0%,#17232c 48%,#07100d 100%);display:grid;place-items:center}.card{width:min(430px,calc(100vw - 32px));background:rgba(255,255,255,.96);color:var(--ink);border:1px solid rgba(255,255,255,.36);border-radius:28px;padding:30px;box-shadow:0 30px 80px rgba(0,0,0,.32)}.brand{font-size:32px;font-weight:950;letter-spacing:-.07em;margin-bottom:18px}.muted{color:#667085;line-height:1.55}input{width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:14px;font:inherit}button{margin-top:12px;width:100%;border:0;border-radius:14px;background:var(--ink);color:#fff;padding:13px;font-weight:900;cursor:pointer}.error{background:#fff1f0;border:1px solid #fed3d1;color:#9f1f12;border-radius:14px;padding:10px;margin-bottom:12px}</style></head><body><section class="card"><div class="brand">pr3nt</div><h1>Login</h1><p class="muted">Vul je toegangssleutel in om de interne omgeving te openen.</p>${error ? `<div class="error">${e(error)}</div>` : ''}<form method="post" action="/admin/work/login"><input name="workerKey" type="password" autocomplete="current-password" required><button type="submit">Inloggen</button></form></section></body></html>`;
 }
 
 function hasWorkerAccess(req) {
@@ -234,13 +234,19 @@ function hasWorkerAccess(req) {
   );
 }
 
+function hasAdminAccess(req) {
+  const adminKey = process.env.ADMIN_KEY || '';
+  const key = req.cookies?.pr3nt_admin_key || req.get('x-admin-key') || '';
+  return Boolean(adminKey && safeEquals(key, adminKey));
+}
+
 function requireWorker(req, res, next) {
   if (hasWorkerAccess(req)) return next();
   return res.status(401).send(loginHtml());
 }
 
 function statusLabel(status = '') {
-  const labels = { paid: 'Betaald', print_queue: 'Print in queue', ready_to_ship: 'Klaar voor verzending', shipped: 'Verzonden', delivered: 'Geleverd' };
+  const labels = { paid: 'Betaald', print_queue: 'In productie', ready_to_ship: 'Klaar voor verzending', shipped: 'Verzonden', delivered: 'Geleverd' };
   return labels[status] || status || '-';
 }
 
@@ -263,14 +269,42 @@ function orderEtaText(quote = {}) {
   return `${start} → ${end}`;
 }
 
-function shell(active, body) {
+function navHtml(active = '') {
   const nav = [
-    ['orders', '/admin/work', 'Orders'],
+    ['admin', '/admin?classic=1', 'Admin orders'],
+    ['work', '/admin/work', 'Werkruimte'],
     ['options', '/admin/work/options', 'Opties'],
     ['agenda', '/admin/work/agenda', 'Agenda'],
     ['stats', '/admin/work/stats', 'Statistieken'],
   ];
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin · pr3nt</title><style>:root{--bg:#f4f6f5;--card:#fff;--ink:#101820;--muted:#667085;--line:#e3e8ef;--green:#00d084;--soft:#eef8f3}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.side{background:#101820;color:#fff;padding:22px;display:flex;flex-direction:column;gap:22px}.logo{font-size:28px;font-weight:950;letter-spacing:-.07em}.nav{display:grid;gap:8px}.nav a{display:flex;align-items:center;justify-content:space-between;color:#d7dde0;text-decoration:none;padding:11px 12px;border-radius:14px;font-weight:800}.nav a.active,.nav a:hover{background:rgba(0,208,132,.13);color:#fff}.content{padding:26px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:12px}h1{font-size:34px;letter-spacing:-.05em;margin:4px 0 6px}.muted{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(16,24,32,.04)}.stat strong{display:block;font-size:28px;letter-spacing:-.04em}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#eef2f7;padding:5px 9px;font-size:12px;font-weight:850}.badge.green{background:#e9fbf2;color:#087443}.button,button{border:0;border-radius:12px;background:#101820;color:#fff;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}button.light,.button.light{background:#fff;color:#101820;border:1px solid #cbd5e1}select,input,textarea{border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;font:inherit;background:#fff;width:100%}.small-form{display:grid;gap:8px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.agenda-list{display:grid;gap:12px}.agenda-item{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center}.logout{margin-top:auto}.production{font-weight:900}.subtle{font-size:12px;color:var(--muted)}@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:static}.nav{grid-template-columns:repeat(2,1fr)}.cards,.grid2{grid-template-columns:1fr}.content{padding:16px}table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.agenda-item{grid-template-columns:1fr}}</style></head><body><main class="app"><aside class="side"><div><div class="logo">pr3nt</div><div class="subtle">Interne omgeving</div></div><nav class="nav">${nav.map(([key, href, label]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${label}<span>›</span></a>`).join('')}</nav><form class="logout" method="post" action="/admin/work/logout"><button class="light" type="submit">Uitloggen</button></form></aside><section class="content">${body}</section></main></body></html>`;
+  return `<aside class="unified-side"><div><div class="unified-logo">pr3nt</div><div class="unified-sub">Interne omgeving</div></div><nav class="unified-nav">${nav.map(([key, href, label]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${label}<span>›</span></a>`).join('')}</nav><form class="unified-logout" method="post" action="/admin/work/logout"><button type="submit">Uitloggen</button></form></aside>`;
+}
+
+function shell(active, body) {
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin · pr3nt</title><style>${unifiedCss()}</style></head><body><main class="unified-app">${navHtml(active)}<section class="unified-content">${body}</section></main></body></html>`;
+}
+
+function unifiedCss() {
+  return `:root{--bg:#f4f6f5;--card:#fff;--ink:#101820;--muted:#667085;--line:#e3e8ef;--green:#00d084;--soft:#eef8f3}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.unified-app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.unified-side{background:#101820;color:#fff;padding:22px;display:flex;flex-direction:column;gap:22px}.unified-logo{font-size:28px;font-weight:950;letter-spacing:-.07em}.unified-sub,.subtle{font-size:12px;color:#9ca7ad}.unified-nav{display:grid;gap:8px}.unified-nav a{display:flex;align-items:center;justify-content:space-between;color:#d7dde0;text-decoration:none;padding:11px 12px;border-radius:14px;font-weight:850}.unified-nav a.active,.unified-nav a:hover{background:rgba(0,208,132,.13);color:#fff}.unified-content{padding:26px;min-width:0}.unified-logout{margin-top:auto}.unified-logout button{width:100%;background:#fff;color:#101820;border:1px solid rgba(255,255,255,.2)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.08em;font-size:12px}h1{font-size:34px;letter-spacing:-.05em;margin:4px 0 6px}.muted{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(16,24,32,.04)}.stat strong{display:block;font-size:28px;letter-spacing:-.04em}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#eef2f7;padding:5px 9px;font-size:12px;font-weight:850}.badge.green{background:#e9fbf2;color:#087443}.button,button{border:0;border-radius:12px;background:#101820;color:#fff;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.button.light,button.light{background:#fff;color:#101820;border:1px solid #cbd5e1}select,input,textarea{border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;font:inherit;background:#fff;width:100%}.small-form{display:grid;gap:8px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.agenda-list{display:grid;gap:12px}.agenda-item{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center}.production{font-weight:900}@media(max-width:900px){.unified-app{grid-template-columns:1fr}.unified-side{position:static}.unified-nav{grid-template-columns:repeat(2,1fr)}.cards,.grid2{grid-template-columns:1fr}.unified-content{padding:16px}table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.agenda-item{grid-template-columns:1fr}}`;
+}
+
+function decorateClassicAdminHtml(html) {
+  if (typeof html !== 'string' || !html.includes('pr3nt Dashboard')) return html;
+  const bridgeCss = `${unifiedCss()}.unified-content .shell{max-width:none;margin:0;padding:0}.unified-content .topbar{display:none}.unified-content .card{border-radius:22px}.unified-content .detail-grid{grid-template-columns:minmax(0,1fr) 390px}.unified-content .button{border-radius:12px}.unified-content h1{letter-spacing:-.04em}.admin-classic-title{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.admin-classic-title h1{margin:4px 0 6px}.admin-classic-title p{margin:0;color:#667085}@media(max-width:900px){.unified-content .detail-grid{grid-template-columns:1fr}.admin-classic-title{display:block}}`;
+  let output = html.replace('</style>', `${bridgeCss}</style>`);
+  output = output.replace('<body><main class="shell">', `<body><main class="unified-app">${navHtml('admin')}<section class="unified-content"><div class="admin-classic-title"><div><span class="eyebrow">Admin</span><h1>Admin orders</h1><p>Volledig beheer van aanvragen, offertes, prijzen, productiebedrag en klantcommunicatie.</p></div><a class="button light" href="/admin/work">Werkruimte openen</a></div><div class="shell">`);
+  output = output.replace('</main><script>', '</div></section></main><script>');
+  output = output.replace('</main></body>', '</div></section></main></body>');
+  return output;
+}
+
+function decorateClassicAdminMiddleware(req, res, next) {
+  if (req.method !== 'GET') return next();
+  if (!req.path.startsWith('/admin')) return next();
+  if (req.path.startsWith('/admin/work')) return next();
+  const originalSend = res.send.bind(res);
+  res.send = (body) => originalSend(decorateClassicAdminHtml(body));
+  return next();
 }
 
 function workOrdersHtml(quotes) {
@@ -282,12 +316,12 @@ function workOrdersHtml(quotes) {
     ready: active.filter((q) => q.status === 'ready_to_ship').length,
   };
   const rows = active.map((quote) => `<tr><td><strong>${e(quote.name || '-')}</strong><br><span class="subtle">${e(quote.id)}</span></td><td>${e(quote.material || '-')} · ${e(quote.color || '-')}<br>${quote.rush === 'Ja' ? '<span class="badge">Spoed</span>' : '<span class="subtle">Normaal</span>'}</td><td><span class="badge ${quote.status === 'paid' ? 'green' : ''}">${e(statusLabel(quote.status))}</span><br><span class="subtle">${e(orderEtaText(quote))}</span></td><td class="production">${productionAmountHtml(quote)}</td><td>${fileLinks(quote)}</td><td>${quote.myParcelLabelUrl ? `<a href="${e(quote.myParcelLabelUrl)}" target="_blank">Label openen</a>` : e(quote.myParcelStatus === 'error' ? quote.myParcelError : quote.myParcelMessage || 'Nog geen label')}</td><td><form class="small-form" method="post" action="/admin/work/quotes/${encodeURIComponent(quote.id)}"><select name="status"><option value="paid" ${quote.status === 'paid' ? 'selected' : ''}>Betaald</option><option value="print_queue" ${quote.status === 'print_queue' ? 'selected' : ''}>In productie</option><option value="ready_to_ship" ${quote.status === 'ready_to_ship' ? 'selected' : ''}>Klaar voor verzending</option><option value="shipped" ${quote.status === 'shipped' ? 'selected' : ''}>Verzonden</option></select><input name="scheduledStartAt" type="datetime-local" value="${e(String(quote.scheduledStartAt || '').slice(0, 16))}"><input name="scheduledEndAt" type="datetime-local" value="${e(String(quote.scheduledEndAt || '').slice(0, 16))}"><input name="assignedPrinter" placeholder="Printer" value="${e(quote.assignedPrinter || '')}"><button type="submit">Opslaan</button></form></td></tr>`).join('');
-  return shell('orders', `<div class="top"><div><span class="eyebrow">Werkruimte</span><h1>Orders</h1><p class="muted">Betaalde orders, bestanden, productiebedrag, planning en verzendlabels op één plek.</p></div><a class="button light" href="/admin?classic=1">Volledig beheer</a></div><section class="cards"><div class="card stat"><span class="muted">Open</span><strong>${stats.open}</strong></div><div class="card stat"><span class="muted">Ingepland</span><strong>${stats.planned}</strong></div><div class="card stat"><span class="muted">In productie</span><strong>${stats.production}</strong></div><div class="card stat"><span class="muted">Klaar</span><strong>${stats.ready}</strong></div></section><section class="card"><table><thead><tr><th>Klant</th><th>Order</th><th>Status/planning</th><th>Productie</th><th>Bestanden</th><th>Label</th><th>Actie</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Geen actieve orders.</td></tr>'}</tbody></table></section>`);
+  return shell('work', `<div class="top"><div><span class="eyebrow">Werkruimte</span><h1>Orders</h1><p class="muted">Betaalde orders, bestanden, productiebedrag, planning en verzendlabels op één plek.</p></div><a class="button light" href="/admin?classic=1">Admin orders</a></div><section class="cards"><div class="card stat"><span class="muted">Open</span><strong>${stats.open}</strong></div><div class="card stat"><span class="muted">Ingepland</span><strong>${stats.planned}</strong></div><div class="card stat"><span class="muted">In productie</span><strong>${stats.production}</strong></div><div class="card stat"><span class="muted">Klaar</span><strong>${stats.ready}</strong></div></section><section class="card"><table><thead><tr><th>Klant</th><th>Order</th><th>Status/planning</th><th>Productie</th><th>Bestanden</th><th>Label</th><th>Actie</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Geen actieve orders.</td></tr>'}</tbody></table></section>`);
 }
 
 function workAgendaHtml(quotes) {
   const planned = quotes.filter((q) => !q.archivedAt && (q.scheduledStartAt || q.scheduledEndAt)).sort((a, b) => String(a.scheduledStartAt || '').localeCompare(String(b.scheduledStartAt || '')));
-  const items = planned.map((quote) => `<div class="card agenda-item"><div><strong>${e(String(quote.scheduledStartAt || '').slice(0, 16).replace('T', ' '))}</strong><br><span class="subtle">tot ${e(String(quote.scheduledEndAt || '').slice(0, 16).replace('T', ' '))}</span></div><div><strong>${e(quote.name || '-')}</strong><br><span class="muted">${e(quote.material || '-')} · ${e(quote.color || '-')} · ${e(quote.assignedPrinter || 'Geen printer gekozen')}</span></div><a class="button light" href="/admin?classic=1">Open beheer</a></div>`).join('');
+  const items = planned.map((quote) => `<div class="card agenda-item"><div><strong>${e(String(quote.scheduledStartAt || '').slice(0, 16).replace('T', ' '))}</strong><br><span class="subtle">tot ${e(String(quote.scheduledEndAt || '').slice(0, 16).replace('T', ' '))}</span></div><div><strong>${e(quote.name || '-')}</strong><br><span class="muted">${e(quote.material || '-')} · ${e(quote.color || '-')} · ${e(quote.assignedPrinter || 'Geen printer gekozen')}</span></div><a class="button light" href="/admin?classic=1">Admin orders</a></div>`).join('');
   return shell('agenda', `<div class="top"><div><span class="eyebrow">Planning</span><h1>Agenda</h1><p class="muted">Orders met geplande productie. Inplannen doe je via het orderoverzicht.</p></div></div><section class="agenda-list">${items || '<div class="card">Nog geen orders ingepland.</div>'}</section>`);
 }
 
@@ -312,13 +346,15 @@ export function registerMyParcelRoutes(app) {
 
   app.get('/admin', (req, res, next) => {
     if (req.query?.classic === '1') return next();
+    if (hasAdminAccess(req)) return res.redirect('/admin?classic=1');
     return res.redirect('/admin/work');
   });
 
   app.get('/print', (_req, res) => res.redirect('/admin/work'));
-
   app.post('/print/login', (req, res) => res.redirect(307, '/admin/work/login'));
   app.post('/print/logout', (req, res) => res.redirect(307, '/admin/work/logout'));
+
+  app.use(decorateClassicAdminMiddleware);
 
   app.post('/admin/work/login', (req, res) => {
     const adminKey = process.env.ADMIN_KEY || '';
