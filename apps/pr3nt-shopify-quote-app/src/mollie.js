@@ -279,7 +279,9 @@ function decorateAdminHtml(html, quote) {
 function decoratePortalHtml(html, quote) {
   let output = html.replace(/Offerte akkoord/g, waitingCustomerLabel).replace(/Prijsopgaaf akkoord/g, waitingCustomerLabel);
   const invoiceButton = customerInvoiceButtonHtml(quote);
-  if (invoiceButton && !output.includes('id="invoice"')) output = output.replace(/(<\/main>)/, `${invoiceButton}$1`);
+  if (invoiceButton && !output.includes('id="invoice"')) {
+    output = output.includes('</main>') ? output.replace(/(<\/main>)/, `${invoiceButton}$1`) : `${output}${invoiceButton}`;
+  }
   if (!isWaitingCustomer(quote)) return output;
   return output
     .replace(/<h1>Offerte staat klaar<\/h1>/, '<h1>In afwachting van reactie</h1>')
@@ -308,7 +310,9 @@ export function registerMollieRoutes(app) {
   });
 
   app.use('/portal/:token', async (req, res, next) => {
-    if (req.method !== 'GET' || req.path.split('/').filter(Boolean).length !== 2) return next();
+    const subPath = req.path.replace(/\/+$/, '') || '/';
+    const isPortalPage = subPath === '/' || subPath === '/account';
+    if (req.method !== 'GET' || !isPortalPage) return next();
     const originalSend = res.send.bind(res);
     res.send = (body) => {
       Promise.resolve().then(async () => {
