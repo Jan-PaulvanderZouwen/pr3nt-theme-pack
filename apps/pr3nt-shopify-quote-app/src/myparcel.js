@@ -1,14 +1,16 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, randomUUID } from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, '..');
 const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
+const settingsFilePath = path.join(dataDir, 'work-settings.json');
 const myParcelApiBase = process.env.MYPARCEL_API_BASE || 'https://api.myparcel.nl';
+const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
 
 function e(value = '') {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -42,17 +44,62 @@ function safeEquals(a = '', b = '') {
   return timingSafeEqual(left, right);
 }
 
-async function readQuotes() {
+async function readJson(filePath, fallback) {
   try {
-    const quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));
-    return Array.isArray(quotes) ? quotes : [];
+    const data = JSON.parse(await readFile(filePath, 'utf8'));
+    return data || fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
+async function writeJson(filePath, data) {
+  await writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+async function readQuotes() {
+  const quotes = await readJson(quotesFilePath, []);
+  return Array.isArray(quotes) ? quotes : [];
+}
+
 async function writeQuotes(quotes) {
-  await writeFile(quotesFilePath, JSON.stringify(quotes, null, 2));
+  await writeJson(quotesFilePath, quotes);
+}
+
+function defaultSettings() {
+  return {
+    printerCount: Number(process.env.PRINTER_COUNT || 2),
+    printers: Array.from({ length: Number(process.env.PRINTER_COUNT || 2) || 2 }, (_, index) => ({ id: `printer-${index + 1}`, name: `Printer ${index + 1}` })),
+    calendarToken: process.env.PRINT_CALENDAR_TOKEN || '',
+  };
+}
+
+async function readSettings() {
+  const saved = await readJson(settingsFilePath, {});
+  const count = Math.max(1, Math.min(20, Number(saved.printerCount || process.env.PRINTER_COUNT || 2)));
+  const existing = Array.isArray(saved.printers) ? saved.printers : [];
+  const printers = Array.from({ length: count }, (_, index) => {
+    const current = existing[index] || {};
+    return {
+      id: clean(current.id || `printer-${index + 1}`, 80),
+      name: clean(current.name || `Printer ${index + 1}`, 80),
+    };
+  });
+  return { ...defaultSettings(), ...saved, printerCount: count, printers, calendarToken: saved.calendarToken || process.env.PRINT_CALENDAR_TOKEN || '' };
+}
+
+async function writeSettingsFromBody(body = {}) {
+  const count = Math.max(1, Math.min(20, Number(body.printerCount || 1)));
+  const names = Array.isArray(body.printerName) ? body.printerName : body.printerName ? [body.printerName] : [];
+  const settings = await readSettings();
+  const token = clean(body.calendarToken || settings.calendarToken || randomUUID(), 160);
+  const printers = Array.from({ length: count }, (_, index) => ({
+    id: `printer-${index + 1}`,
+    name: clean(names[index] || settings.printers?.[index]?.name || `Printer ${index + 1}`, 80),
+  }));
+  const next = { ...settings, printerCount: count, printers, calendarToken: token };
+  await writeJson(settingsFilePath, next);
+  return next;
 }
 
 function shippingAddress(quote = {}) {
@@ -90,42 +137,15 @@ function canCreateShipment(quote = {}) {
 function shipmentPayload(quote) {
   const address = shippingAddress(quote);
   const cc = address.country === 'BE' ? 'BE' : 'NL';
-  const recipient = {
-    cc,
-    person: address.person,
-    company: address.company,
-    street: address.street,
-    number: address.number,
-    postal_code: address.postalCode,
-    city: address.city,
-    email: address.email,
-    phone: address.phone,
-  };
+  const recipient = { cc, person: address.person, company: address.company, street: address.street, number: address.number, postal_code: address.postalCode, city: address.city, email: address.email, phone: address.phone };
   Object.keys(recipient).forEach((key) => { if (!recipient[key]) delete recipient[key]; });
-  return {
-    data: {
-      shipments: [
-        {
-          reference_identifier: clean(quote.id, 50),
-          recipient,
-          options: {
-            package_type: 1,
-            label_description: clean(`Pr3nt ${quote.id}`, 45),
-          },
-        },
-      ],
-    },
-  };
+  return { data: { shipments: [{ reference_identifier: clean(quote.id, 50), recipient, options: { package_type: 1, label_description: clean(`Pr3nt ${quote.id}`, 45) } }] } };
 }
 
 async function myParcelFetch(endpoint, options = {}) {
   const response = await fetch(`${myParcelApiBase}${endpoint}`, {
     ...options,
-    headers: {
-      Authorization: authHeader(),
-      'User-Agent': process.env.MYPARCEL_USER_AGENT || 'Pr3ntPortal/1',
-      ...(options.headers || {}),
-    },
+    headers: { Authorization: authHeader(), 'User-Agent': process.env.MYPARCEL_USER_AGENT || 'Pr3ntPortal/1', ...(options.headers || {}) },
   });
   const text = await response.text();
   let body = {};
@@ -148,10 +168,7 @@ function firstShipmentId(result = {}) {
 async function labelUrlForShipment(shipmentId) {
   if (!shipmentId) return '';
   try {
-    const result = await myParcelFetch(`/shipment_labels/${encodeURIComponent(shipmentId)}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json;charset=utf-8' },
-    });
+    const result = await myParcelFetch(`/shipment_labels/${encodeURIComponent(shipmentId)}`, { method: 'GET', headers: { Accept: 'application/json;charset=utf-8' } });
     const url = result?.data?.pdfs?.url || result?.data?.url || result?.url || '';
     if (!url) return '';
     return url.startsWith('http') ? url : `${myParcelApiBase}${url}`;
@@ -163,17 +180,11 @@ async function labelUrlForShipment(shipmentId) {
 export async function createMyParcelShipmentForQuote(quote) {
   const check = canCreateShipment(quote);
   if (!check.ok) return { skipped: true, reason: check.reason };
-
-  const payload = shipmentPayload(quote);
   const result = await myParcelFetch('/shipments', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1',
-      Accept: 'application/vnd.shipment_label_link+json;charset=utf-8',
-    },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/vnd.shipment_label_link+json;charset=utf-8' },
+    body: JSON.stringify(shipmentPayload(quote)),
   });
-
   const shipmentId = firstShipmentId(result);
   if (!shipmentId) throw new Error(`MyParcel gaf geen shipment id terug: ${JSON.stringify(result)}`);
   const labelUrl = await labelUrlForShipment(shipmentId);
@@ -185,7 +196,6 @@ export async function createMissingMyParcelLabels() {
   const quotes = await readQuotes();
   let changed = false;
   const results = [];
-
   for (const quote of quotes) {
     if (quote.archivedAt || quote.myParcelShipmentId || (!quote.paidAt && quote.status !== 'paid')) continue;
     const now = new Date().toISOString();
@@ -195,16 +205,15 @@ export async function createMissingMyParcelLabels() {
         quote.myParcelStatus = 'skipped';
         quote.myParcelMessage = result.reason;
         results.push({ id: quote.id, skipped: true, reason: result.reason });
-        changed = true;
-        continue;
+      } else {
+        quote.myParcelStatus = 'created';
+        quote.myParcelShipmentId = result.shipmentId;
+        quote.myParcelLabelUrl = result.labelUrl;
+        quote.myParcelCreatedAt = now;
+        quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+        quote.messages.push({ from: 'pr3nt', text: `MyParcel-verzendlabel klaargezet${result.shipmentId ? `: ${result.shipmentId}` : ''}.`, createdAt: now });
+        results.push({ id: quote.id, shipmentId: result.shipmentId, labelUrl: result.labelUrl });
       }
-      quote.myParcelStatus = 'created';
-      quote.myParcelShipmentId = result.shipmentId;
-      quote.myParcelLabelUrl = result.labelUrl;
-      quote.myParcelCreatedAt = now;
-      quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
-      quote.messages.push({ from: 'pr3nt', text: `MyParcel-verzendlabel klaargezet${result.shipmentId ? `: ${result.shipmentId}` : ''}.`, createdAt: now });
-      results.push({ id: quote.id, shipmentId: result.shipmentId, labelUrl: result.labelUrl });
       changed = true;
     } catch (error) {
       quote.myParcelStatus = 'error';
@@ -214,9 +223,52 @@ export async function createMissingMyParcelLabels() {
       changed = true;
     }
   }
-
   if (changed) await writeQuotes(quotes);
   return { skipped: false, results };
+}
+
+function quoteLines(quote = {}) {
+  return Array.isArray(quote.quoteLines) ? quote.quoteLines : [];
+}
+
+function estimatedPrintHours(quote = {}) {
+  const explicit = money(quote.estimatedPrintHours || quote.printHours || 0);
+  if (explicit > 0) return explicit;
+  const lines = quoteLines(quote);
+  const line = lines.find((item) => /print\s*-?\s*uren|printuren|print uur|printtijd/i.test(`${item.label || ''} ${item.description || ''}`));
+  if (line) {
+    const qty = money(line.qty || 0);
+    if (qty > 0) return qty;
+    const unit = money(line.unit || 0);
+    const total = money(line.total || 0);
+    if (unit > 0 && total > 0) return total / unit;
+  }
+  return 1;
+}
+
+function addHoursLocal(datetimeLocal, hours) {
+  if (!datetimeLocal) return '';
+  const date = new Date(datetimeLocal);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setMinutes(date.getMinutes() + Math.max(0.25, hours) * 60);
+  return toLocalInputValue(date);
+}
+
+function toLocalInputValue(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatDateTime(value = '') {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return e(String(value).replace('T', ' '));
+  return e(date.toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' }));
+}
+
+function orderEtaText(quote = {}) {
+  if (!quote.scheduledStartAt && !quote.scheduledEndAt) return 'Nog niet ingepland';
+  return `${formatDateTime(quote.scheduledStartAt)} → ${formatDateTime(quote.scheduledEndAt)}`;
 }
 
 function loginHtml(error = '') {
@@ -228,10 +280,7 @@ function hasWorkerAccess(req) {
   const workerKey = process.env.PRINT_WORKER_KEY || '';
   const cookieKey = req.cookies?.pr3nt_worker_key || req.cookies?.pr3nt_admin_key || '';
   const headerKey = req.get('x-worker-key') || '';
-  return Boolean(
-    (workerKey && (safeEquals(cookieKey, workerKey) || safeEquals(headerKey, workerKey))) ||
-    (adminKey && (safeEquals(cookieKey, adminKey) || safeEquals(headerKey, adminKey)))
-  );
+  return Boolean((workerKey && (safeEquals(cookieKey, workerKey) || safeEquals(headerKey, workerKey))) || (adminKey && (safeEquals(cookieKey, adminKey) || safeEquals(headerKey, adminKey))));
 }
 
 function hasAdminAccess(req) {
@@ -243,6 +292,16 @@ function hasAdminAccess(req) {
 function requireWorker(req, res, next) {
   if (hasWorkerAccess(req)) return next();
   return res.status(401).send(loginHtml());
+}
+
+function requireCalendarAccess(req, res, next) {
+  const submitted = String(req.query.token || '');
+  const envToken = process.env.PRINT_CALENDAR_TOKEN || '';
+  if (envToken && safeEquals(submitted, envToken)) return next();
+  readSettings().then((settings) => {
+    if (settings.calendarToken && safeEquals(submitted, settings.calendarToken)) return next();
+    return res.status(401).send('Agenda-feed niet geautoriseerd');
+  }).catch(() => res.status(401).send('Agenda-feed niet geautoriseerd'));
 }
 
 function statusLabel(status = '') {
@@ -262,21 +321,8 @@ function fileLinks(quote) {
   return files.map((file) => `<a href="${e(file.url)}">${e(file.originalName || file.storedName || 'Bestand')}</a>`).join('<br>') || '-';
 }
 
-function orderEtaText(quote = {}) {
-  if (!quote.scheduledStartAt && !quote.scheduledEndAt) return 'Nog niet ingepland';
-  const start = quote.scheduledStartAt ? new Date(quote.scheduledStartAt).toLocaleString('nl-NL') : '-';
-  const end = quote.scheduledEndAt ? new Date(quote.scheduledEndAt).toLocaleString('nl-NL') : '-';
-  return `${start} → ${end}`;
-}
-
 function navHtml(active = '') {
-  const nav = [
-    ['admin', '/admin?classic=1', 'Admin orders'],
-    ['work', '/admin/work', 'Werkruimte'],
-    ['options', '/admin/work/options', 'Opties'],
-    ['agenda', '/admin/work/agenda', 'Agenda'],
-    ['stats', '/admin/work/stats', 'Statistieken'],
-  ];
+  const nav = [['admin', '/admin?classic=1', 'Admin orders'], ['work', '/admin/work', 'Werkruimte'], ['options', '/admin/work/options', 'Opties'], ['agenda', '/admin/work/agenda', 'Agenda'], ['stats', '/admin/work/stats', 'Statistieken']];
   return `<aside class="unified-side"><div><div class="unified-logo">pr3nt</div><div class="unified-sub">Interne omgeving</div></div><nav class="unified-nav">${nav.map(([key, href, label]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${label}<span>›</span></a>`).join('')}</nav><form class="unified-logout" method="post" action="/admin/work/logout"><button type="submit">Uitloggen</button></form></aside>`;
 }
 
@@ -285,7 +331,7 @@ function shell(active, body) {
 }
 
 function unifiedCss() {
-  return `:root{--bg:#f4f6f5;--card:#fff;--ink:#101820;--muted:#667085;--line:#e3e8ef;--green:#00d084;--soft:#eef8f3}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.unified-app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.unified-side{background:#101820;color:#fff;padding:22px;display:flex;flex-direction:column;gap:22px}.unified-logo{font-size:28px;font-weight:950;letter-spacing:-.07em}.unified-sub,.subtle{font-size:12px;color:#9ca7ad}.unified-nav{display:grid;gap:8px}.unified-nav a{display:flex;align-items:center;justify-content:space-between;color:#d7dde0;text-decoration:none;padding:11px 12px;border-radius:14px;font-weight:850}.unified-nav a.active,.unified-nav a:hover{background:rgba(0,208,132,.13);color:#fff}.unified-content{padding:26px;min-width:0}.unified-logout{margin-top:auto}.unified-logout button{width:100%;background:#fff;color:#101820;border:1px solid rgba(255,255,255,.2)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.08em;font-size:12px}h1{font-size:34px;letter-spacing:-.05em;margin:4px 0 6px}.muted{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(16,24,32,.04)}.stat strong{display:block;font-size:28px;letter-spacing:-.04em}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#eef2f7;padding:5px 9px;font-size:12px;font-weight:850}.badge.green{background:#e9fbf2;color:#087443}.button,button{border:0;border-radius:12px;background:#101820;color:#fff;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.button.light,button.light{background:#fff;color:#101820;border:1px solid #cbd5e1}select,input,textarea{border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;font:inherit;background:#fff;width:100%}.small-form{display:grid;gap:8px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.agenda-list{display:grid;gap:12px}.agenda-item{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center}.production{font-weight:900}@media(max-width:900px){.unified-app{grid-template-columns:1fr}.unified-side{position:static}.unified-nav{grid-template-columns:repeat(2,1fr)}.cards,.grid2{grid-template-columns:1fr}.unified-content{padding:16px}table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.agenda-item{grid-template-columns:1fr}}`;
+  return `:root{--bg:#f4f6f5;--card:#fff;--ink:#101820;--muted:#667085;--line:#e3e8ef;--green:#00d084;--soft:#eef8f3}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.unified-app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.unified-side{background:#101820;color:#fff;padding:22px;display:flex;flex-direction:column;gap:22px}.unified-logo{font-size:28px;font-weight:950;letter-spacing:-.07em}.unified-sub,.subtle{font-size:12px;color:#9ca7ad}.unified-nav{display:grid;gap:8px}.unified-nav a{display:flex;align-items:center;justify-content:space-between;color:#d7dde0;text-decoration:none;padding:11px 12px;border-radius:14px;font-weight:850}.unified-nav a.active,.unified-nav a:hover{background:rgba(0,208,132,.13);color:#fff}.unified-content{padding:26px;min-width:0}.unified-logout{margin-top:auto}.unified-logout button{width:100%;background:#fff;color:#101820;border:1px solid rgba(255,255,255,.2)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.08em;font-size:12px}h1{font-size:34px;letter-spacing:-.05em;margin:4px 0 6px}.muted{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(16,24,32,.04)}.stat strong{display:block;font-size:28px;letter-spacing:-.04em}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#eef2f7;padding:5px 9px;font-size:12px;font-weight:850}.badge.green{background:#e9fbf2;color:#087443}.button,button{border:0;border-radius:12px;background:#101820;color:#fff;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.button.light,button.light{background:#fff;color:#101820;border:1px solid #cbd5e1}select,input,textarea{border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;font:inherit;background:#fff;width:100%}.small-form{display:grid;gap:8px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.production{font-weight:900}.printer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.printer-lane{min-height:520px;background:#fff;border:1px solid var(--line);border-radius:24px;overflow:hidden}.printer-head{padding:14px 16px;border-bottom:1px solid var(--line);background:#f8fafc;font-weight:950}.printer-body{position:relative;height:720px;background:linear-gradient(to bottom,#f8fafc 0,#f8fafc 39px,#fff 40px);background-size:100% 40px}.hour-line{position:absolute;left:0;right:0;border-top:1px solid #edf1f5;font-size:11px;color:#94a3b8;padding-left:10px}.print-block{position:absolute;left:12px;right:12px;min-height:36px;border-radius:14px;background:#101820;color:#fff;padding:9px 10px;box-shadow:0 12px 28px rgba(16,24,32,.18);overflow:hidden}.print-block strong{display:block}.print-block span{display:block;color:#cbd5e1;font-size:12px}.block-soft{background:#0f766e}.settings-printers{display:grid;gap:10px}.agenda-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}@media(max-width:900px){.unified-app{grid-template-columns:1fr}.unified-side{position:static}.unified-nav{grid-template-columns:repeat(2,1fr)}.cards,.grid2{grid-template-columns:1fr}.unified-content{padding:16px}table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}.printer-body{height:auto;min-height:0;padding:12px}.hour-line{display:none}.print-block{position:static;margin-bottom:10px}}`;
 }
 
 function decorateClassicAdminHtml(html) {
@@ -307,40 +353,99 @@ function decorateClassicAdminMiddleware(req, res, next) {
   return next();
 }
 
-function workOrdersHtml(quotes) {
-  const active = quotes.filter((q) => !q.archivedAt && ['paid', 'print_queue', 'ready_to_ship'].includes(q.status));
-  const stats = {
-    open: active.length,
-    planned: active.filter((q) => q.scheduledStartAt).length,
-    production: active.filter((q) => q.status === 'print_queue').length,
-    ready: active.filter((q) => q.status === 'ready_to_ship').length,
-  };
-  const rows = active.map((quote) => `<tr><td><strong>${e(quote.name || '-')}</strong><br><span class="subtle">${e(quote.id)}</span></td><td>${e(quote.material || '-')} · ${e(quote.color || '-')}<br>${quote.rush === 'Ja' ? '<span class="badge">Spoed</span>' : '<span class="subtle">Normaal</span>'}</td><td><span class="badge ${quote.status === 'paid' ? 'green' : ''}">${e(statusLabel(quote.status))}</span><br><span class="subtle">${e(orderEtaText(quote))}</span></td><td class="production">${productionAmountHtml(quote)}</td><td>${fileLinks(quote)}</td><td>${quote.myParcelLabelUrl ? `<a href="${e(quote.myParcelLabelUrl)}" target="_blank">Label openen</a>` : e(quote.myParcelStatus === 'error' ? quote.myParcelError : quote.myParcelMessage || 'Nog geen label')}</td><td><form class="small-form" method="post" action="/admin/work/quotes/${encodeURIComponent(quote.id)}"><select name="status"><option value="paid" ${quote.status === 'paid' ? 'selected' : ''}>Betaald</option><option value="print_queue" ${quote.status === 'print_queue' ? 'selected' : ''}>In productie</option><option value="ready_to_ship" ${quote.status === 'ready_to_ship' ? 'selected' : ''}>Klaar voor verzending</option><option value="shipped" ${quote.status === 'shipped' ? 'selected' : ''}>Verzonden</option></select><input name="scheduledStartAt" type="datetime-local" value="${e(String(quote.scheduledStartAt || '').slice(0, 16))}"><input name="scheduledEndAt" type="datetime-local" value="${e(String(quote.scheduledEndAt || '').slice(0, 16))}"><input name="assignedPrinter" placeholder="Printer" value="${e(quote.assignedPrinter || '')}"><button type="submit">Opslaan</button></form></td></tr>`).join('');
-  return shell('work', `<div class="top"><div><span class="eyebrow">Werkruimte</span><h1>Orders</h1><p class="muted">Betaalde orders, bestanden, productiebedrag, planning en verzendlabels op één plek.</p></div><a class="button light" href="/admin?classic=1">Admin orders</a></div><section class="cards"><div class="card stat"><span class="muted">Open</span><strong>${stats.open}</strong></div><div class="card stat"><span class="muted">Ingepland</span><strong>${stats.planned}</strong></div><div class="card stat"><span class="muted">In productie</span><strong>${stats.production}</strong></div><div class="card stat"><span class="muted">Klaar</span><strong>${stats.ready}</strong></div></section><section class="card"><table><thead><tr><th>Klant</th><th>Order</th><th>Status/planning</th><th>Productie</th><th>Bestanden</th><th>Label</th><th>Actie</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Geen actieve orders.</td></tr>'}</tbody></table></section>`);
+function eligibleOrders(quotes) {
+  return quotes.filter((q) => !q.archivedAt && ['paid', 'print_queue', 'ready_to_ship'].includes(q.status));
 }
 
-function workAgendaHtml(quotes) {
-  const planned = quotes.filter((q) => !q.archivedAt && (q.scheduledStartAt || q.scheduledEndAt)).sort((a, b) => String(a.scheduledStartAt || '').localeCompare(String(b.scheduledStartAt || '')));
-  const items = planned.map((quote) => `<div class="card agenda-item"><div><strong>${e(String(quote.scheduledStartAt || '').slice(0, 16).replace('T', ' '))}</strong><br><span class="subtle">tot ${e(String(quote.scheduledEndAt || '').slice(0, 16).replace('T', ' '))}</span></div><div><strong>${e(quote.name || '-')}</strong><br><span class="muted">${e(quote.material || '-')} · ${e(quote.color || '-')} · ${e(quote.assignedPrinter || 'Geen printer gekozen')}</span></div><a class="button light" href="/admin?classic=1">Admin orders</a></div>`).join('');
-  return shell('agenda', `<div class="top"><div><span class="eyebrow">Planning</span><h1>Agenda</h1><p class="muted">Orders met geplande productie. Inplannen doe je via het orderoverzicht.</p></div></div><section class="agenda-list">${items || '<div class="card">Nog geen orders ingepland.</div>'}</section>`);
+function printerSelect(settings, selected = '') {
+  return `<select name="assignedPrinter">${settings.printers.map((printer) => `<option value="${e(printer.id)}" ${selected === printer.id || selected === printer.name ? 'selected' : ''}>${e(printer.name)}</option>`).join('')}</select>`;
 }
 
-function workOptionsHtml() {
-  return shell('options', `<div class="top"><div><span class="eyebrow">Instellingen</span><h1>Opties</h1><p class="muted">Deze pagina is voorbereid voor medewerkers, printers, productietijden en verzendinstellingen.</p></div></div><section class="grid2"><div class="card"><h2>Productie</h2><p class="muted">Gebruik de orderplanning om start/eindtijd, printer en status vast te leggen.</p></div><div class="card"><h2>Verzending</h2><p class="muted">MyParcel-labels worden automatisch klaargezet na betaling wanneer het adres compleet is.</p></div></section>`);
+function workOrdersHtml(quotes, settings) {
+  const active = eligibleOrders(quotes);
+  const stats = { open: active.length, planned: active.filter((q) => q.scheduledStartAt).length, production: active.filter((q) => q.status === 'print_queue').length, ready: active.filter((q) => q.status === 'ready_to_ship').length };
+  const rows = active.map((quote) => {
+    const hours = estimatedPrintHours(quote);
+    return `<tr><td><strong>${e(quote.name || '-')}</strong><br><span class="subtle">${e(quote.id)}</span></td><td>${e(quote.material || '-')} · ${e(quote.color || '-')}<br>${quote.rush === 'Ja' ? '<span class="badge">Spoed</span>' : '<span class="subtle">Normaal</span>'}</td><td><span class="badge ${quote.status === 'paid' ? 'green' : ''}">${e(statusLabel(quote.status))}</span><br><span class="subtle">${e(orderEtaText(quote))}</span></td><td><strong>${fmt(hours)} uur</strong><br><span class="subtle">uit offerte-regel Print-uren</span></td><td class="production">${productionAmountHtml(quote)}</td><td>${fileLinks(quote)}</td><td>${quote.myParcelLabelUrl ? `<a href="${e(quote.myParcelLabelUrl)}" target="_blank">Label openen</a>` : e(quote.myParcelStatus === 'error' ? quote.myParcelError : quote.myParcelMessage || 'Nog geen label')}</td><td><form class="small-form" method="post" action="/admin/work/quotes/${encodeURIComponent(quote.id)}"><select name="status"><option value="paid" ${quote.status === 'paid' ? 'selected' : ''}>Betaald</option><option value="print_queue" ${quote.status === 'print_queue' ? 'selected' : ''}>In productie</option><option value="ready_to_ship" ${quote.status === 'ready_to_ship' ? 'selected' : ''}>Klaar voor verzending</option><option value="shipped" ${quote.status === 'shipped' ? 'selected' : ''}>Verzonden</option></select>${printerSelect(settings, quote.assignedPrinter)}<input name="scheduledStartAt" type="datetime-local" value="${e(String(quote.scheduledStartAt || '').slice(0, 16))}"><input name="estimatedPrintHours" inputmode="decimal" value="${e(quote.estimatedPrintHours || fmt(hours))}" placeholder="Printuren"><button type="submit">Plan blok</button></form></td></tr>`;
+  }).join('');
+  return shell('work', `<div class="top"><div><span class="eyebrow">Werkruimte</span><h1>Orders</h1><p class="muted">Plan printerblokken automatisch op basis van de offerte-regel Print-uren.</p></div><a class="button light" href="/admin?classic=1">Admin orders</a></div><section class="cards"><div class="card stat"><span class="muted">Open</span><strong>${stats.open}</strong></div><div class="card stat"><span class="muted">Ingepland</span><strong>${stats.planned}</strong></div><div class="card stat"><span class="muted">In productie</span><strong>${stats.production}</strong></div><div class="card stat"><span class="muted">Printers</span><strong>${settings.printerCount}</strong></div></section><section class="card"><table><thead><tr><th>Klant</th><th>Order</th><th>Status/planning</th><th>Printduur</th><th>Productie</th><th>Bestanden</th><th>Label</th><th>Planning</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Geen actieve orders.</td></tr>'}</tbody></table></section>`);
 }
 
-function workStatsHtml(quotes) {
+function minutesFromStartOfDay(value = '') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function sameDay(value = '', selectedDate = '') {
+  if (!value) return false;
+  return String(value).slice(0, 10) === selectedDate;
+}
+
+function calendarBlocks(quotes, settings, selectedDate) {
+  const blocks = eligibleOrders(quotes).filter((q) => q.scheduledStartAt && sameDay(q.scheduledStartAt, selectedDate));
+  return settings.printers.map((printer) => {
+    const printerBlocks = blocks.filter((q) => (q.assignedPrinter || settings.printers[0]?.id) === printer.id || q.assignedPrinter === printer.name);
+    const html = printerBlocks.map((quote, index) => {
+      const startMinutes = minutesFromStartOfDay(quote.scheduledStartAt);
+      const hours = money(quote.estimatedPrintHours || estimatedPrintHours(quote));
+      const top = Math.max(0, Math.min(700, (startMinutes / 1440) * 720));
+      const height = Math.max(36, Math.min(720 - top, (Math.max(0.25, hours) * 60 / 1440) * 720));
+      return `<div class="print-block ${index % 2 ? 'block-soft' : ''}" style="top:${top}px;height:${height}px"><strong>${e(quote.name || 'Order')}</strong><span>${formatDateTime(quote.scheduledStartAt)} · ${fmt(hours)} uur</span><span>${e(quote.material || '-')} · ${e(quote.color || '-')}</span><span>${e(quote.id)}</span></div>`;
+    }).join('');
+    const hourLines = Array.from({ length: 13 }, (_, index) => {
+      const hour = index * 2;
+      return `<div class="hour-line" style="top:${(hour / 24) * 720}px">${String(hour).padStart(2, '0')}:00</div>`;
+    }).join('');
+    return `<section class="printer-lane"><div class="printer-head">${e(printer.name)}</div><div class="printer-body">${hourLines}${html || '<div style="padding:14px;color:#667085">Vrij beschikbaar</div>'}</div></section>`;
+  }).join('');
+}
+
+function workAgendaHtml(quotes, settings, selectedDate) {
+  const token = settings.calendarToken || process.env.PRINT_CALENDAR_TOKEN || '';
+  const feedUrl = token ? `${baseUrl}/admin/work/calendar.ics?token=${encodeURIComponent(token)}` : '';
+  return shell('agenda', `<div class="top"><div><span class="eyebrow">Printerplanning</span><h1>Blok-agenda</h1><p class="muted">Elke printer heeft een eigen baan. Een order van 8 printuren blokkeert automatisch 8 uur.</p></div><form class="agenda-tools" method="get" action="/admin/work/agenda"><input type="date" name="date" value="${e(selectedDate)}"><button type="submit">Toon dag</button></form></div><section class="card" style="margin-bottom:16px"><strong>Agenda synchroniseren</strong><p class="muted">Gebruik deze ICS-feed in Apple Agenda, Google Agenda of Outlook om de printerplanning te abonneren.</p>${feedUrl ? `<input readonly value="${e(feedUrl)}">` : '<p class="muted">Maak eerst een agenda-token aan bij Opties.</p>'}</section><section class="printer-grid">${calendarBlocks(quotes, settings, selectedDate)}</section>`);
+}
+
+function workOptionsHtml(settings, saved = false) {
+  const calendarToken = settings.calendarToken || randomUUID();
+  const printerInputs = Array.from({ length: settings.printerCount }, (_, index) => `<label><span>Printer ${index + 1}</span><input name="printerName" value="${e(settings.printers[index]?.name || `Printer ${index + 1}`)}"></label>`).join('');
+  return shell('options', `<div class="top"><div><span class="eyebrow">Instellingen</span><h1>Opties</h1><p class="muted">Beheer het aantal printers, printernamen en de agenda-feed.</p></div></div>${saved ? '<div class="card" style="margin-bottom:16px;background:#ecfdf3">Instellingen opgeslagen.</div>' : ''}<section class="grid2"><form class="card small-form" method="post" action="/admin/work/options"><h2>Printers</h2><label><span>Aantal printers</span><input name="printerCount" type="number" min="1" max="20" value="${e(settings.printerCount)}"></label><div class="settings-printers">${printerInputs}</div><label><span>Agenda-token</span><input name="calendarToken" value="${e(calendarToken)}"></label><button type="submit">Opslaan</button></form><div class="card"><h2>Werking</h2><p class="muted">De printduur wordt automatisch gehaald uit de offerte-regel met “Print-uren”. Vul je daar bijvoorbeeld aantal 8 in, dan plant het portaal een blok van 8 uur.</p><p class="muted">De agenda-feed is bedoeld voor alleen-lezen synchronisatie. Houd de token privé.</p></div></section>`);
+}
+
+function workStatsHtml(quotes, settings) {
   const active = quotes.filter((q) => !q.archivedAt);
   const paid = active.filter((q) => q.paidAt || q.status === 'paid');
+  const planned = active.filter((q) => q.scheduledStartAt);
   const productionTotal = paid.reduce((sum, q) => sum + money(q.productionAmount || q.productionOfferAmount || q.productionPrice || 0), 0);
-  return shell('stats', `<div class="top"><div><span class="eyebrow">Inzicht</span><h1>Statistieken</h1><p class="muted">Basisoverzicht voor productie en orders.</p></div></div><section class="cards"><div class="card stat"><span class="muted">Actieve orders</span><strong>${active.length}</strong></div><div class="card stat"><span class="muted">Betaald</span><strong>${paid.length}</strong></div><div class="card stat"><span class="muted">Ingepland</span><strong>${active.filter((q) => q.scheduledStartAt).length}</strong></div><div class="card stat"><span class="muted">Productie totaal</span><strong>€ ${fmt(productionTotal)}</strong></div></section>`);
+  const plannedHours = planned.reduce((sum, q) => sum + money(q.estimatedPrintHours || estimatedPrintHours(q)), 0);
+  return shell('stats', `<div class="top"><div><span class="eyebrow">Inzicht</span><h1>Statistieken</h1><p class="muted">Basisoverzicht voor productie en orders.</p></div></div><section class="cards"><div class="card stat"><span class="muted">Actieve orders</span><strong>${active.length}</strong></div><div class="card stat"><span class="muted">Betaald</span><strong>${paid.length}</strong></div><div class="card stat"><span class="muted">Geplande uren</span><strong>${fmt(plannedHours)}</strong></div><div class="card stat"><span class="muted">Printers</span><strong>${settings.printerCount}</strong></div></section><section class="cards"><div class="card stat"><span class="muted">Ingepland</span><strong>${planned.length}</strong></div><div class="card stat"><span class="muted">Productie totaal</span><strong>€ ${fmt(productionTotal)}</strong></div><div class="card stat"><span class="muted">Labels klaar</span><strong>${active.filter((q) => q.myParcelShipmentId).length}</strong></div><div class="card stat"><span class="muted">Spoed</span><strong>${active.filter((q) => q.rush === 'Ja').length}</strong></div></section>`);
+}
+
+function icsDate(value = '') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}00Z`;
+}
+
+function icsEscape(value = '') {
+  return String(value).replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
+}
+
+function calendarIcs(quotes, settings) {
+  const events = eligibleOrders(quotes).filter((q) => q.scheduledStartAt && q.scheduledEndAt).map((quote) => {
+    const printer = settings.printers.find((p) => p.id === quote.assignedPrinter || p.name === quote.assignedPrinter);
+    const title = `Pr3nt print: ${quote.name || quote.id}`;
+    const description = [`Order: ${quote.id}`, `Printer: ${printer?.name || quote.assignedPrinter || '-'}`, `Printuren: ${fmt(quote.estimatedPrintHours || estimatedPrintHours(quote))}`, `Materiaal: ${quote.material || '-'}`, `Kleur: ${quote.color || '-'}`].join('\n');
+    return ['BEGIN:VEVENT', `UID:${icsEscape(quote.id)}@pr3nt.nl`, `DTSTAMP:${icsDate(new Date().toISOString())}`, `DTSTART:${icsDate(quote.scheduledStartAt)}`, `DTEND:${icsDate(quote.scheduledEndAt)}`, `SUMMARY:${icsEscape(title)}`, `DESCRIPTION:${icsEscape(description)}`, 'END:VEVENT'].join('\r\n');
+  }).join('\r\n');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pr3nt//Printerplanning//NL', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Pr3nt printerplanning', events, 'END:VCALENDAR'].filter(Boolean).join('\r\n');
 }
 
 export function registerMyParcelRoutes(app) {
   app.use('/api/mollie/webhook', (req, res, next) => {
-    res.on('finish', () => {
-      createMissingMyParcelLabels().catch((error) => console.warn('MyParcel automatische labels mislukt:', error.message));
-    });
+    res.on('finish', () => { createMissingMyParcelLabels().catch((error) => console.warn('MyParcel automatische labels mislukt:', error.message)); });
     next();
   });
 
@@ -372,33 +477,55 @@ export function registerMyParcelRoutes(app) {
   });
 
   app.get('/admin/work', requireWorker, async (_req, res) => {
-    const quotes = await readQuotes();
-    res.send(workOrdersHtml(quotes));
+    const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]);
+    res.send(workOrdersHtml(quotes, settings));
   });
 
-  app.get('/admin/work/options', requireWorker, async (_req, res) => res.send(workOptionsHtml()));
+  app.get('/admin/work/options', requireWorker, async (req, res) => {
+    const settings = await readSettings();
+    res.send(workOptionsHtml(settings, req.query.saved === '1'));
+  });
 
-  app.get('/admin/work/agenda', requireWorker, async (_req, res) => {
-    const quotes = await readQuotes();
-    res.send(workAgendaHtml(quotes));
+  app.post('/admin/work/options', requireWorker, async (req, res) => {
+    await writeSettingsFromBody(req.body);
+    res.redirect('/admin/work/options?saved=1');
+  });
+
+  app.get('/admin/work/agenda', requireWorker, async (req, res) => {
+    const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]);
+    const selectedDate = clean(req.query.date || new Date().toISOString().slice(0, 10), 10);
+    res.send(workAgendaHtml(quotes, settings, selectedDate));
   });
 
   app.get('/admin/work/stats', requireWorker, async (_req, res) => {
-    const quotes = await readQuotes();
-    res.send(workStatsHtml(quotes));
+    const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]);
+    res.send(workStatsHtml(quotes, settings));
+  });
+
+  app.get('/admin/work/calendar.ics', requireCalendarAccess, async (_req, res) => {
+    const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="pr3nt-printerplanning.ics"');
+    res.send(calendarIcs(quotes, settings));
   });
 
   app.post('/admin/work/quotes/:id', requireWorker, async (req, res) => {
-    const quotes = await readQuotes();
+    const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]);
     const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
     if (!quote) return res.status(404).send('Order niet gevonden');
     const allowed = new Set(['paid', 'print_queue', 'ready_to_ship', 'shipped']);
     if (allowed.has(req.body.status)) quote.status = req.body.status;
-    quote.scheduledStartAt = clean(req.body.scheduledStartAt, 40);
-    quote.scheduledEndAt = clean(req.body.scheduledEndAt, 40);
-    quote.assignedPrinter = clean(req.body.assignedPrinter, 120);
+    const start = clean(req.body.scheduledStartAt, 40);
+    const hours = Math.max(0.25, money(req.body.estimatedPrintHours || estimatedPrintHours(quote)));
+    const printer = settings.printers.find((item) => item.id === req.body.assignedPrinter || item.name === req.body.assignedPrinter) || settings.printers[0];
+    quote.estimatedPrintHours = fmt(hours);
+    quote.assignedPrinter = printer?.id || clean(req.body.assignedPrinter, 120);
+    quote.scheduledStartAt = start;
+    quote.scheduledEndAt = start ? addHoursLocal(start, hours) : '';
     if (quote.scheduledStartAt || quote.scheduledEndAt) {
-      quote.customerEtaText = `Je order staat ingepland voor productie${quote.scheduledStartAt ? ` vanaf ${quote.scheduledStartAt.replace('T', ' ')}` : ''}${quote.scheduledEndAt ? `. Verwachte afronding: ${quote.scheduledEndAt.replace('T', ' ')}` : ''}.`;
+      const printerName = settings.printers.find((item) => item.id === quote.assignedPrinter)?.name || quote.assignedPrinter || 'printer';
+      quote.customerEtaText = `Je order staat ingepland voor productie vanaf ${quote.scheduledStartAt.replace('T', ' ')}. Verwachte afronding: ${quote.scheduledEndAt.replace('T', ' ')}.`;
+      quote.productionScheduleNote = `${printerName} · ${fmt(hours)} printuren`;
     }
     quote.updatedAt = new Date().toISOString();
     await writeQuotes(quotes);
