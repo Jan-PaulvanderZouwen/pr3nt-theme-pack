@@ -1,0 +1,444 @@
+{
+  "home": {
+    "label": "Homepage",
+    "seoTitle": "3D-printservice voor onderdelen & prototypes | pr3nt",
+    "seoDescription": "Laat jouw ontwerp 3D-printen in PLA of PETG bij pr3nt in Ede. Van één onderdeel tot kleine series. Upload je bestand voor een heldere offerte.",
+    "eyebrow": "3D-PRINTSERVICE · EDERVEEN",
+    "headline": "Jouw idee.\nOnze printers.",
+    "accent": "Echt gemaakt.",
+    "intro": "Van een onderdeel dat nergens te vinden is tot je eerste prototype. Laat jouw ontwerp 3D-printen in PLA of PETG, met persoonlijk advies en een heldere offerte.",
+    "image": "/images/print-2.webp",
+    "imageAlt": "Voorbeelden van prototypes en behuizingen uit de pr3nt-website",
+    "imageCaption": "Van digitaal ontwerp naar iets dat je vastpakt.",
+    "applicationsTitle": "Klein onderdeel.\nGroot verschil.",
+    "applicationsIntro": "Een praktische oplossing, een persoonlijk ontwerp of de volgende stap in je project. Ontdek wat je kunt laten maken.",
+    "steps": [
+      {
+        "title": "Stuur je bestand of idee",
+        "text": "Upload je 3D-model. Heb je alleen een foto of schets? Vertel ons wat je nodig hebt."
+      },
+      {
+        "title": "Ontvang een heldere offerte",
+        "text": "We controleren de printbaarheid en bepalen materiaalverbruik, printtijd en prijs."
+      },
+      {
+        "title": "Wij printen jouw ontwerp",
+        "text": "Na jouw akkoord maken we de print in de afgesproken kleur en het gekozen materiaal."
+      },
+      {
+        "title": "Klaar voor jouw project",
+        "text": "We verwijderen supportmateriaal, controleren je print en maken hem verzendklaar."
+      }
+    ],
+    "faq": [
+      {
+        "question": "Kan ik ook iets laten maken zonder 3D-bestand?",
+        "answer": "Ja. Upload een foto of schets en beschrijf de functie, afmetingen en het gewenste aantal. We bekijken of we je kunnen helpen en nemen eventueel ontwerpwerk mee in de offerte."
+      },
+      {
+        "question": "Welke bestanden kan ik aanleveren?",
+        "answer": "Je kunt STL, 3MF, OBJ, STEP en STP aanleveren. Controleer vooraf de afmetingen en vermeld de eenheid, meestal millimeters. We beoordelen of het ontwerp printbaar is."
+      },
+      {
+        "question": "Hoe snel wordt mijn print verzonden?",
+        "answer": "De huidige standaard is verzending binnen 3 dagen na akkoord op de offerte. Voor spoed geldt 2 dagen na akkoord. We bevestigen de haalbare planning in je offerte; de bezorgtijd komt daar nog bij."
+      },
+      {
+        "question": "Wat is het maximale printformaat?",
+        "answer": "We hanteren een maximaal printformaat van 255 × 255 × 255 mm per onderdeel. Een groter ontwerp kan soms worden opgesplitst. We beoordelen vooraf wat technisch mogelijk is."
+      },
+      {
+        "question": "Welke kleuren zijn mogelijk?",
+        "answer": "Geef je gewenste kleur door bij de aanvraag. De exacte tint en beschikbaarheid stemmen we met je af voordat we printen."
+      },
+      {
+        "question": "Hoe wordt de prijs berekend?",
+        "answer": "De prijs bestaat uit opstartkosten, materiaal, printtijd, verpakking en verzending. Ook de vorm, support en oriëntatie kunnen invloed hebben. Je ontvangt een offerte voordat we beginnen."
+      }
+    ],
+    "ctaTitle": "Wat ga jij laten maken?",
+    "ctaText": "Stuur je bestand of idee. Wij denken mee over de volgende stap."
+  },
+  "settings": {
+    "label": "Bedrijfsgegevens en tarieven",
+    "email": "info@pr3nt.nl",
+    "phone": "0318 507 014",
+    "address": "Beukenlaan 2B-6",
+    "postalCity": "6711 NH Ede",
+    "startup": "7.50",
+    "packaging": "3.50",
+    "shipping": "6.55",
+    "gram": "0.12",
+    "hour": "0.35",
+    "priceNote": "Richtprijzen op basis van de huidige tarieven. Je offerte bepaalt het definitieve bedrag en vermeldt de btw."
+  },
+  "3d-printen": {
+    "label": "3D printen",
+    "seoTitle": "3D laten printen, van idee tot onderdeel. | pr3nt",
+    "seoDescription": "Een prototype testen, een houder op maat maken of een hobbyproject afronden? pr3nt maakt jouw 3D-ontwerp tastbaar in PLA of PETG.",
+    "title": "3D laten printen, van idee tot onderdeel.",
+    "intro": "Een prototype testen, een houder op maat maken of een hobbyproject afronden? pr3nt maakt jouw 3D-ontwerp tastbaar in PLA of PETG.",
+    "image": "/images/print-2.webp",
+    "imageAlt": "3D printen — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Wat kun je laten 3D-printen?",
+        "text": "Denk aan behuizingen, adapters, clips, organisers en prototypes. Je kunt één exemplaar aanvragen of een kleine serie. Vertel ons hoe het onderdeel wordt gebruikt, zodat we de printbaarheid en materiaalkeuze kunnen beoordelen."
+      },
+      {
+        "title": "Hoe werkt FDM-printen?",
+        "text": "Onze printer bouwt je ontwerp laag voor laag op uit kunststof filament. Daardoor kunnen lichte laaglijnen zichtbaar blijven. Oriëntatie, wanddikte en eventuele supports bepalen mede de afwerking en bruikbaarheid."
+      },
+      {
+        "title": "Goed voorbereid aanleveren",
+        "text": "Upload STL, 3MF, OBJ, STEP of STP. Vermeld de gewenste afmetingen, aantallen, kleur en toepassing. Het maximale formaat per onderdeel is 255 × 255 × 255 mm. Grotere ontwerpen bekijken we samen."
+      },
+      {
+        "title": "3D-printservice in Ede",
+        "text": "pr3nt is gevestigd in Ede, in de regio Ede en Veenendaal. Je vraagt online een offerte aan en kunt je print laten verzenden. Neem vooraf contact op als je iets wilt bespreken of langskomen."
+      }
+    ]
+  },
+  "materialen": {
+    "label": "Materialen",
+    "seoTitle": "PLA of PETG: wat past bij jouw print? | pr3nt",
+    "seoDescription": "Het juiste materiaal begint bij de toepassing. Vertel ons waar je onderdeel voor dient; we denken mee over een passende keuze.",
+    "title": "PLA of PETG: wat past bij jouw print?",
+    "intro": "Het juiste materiaal begint bij de toepassing. Vertel ons waar je onderdeel voor dient; we denken mee over een passende keuze.",
+    "image": "/images/print-3.webp",
+    "imageAlt": "Materialen — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "PLA: voor modellen en decoratie",
+        "text": "PLA is een veelgebruikte keuze voor visuele prototypes, modelbouw en woonaccessoires. Het print netjes en is geschikt voor veel toepassingen binnenshuis. Vermeld het als je onderdeel warm wordt of mechanisch wordt belast."
+      },
+      {
+        "title": "PETG: voor praktische onderdelen",
+        "text": "PETG wordt vaak gekozen voor houders, beugels en andere functionele toepassingen. De juiste materiaalkeuze blijft afhankelijk van temperatuur, belasting en de vorm van je ontwerp. Sterkte is ook afhankelijk van printoriëntatie en instellingen."
+      },
+      {
+        "title": "Kleur en afwerking",
+        "text": "Geef je gewenste kleur door. We stemmen de beschikbare tint af in de offerte. Standaard nabewerking omvat het verwijderen van supportmateriaal en verzendklaar maken. Een volledig gladde afwerking is geen standaard eigenschap van FDM-printen."
+      },
+      {
+        "title": "Twijfel je?",
+        "text": "Kies ‘Advies gewenst’ in de aanvraag en omschrijf de gebruiksomstandigheden. We adviseren je voordat we aan de slag gaan."
+      }
+    ]
+  },
+  "voor-bedrijven": {
+    "label": "Voor bedrijven",
+    "seoTitle": "Een prototype vandaag. Een beter product morgen. | pr3nt",
+    "seoDescription": "3D-printservice voor zakelijke prototypes, praktische hulpmiddelen en kleine series. Van een eerste passingstest tot onderdelen voor je werkplek.",
+    "title": "Een prototype vandaag. Een beter product morgen.",
+    "intro": "3D-printservice voor zakelijke prototypes, praktische hulpmiddelen en kleine series. Van een eerste passingstest tot onderdelen voor je werkplek.",
+    "image": "/images/print-4.webp",
+    "imageAlt": "Voor bedrijven — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Snel je ontwerp beoordelen",
+        "text": "Met een fysiek model zie je hoe de vorm uitpakt en of onderdelen passen. Vermeld de kritische maten en het doel van je prototype bij de aanvraag. We bespreken wat met de beschikbare materialen en techniek haalbaar is."
+      },
+      {
+        "title": "Hulpmiddelen voor de werkvloer",
+        "text": "Denk aan gereedschapshouders, positioneerhulpen en opbergoplossingen op maat. Stuur een tekening of voorbeeld mee en beschrijf hoe het hulpmiddel wordt gebruikt."
+      },
+      {
+        "title": "Kleine series op aanvraag",
+        "text": "Geef het gewenste aantal, materiaal, kleur en de deadline door. Je ontvangt een offerte voor de volledige opdracht. De productieplanning wordt vooraf afgestemd."
+      },
+      {
+        "title": "Persoonlijk contact over jouw opdracht",
+        "text": "Bespreek je project via info@pr3nt.nl of 0318 507 014. Voor een concrete aanvraag kun je direct je bestand uploaden. Offertes en de voortgang van bestaande opdrachten blijven via het pr3nt-portaal lopen."
+      }
+    ]
+  },
+  "contact": {
+    "label": "Contact",
+    "seoTitle": "Even over jouw idee sparren? | pr3nt",
+    "seoDescription": "Een vraag over je ontwerp, materiaal of een bestaande opdracht? Neem contact op met pr3nt. We helpen je graag verder.",
+    "title": "Even over jouw idee sparren?",
+    "intro": "Een vraag over je ontwerp, materiaal of een bestaande opdracht? Neem contact op met pr3nt. We helpen je graag verder.",
+    "image": "/images/print-0.webp",
+    "imageAlt": "Contact — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Een nieuwe print aanvragen",
+        "text": "Upload je model of voeg een foto en omschrijving toe via het offerteformulier. Vermeld afmetingen, aantallen en de toepassing voor een gerichte beoordeling."
+      },
+      {
+        "title": "Een bestaande bestelling volgen",
+        "text": "Gebruik de persoonlijke portallink uit je bevestigingsmail om je aanvraag en voortgang te bekijken. Kun je de link niet vinden? Mail ons met je naam en de gegevens van je aanvraag."
+      },
+      {
+        "title": "Persoonlijk contact",
+        "text": "Heb je een vraag over materiaal, ontwerp of een lopende aanvraag? Mail of bel ons; we reageren zo snel mogelijk."
+      }
+    ]
+  },
+  "prijzen": {
+    "label": "Prijzen",
+    "seoTitle": "Een duidelijke prijs vóór we printen. | pr3nt",
+    "seoDescription": "Elke print is anders. We bepalen de prijs op basis van je bestand, het materiaal en de benodigde printtijd. Je ontvangt eerst een offerte.",
+    "title": "Een duidelijke prijs vóór we printen.",
+    "intro": "Elke print is anders. We bepalen de prijs op basis van je bestand, het materiaal en de benodigde printtijd. Je ontvangt eerst een offerte.",
+    "image": "/images/print-2.webp",
+    "imageAlt": "Prijzen — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Wat bepaalt de prijs?",
+        "text": "Naast het gewicht en de printtijd spelen supportmateriaal, wanddikte, oriëntatie en eventuele ontwerpaanpassingen een rol. Alleen de buitenmaten zijn daarom onvoldoende voor een betrouwbare prijs."
+      },
+      {
+        "title": "Een rekenvoorbeeld",
+        "text": "Hieronder zie je een voorbeeld van 75 gram materiaal en 5 uur printtijd, berekend met de actuele tarieven op deze pagina. Dit is een indicatie; we controleren het model voordat we een definitieve offerte sturen."
+      }
+    ]
+  },
+  "print-voor-je-werkplaats": {
+    "label": "Werkplaats",
+    "seoTitle": "Hulpstukken die passen bij jouw werk. | pr3nt",
+    "seoDescription": "Gereedschapshouders, mallen en clips op maat maken je werkplek praktischer. Lever de benodigde maten aan en beschrijf wat je hulpmiddel moet doen.",
+    "title": "Hulpstukken die passen bij jouw werk.",
+    "intro": "Gereedschapshouders, mallen en clips op maat maken je werkplek praktischer. Lever de benodigde maten aan en beschrijf wat je hulpmiddel moet doen.",
+    "image": "/images/print-4.webp",
+    "imageAlt": "Werkplaats — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Gereedschapshouders, mallen en clips op maat maken je werkplek praktischer. Lever de benodigde maten aan en beschrijf wat je hulpmiddel moet doen."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "print-woonaccessoires": {
+    "label": "Woonaccessoires",
+    "seoTitle": "Iets persoonlijks voor je interieur. | pr3nt",
+    "seoDescription": "Een vaas, plantenhouder of wandhaakje uit je eigen ontwerp. Geef de afmetingen, kleur en toepassing door. Bespreek waterdichtheid of belasting vooraf als dat be",
+    "title": "Iets persoonlijks voor je interieur.",
+    "intro": "Een vaas, plantenhouder of wandhaakje uit je eigen ontwerp. Geef de afmetingen, kleur en toepassing door. Bespreek waterdichtheid of belasting vooraf als dat belangrijk is.",
+    "image": "/images/print-5.webp",
+    "imageAlt": "Woonaccessoires — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Een vaas, plantenhouder of wandhaakje uit je eigen ontwerp. Geef de afmetingen, kleur en toepassing door. Bespreek waterdichtheid of belasting vooraf als dat belangrijk is."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "print-jouw-accessoire": {
+    "label": "Bureau-accessoires",
+    "seoTitle": "Geef alles een eigen plek. | pr3nt",
+    "seoDescription": "Laat een kabelgeleider, houder of organiser maken die past bij jouw bureau. Stuur een model mee of een schets met maten.",
+    "title": "Geef alles een eigen plek.",
+    "intro": "Laat een kabelgeleider, houder of organiser maken die past bij jouw bureau. Stuur een model mee of een schets met maten.",
+    "image": "/images/print-6.webp",
+    "imageAlt": "Bureau-accessoires — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Laat een kabelgeleider, houder of organiser maken die past bij jouw bureau. Stuur een model mee of een schets met maten."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "opbergers-3d-printen": {
+    "label": "Opbergers",
+    "seoTitle": "Opbergen, precies op maat. | pr3nt",
+    "seoDescription": "Standaard bakjes passen niet altijd. Met een eigen ontwerp maak je vakverdelers en houders voor jouw lade of gereedschap.",
+    "title": "Opbergen, precies op maat.",
+    "intro": "Standaard bakjes passen niet altijd. Met een eigen ontwerp maak je vakverdelers en houders voor jouw lade of gereedschap.",
+    "image": "/images/print-7.webp",
+    "imageAlt": "Opbergers — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Standaard bakjes passen niet altijd. Met een eigen ontwerp maak je vakverdelers en houders voor jouw lade of gereedschap."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "3d-print-gaming": {
+    "label": "Gaming",
+    "seoTitle": "Een eigen draai aan je setup. | pr3nt",
+    "seoDescription": "Een controllerhouder, headsetstand of accessoire voor je sim-rig. Vermeld de apparatuur, bevestiging en afmetingen zodat de print op jouw setup aansluit.",
+    "title": "Een eigen draai aan je setup.",
+    "intro": "Een controllerhouder, headsetstand of accessoire voor je sim-rig. Vermeld de apparatuur, bevestiging en afmetingen zodat de print op jouw setup aansluit.",
+    "image": "/images/print-8.webp",
+    "imageAlt": "Gaming — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Een controllerhouder, headsetstand of accessoire voor je sim-rig. Vermeld de apparatuur, bevestiging en afmetingen zodat de print op jouw setup aansluit."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "3d-print-voor-modelbouw": {
+    "label": "Modelbouw",
+    "seoTitle": "Maak ruimte voor je volgende model. | pr3nt",
+    "seoDescription": "Laat hulpstukken, onderdelen of terrein voor je modelbouwproject printen. Geef de schaal en kleinste details door; we beoordelen of FDM-printen geschikt is.",
+    "title": "Maak ruimte voor je volgende model.",
+    "intro": "Laat hulpstukken, onderdelen of terrein voor je modelbouwproject printen. Geef de schaal en kleinste details door; we beoordelen of FDM-printen geschikt is.",
+    "image": "/images/print-9.webp",
+    "imageAlt": "Modelbouw — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Jouw ontwerp als uitgangspunt",
+        "text": "Laat hulpstukken, onderdelen of terrein voor je modelbouwproject printen. Geef de schaal en kleinste details door; we beoordelen of FDM-printen geschikt is."
+      },
+      {
+        "title": "Van bestand naar print",
+        "text": "Lever je model aan als STL, STEP, STP, 3MF of OBJ. Heb je nog geen model? Stuur een foto of schets met de gewenste afmetingen. We beoordelen eerst de haalbaarheid."
+      },
+      {
+        "title": "Materiaal en offerte",
+        "text": "We bieden PLA en PETG. De toepassing, belasting en gewenste uitstraling helpen bij de keuze. Voor productie ontvang je een offerte en stemmen we de planning met je af."
+      }
+    ]
+  },
+  "bestandsrichtlijnen": {
+    "label": "Bestandsrichtlijnen",
+    "seoTitle": "Een goed bestand is een goed begin. | pr3nt",
+    "seoDescription": "Zo lever je jouw 3D-model, foto of schets aan voor een gerichte offerte. Van bestandsformaat tot de afmetingen van je ontwerp.",
+    "title": "Een goed bestand is een goed begin.",
+    "intro": "Zo lever je jouw 3D-model, foto of schets aan voor een gerichte offerte. Van bestandsformaat tot de afmetingen van je ontwerp.",
+    "image": "/images/print-2.webp",
+    "imageAlt": "Bestandsrichtlijnen — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Deze 3D-bestanden zijn welkom",
+        "text": "Upload je ontwerp als 3MF, STL, OBJ, STEP of STP. Controleer de schaal, eenheden en oriëntatie bij het exporteren. Zet belangrijke maten ook in de omschrijving; zo voorkomen we misverstanden."
+      },
+      {
+        "title": "Alleen een foto of een idee?",
+        "text": "Kies Eigen foto / idee in de configurator. Je kunt JPG, PNG en HEIC uploaden, eventueel samen met een 3D-bestand. Beschrijf de functie en gewenste afmetingen. Een foto alleen bepaalt de afmetingen niet; we bespreken vooraf of ontwerpwerk nodig is."
+      },
+      {
+        "title": "Afmetingen en printbaarheid",
+        "text": "Het maximale formaat per onderdeel is 255 × 255 × 255 mm. Dunne wanden, scherpe details, overhangen en de printoriëntatie kunnen invloed hebben op het resultaat. We beoordelen je model voordat we de offerte maken."
+      },
+      {
+        "title": "Meer dan één onderdeel",
+        "text": "Je kunt maximaal 8 bestanden aanleveren. Elk bestand mag maximaal 50 MB zijn; samen maximaal 80 MB. Gebruik verschillende, herkenbare bestandsnamen en vermeld hoeveel exemplaren je per onderdeel wilt."
+      }
+    ]
+  },
+  "verzending": {
+    "label": "Verzending",
+    "seoTitle": "Van onze printer naar jouw deur. | pr3nt",
+    "seoDescription": "pr3nt levert in Nederland en België. In je offerte bevestigen we de verzending, kosten en haalbare planning.",
+    "title": "Van onze printer naar jouw deur.",
+    "intro": "pr3nt levert in Nederland en België. In je offerte bevestigen we de verzending, kosten en haalbare planning.",
+    "image": "/images/print-3.webp",
+    "imageAlt": "Verzending — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Nederland en België",
+        "text": "Vul in de configurator je postcode en huisnummer in. Het land wordt automatisch herkend. Bij meerdere adresmatches kies je de juiste straat; je kunt het adres ook handmatig aanvullen. Vermeld een toevoeging of Belgisch busnummer apart."
+      },
+      {
+        "title": "Wanneer wordt mijn print verzonden?",
+        "text": "Standaard gaan we uit van verzending binnen 3 dagen na akkoord op de offerte. De planning hangt af van je ontwerp, materiaal en het aantal prints. We bevestigen de haalbare termijn voordat we beginnen. Bezorging door de vervoerder komt daar nog bij."
+      },
+      {
+        "title": "Spoed aanvragen: + €4,50",
+        "text": "Vink spoed aan in stap 2. We gaan dan uit van verzending binnen 2 dagen na akkoord, mits haalbaar. De toeslag van €4,50 wordt in de aanvraag opgenomen. We bevestigen de spoedplanning in je offerte."
+      },
+      {
+        "title": "Je bestelling volgen",
+        "text": "Na het indienen krijg je een bevestiging met een persoonlijke portallink. Daar bekijk je je aanvraag, de offerte en de voortgang. Voor vragen over een lopende opdracht kun je via het portaal contact opnemen."
+      }
+    ]
+  },
+  "prototypes": {
+    "label": "Prototypes",
+    "seoTitle": "Test je ontwerp. Houd het in je handen. | pr3nt",
+    "seoDescription": "Laat een prototype 3D-printen om vorm, afmetingen en passing te beoordelen voordat je verder ontwikkelt.",
+    "title": "Test je ontwerp. Houd het in je handen.",
+    "intro": "Laat een prototype 3D-printen om vorm, afmetingen en passing te beoordelen voordat je verder ontwikkelt.",
+    "image": "/images/print-2.webp",
+    "imageAlt": "Prototypes — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Van scherm naar fysiek model",
+        "text": "Een geprint prototype laat zien hoe je ontwerp in de praktijk uitpakt. Denk aan een behuizing, adapter, model of eerste productidee. Geef aan welke eigenschappen je wilt beoordelen."
+      },
+      {
+        "title": "Kritische maten verdienen aandacht",
+        "text": "Vermeld passing, toleranties en de gebruiksomstandigheden in je aanvraag. Een visueel model stelt andere eisen dan een onderdeel dat belasting moet dragen. We stemmen de mogelijkheden vooraf af."
+      },
+      {
+        "title": "Eén versie of meerdere varianten",
+        "text": "Upload je modellen en geef duidelijk aan hoeveel exemplaren je van elke versie nodig hebt. Met herkenbare bestandsnamen kunnen we gericht een offerte maken."
+      },
+      {
+        "title": "Materiaal dat bij de test past",
+        "text": "Kies PLA of PETG, of vraag een ander materiaal aan. We beoordelen de beschikbaarheid en geschiktheid voordat de print start."
+      }
+    ]
+  },
+  "onderdelen": {
+    "label": "Onderdelen op maat",
+    "seoTitle": "Precies dat onderdeel dat je mist. | pr3nt",
+    "seoDescription": "Laat een houder, clip, adapter of vervangend onderdeel 3D-printen. We beoordelen of je ontwerp en toepassing geschikt zijn.",
+    "title": "Precies dat onderdeel dat je mist.",
+    "intro": "Laat een houder, clip, adapter of vervangend onderdeel 3D-printen. We beoordelen of je ontwerp en toepassing geschikt zijn.",
+    "image": "/images/print-0.webp",
+    "imageAlt": "Onderdelen op maat — toepassingsvoorbeeld",
+    "sections": [
+      {
+        "title": "Een passende oplossing",
+        "text": "Een standaardonderdeel is niet altijd verkrijgbaar of past net niet. Lever een 3D-model aan of upload een duidelijke foto en beschrijving. Vermeld afmetingen en bevestigingspunten."
+      },
+      {
+        "title": "Vertel ons hoe het wordt gebruikt",
+        "text": "Warmte, vocht en mechanische belasting hebben invloed op materiaalkeuze en ontwerp. Beschrijf deze omstandigheden en geef aan welke maten kritisch zijn."
+      },
+      {
+        "title": "PLA, PETG of een materiaal op aanvraag",
+        "text": "PLA en PETG zijn onze standaardkeuzes. Heb je andere eigenschappen nodig? Kies Ander materiaal in de configurator en beschrijf je wens."
+      },
+      {
+        "title": "Eerst beoordelen, dan maken",
+        "text": "Niet elk origineel onderdeel kan met dezelfde eigenschappen worden nageprint. We bespreken vooraf de haalbaarheid en maken daarna een offerte voor jouw opdracht."
+      }
+    ]
+  }
+}
