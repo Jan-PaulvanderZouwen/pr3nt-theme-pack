@@ -1,0 +1,329 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const appRoot = path.resolve(__dirname, '..');
+const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
+const settingsFilePath = path.join(dataDir, 'work-settings.json');
+const quotesFilePath = path.join(dataDir, 'quotes.json');
+const filamentFilePath = path.join(dataDir, 'filament.json');
+const sessionCookie = 'pr3nt_internal_session';
+
+function e(value = '') {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function clean(value = '', max = 300) {
+  return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
+}
+
+function grams(value) {
+  const number = Number(String(value || '0').replace(',', '.'));
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
+function fmtGrams(value) {
+  return `${Math.round(grams(value)).toLocaleString('nl-NL')} g`;
+}
+
+function safeEquals(a = '', b = '') {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (!left.length || left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
+
+function sessionSecret() {
+  return process.env.INTERNAL_SESSION_SECRET || process.env.ADMIN_KEY || process.env.PRINT_WORKER_KEY || 'pr3nt-local-session-secret';
+}
+
+function sign(payload) {
+  return createHmac('sha256', sessionSecret()).update(payload).digest('base64url');
+}
+
+function readSessionCookie(req) {
+  const value = req.cookies?.[sessionCookie] || '';
+  const [payload, signature] = String(value).split('.');
+  if (!payload || !signature || !safeEquals(signature, sign(payload))) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function hasAdminKey(req) {
+  const adminKey = process.env.ADMIN_KEY || '';
+  const key = req.query?.key || req.cookies?.pr3nt_admin_key || req.get?.('x-admin-key') || '';
+  return Boolean(adminKey && safeEquals(key, adminKey));
+}
+
+function hasLegacyWorkerKey(req) {
+  const workerKey = process.env.PRINT_WORKER_KEY || '';
+  const key = req.cookies?.pr3nt_worker_key || req.get?.('x-worker-key') || '';
+  return Boolean(workerKey && safeEquals(key, workerKey));
+}
+
+function sessionUser(req) {
+  const user = readSessionCookie(req);
+  if (user) return user;
+  if (hasAdminKey(req)) return { username: 'admin', role: 'admin', name: 'Admin' };
+  if (hasLegacyWorkerKey(req)) return { username: 'productie', role: 'worker', name: 'Productie' };
+  return null;
+}
+
+function isAdmin(user) {
+  return user?.role === 'admin';
+}
+
+function isWorker(user) {
+  return user?.role === 'worker' || user?.role === 'admin';
+}
+
+function requireInternal(req, res, next) {
+  const user = sessionUser(req);
+  if (isWorker(user)) {
+    req.internalUser = user;
+    return next();
+  }
+  return res.redirect('/admin/login');
+}
+
+function requireAdmin(req, res, next) {
+  const user = sessionUser(req);
+  if (isAdmin(user)) {
+    req.internalUser = user;
+    return next();
+  }
+  return res.status(403).send('Geen toegang');
+}
+
+async function readJson(filePath, fallback) {
+  try {
+    const data = JSON.parse(await readFile(filePath, 'utf8'));
+    return data || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJson(filePath, data) {
+  await writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+async function readSettings() {
+  const saved = await readJson(settingsFilePath, {});
+  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({
+    username: clean(user.username, 80),
+    name: clean(user.name || user.username, 120),
+    role: user.role === 'admin' ? 'admin' : 'worker',
+  })).filter((user) => user.username) : [];
+  return { users };
+}
+
+async function readQuotes() {
+  const quotes = await readJson(quotesFilePath, []);
+  return Array.isArray(quotes) ? quotes : [];
+}
+
+async function readFilament() {
+  const data = await readJson(filamentFilePath, {});
+  return {
+    requests: Array.isArray(data.requests) ? data.requests : [],
+    deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
+    usage: Array.isArray(data.usage) ? data.usage : [],
+  };
+}
+
+async function writeFilament(data) {
+  await writeJson(filamentFilePath, {
+    requests: Array.isArray(data.requests) ? data.requests : [],
+    deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
+    usage: Array.isArray(data.usage) ? data.usage : [],
+  });
+}
+
+function workerLabel(username = '', settings = { users: [] }) {
+  if (username === 'admin') return 'Admin';
+  const found = settings.users.find((user) => user.username === username);
+  return found?.name || username || '-';
+}
+
+function keyFor(item = {}) {
+  return [item.worker || item.username || '', item.type || '', item.color || '', item.supplier || ''].map((value) => clean(value, 120).toLowerCase()).join('|');
+}
+
+function quoteFilamentUsage(quotes = []) {
+  return quotes
+    .filter((quote) => !quote.archivedAt)
+    .map((quote) => {
+      const worker = clean(quote.assignedWorker || quote.productionWorker || quote.employee || '', 80).toLowerCase();
+      const used = grams(quote.filamentGrams || quote.materialGrams || quote.printGrams || quote.gramsUsed || 0);
+      if (!worker || !used) return null;
+      return {
+        id: `quote-${quote.id}`,
+        worker,
+        type: clean(quote.material || quote.filamentType || '', 80),
+        color: clean(quote.color || quote.filamentColor || '', 120),
+        supplier: clean(quote.filamentSupplier || '', 120),
+        grams: used,
+        orderId: quote.id,
+        createdAt: quote.updatedAt || quote.createdAt || '',
+      };
+    })
+    .filter(Boolean);
+}
+
+function stockRows(data, quotes, settings, user) {
+  const delivered = new Map();
+  const used = new Map();
+  const usage = [...data.usage, ...quoteFilamentUsage(quotes)];
+
+  for (const item of data.deliveries) {
+    const key = keyFor(item);
+    delivered.set(key, (delivered.get(key) || 0) + grams(item.grams));
+  }
+  for (const item of usage) {
+    const key = keyFor(item);
+    used.set(key, (used.get(key) || 0) + grams(item.grams));
+  }
+
+  const keys = new Set([...delivered.keys(), ...used.keys()]);
+  const rows = [...keys].map((key) => {
+    const [worker, type, color, supplier] = key.split('|');
+    const deliveredGrams = delivered.get(key) || 0;
+    const usedGrams = used.get(key) || 0;
+    return { worker, type, color, supplier, deliveredGrams, usedGrams, availableGrams: deliveredGrams - usedGrams };
+  });
+
+  return rows
+    .filter((row) => isAdmin(user) || row.worker === user.username)
+    .sort((a, b) => `${a.worker}${a.type}${a.color}`.localeCompare(`${b.worker}${b.type}${b.color}`));
+}
+
+function appCss() {
+  return `:root{--bg:#f4f6f5;--card:#fff;--ink:#101820;--muted:#667085;--line:#e3e8ef;--green:#00d084}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.unified-app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.unified-side{background:#101820;color:#fff;padding:22px;display:flex;flex-direction:column;gap:22px}.unified-logo{font-size:28px;font-weight:950;letter-spacing:-.07em}.unified-sub,.subtle{font-size:12px;color:#9ca7ad}.unified-nav{display:grid;gap:8px}.unified-nav a{display:flex;align-items:center;justify-content:space-between;color:#d7dde0;text-decoration:none;padding:11px 12px;border-radius:14px;font-weight:850}.unified-nav a.active,.unified-nav a:hover{background:rgba(0,208,132,.13);color:#fff}.access-card{margin-top:auto;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:16px;padding:12px}.access-card strong,.access-card span{display:block}.access-card span{color:#cbd5e1;font-size:12px;margin-top:3px}.unified-content{padding:26px;min-width:0}.unified-logout button{width:100%;background:#fff;color:#101820;border:1px solid rgba(255,255,255,.2)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.08em;font-size:12px}h1{font-size:34px;letter-spacing:-.05em;margin:4px 0 6px}.muted{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(16,24,32,.04)}.stat strong{display:block;font-size:28px;letter-spacing:-.04em}table{width:100%;border-collapse:collapse}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.badge{display:inline-flex;border-radius:999px;background:#eef2f7;padding:5px 9px;font-size:12px;font-weight:850}.badge.green{background:#e9fbf2;color:#087443}.badge.orange{background:#fff7ed;color:#9a3412}.button,button{border:0;border-radius:12px;background:#101820;color:#fff;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.button.light,button.light{background:#fff;color:#101820;border:1px solid #cbd5e1}select,input,textarea{border:1px solid #cbd5e1;border-radius:12px;padding:9px 10px;font:inherit;background:#fff;width:100%}label span{display:block;font-weight:850;margin-bottom:5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.small-form{display:grid;gap:10px}.danger{background:#fff1f0;color:#991b1b;border:1px solid #fecaca}@media(max-width:900px){.unified-app{grid-template-columns:1fr}.unified-side{position:static}.unified-nav{grid-template-columns:repeat(2,1fr)}.cards,.grid2,.grid3{grid-template-columns:1fr}.unified-content{padding:16px}table,thead,tbody,tr,td,th{display:block}thead{display:none}td{border-bottom:0}}`;
+}
+
+function navHtml(active = '', user = null) {
+  const nav = isAdmin(user)
+    ? [['admin', '/admin?classic=1', 'Admin orders'], ['work', '/admin/work', 'Productie'], ['filament', '/admin/filament', 'Filament'], ['users', '/admin/users', 'Gebruikers'], ['options', '/admin/work/options', 'Opties'], ['agenda', '/admin/work/agenda', 'Agenda'], ['stats', '/admin/work/stats', 'Statistieken']]
+    : [['work', '/admin/work', 'Productie'], ['filament', '/admin/filament', 'Filament'], ['agenda', '/admin/work/agenda', 'Agenda']];
+  return `<aside class="unified-side"><div><div class="unified-logo">pr3nt</div><div class="unified-sub">${isAdmin(user) ? 'Admin omgeving' : 'Medewerker omgeving'}</div></div><nav class="unified-nav">${nav.map(([key, href, label]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${label}<span>›</span></a>`).join('')}</nav><div class="access-card"><strong>${e(user?.name || user?.username || 'Gebruiker')}</strong><span>${isAdmin(user) ? 'Volledige toegang' : 'Productie en filament'}</span></div><form class="unified-logout" method="post" action="/admin/logout"><button type="submit">Uitloggen</button></form></aside>`;
+}
+
+function shell(user, body) {
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Filament · pr3nt</title><style>${appCss()}</style></head><body><main class="unified-app">${navHtml('filament', user)}<section class="unified-content">${body}</section></main></body></html>`;
+}
+
+function workerOptions(settings, selected = '') {
+  const accounts = [{ username: 'admin', name: 'Admin' }, ...settings.users];
+  return accounts.map((user) => `<option value="${e(user.username)}" ${selected === user.username ? 'selected' : ''}>${e(user.name || user.username)}</option>`).join('');
+}
+
+function filamentHtml(data, quotes, settings, user, saved = false) {
+  const rows = stockRows(data, quotes, settings, user);
+  const visibleRequests = data.requests.filter((request) => isAdmin(user) || request.worker === user.username);
+  const openRequests = visibleRequests.filter((request) => !['geleverd', 'afgewezen'].includes(request.status));
+  const deliveredTotal = rows.reduce((sum, row) => sum + row.deliveredGrams, 0);
+  const usedTotal = rows.reduce((sum, row) => sum + row.usedGrams, 0);
+  const availableTotal = rows.reduce((sum, row) => sum + row.availableGrams, 0);
+
+  const stockTable = rows.map((row) => `<tr><td>${e(workerLabel(row.worker, settings))}</td><td><strong>${e(row.color || '-')}</strong></td><td>${e(row.type || '-')}</td><td>${fmtGrams(row.deliveredGrams)}</td><td>${fmtGrams(row.usedGrams)}</td><td><strong>${fmtGrams(row.availableGrams)}</strong></td><td>${e(row.supplier || '-')}</td></tr>`).join('');
+  const requestTable = visibleRequests.map((request) => `<tr><td>${e(workerLabel(request.worker, settings))}</td><td><strong>${e(request.color)}</strong></td><td>${e(request.type)}</td><td>${fmtGrams(request.grams)}</td><td>${e(request.supplier || '-')}</td><td><span class="badge ${request.status === 'geleverd' ? 'green' : 'orange'}">${e(request.status)}</span><br><span class="subtle">${e(new Date(request.createdAt).toLocaleString('nl-NL'))}</span></td><td>${isAdmin(user) ? `<form method="post" action="/admin/filament/request/${encodeURIComponent(request.id)}/status" class="small-form"><select name="status"><option value="aangevraagd" ${request.status === 'aangevraagd' ? 'selected' : ''}>Aangevraagd</option><option value="besteld" ${request.status === 'besteld' ? 'selected' : ''}>Besteld</option><option value="geleverd" ${request.status === 'geleverd' ? 'selected' : ''}>Geleverd</option><option value="afgewezen" ${request.status === 'afgewezen' ? 'selected' : ''}>Afgewezen</option></select><button type="submit">Bijwerken</button></form>` : e(request.note || '-')}</td></tr>`).join('');
+
+  return shell(user, `<div class="top"><div><span class="eyebrow">Voorraad</span><h1>Filament</h1><p class="muted">Aanvragen, leveringen en verbruik per medewerker, kleur, type en leverancier.</p></div></div>${saved ? '<div class="card" style="margin-bottom:16px;background:#ecfdf3">Filamentgegevens opgeslagen.</div>' : ''}<section class="cards"><div class="card stat"><span class="muted">Open aanvragen</span><strong>${openRequests.length}</strong></div><div class="card stat"><span class="muted">Geleverd</span><strong>${fmtGrams(deliveredTotal)}</strong></div><div class="card stat"><span class="muted">Verbruikt</span><strong>${fmtGrams(usedTotal)}</strong></div><div class="card stat"><span class="muted">Beschikbaar</span><strong>${fmtGrams(availableTotal)}</strong></div></section><section class="grid2" style="margin-bottom:16px"><form class="card small-form" method="post" action="/admin/filament/request"><h2>Filament aanvragen</h2><section class="grid3"><label><span>Kleur</span><input name="color" required placeholder="Bijv. zwart"></label><label><span>Type</span><input name="type" required placeholder="PLA, PETG, ABS"></label><label><span>Aantal gram</span><input name="grams" inputmode="decimal" required placeholder="1000"></label></section><label><span>Leverancier</span><input name="supplier" placeholder="Bijv. TM3D"></label><label><span>Opmerking</span><textarea name="note" rows="3" placeholder="Reden of gewenste spoel"></textarea></label><button type="submit">Aanvraag indienen</button></form><form class="card small-form" method="post" action="/admin/filament/use"><h2>Verbruik registreren</h2>${isAdmin(user) ? `<label><span>Medewerker</span><select name="worker">${workerOptions(settings, user.username)}</select></label>` : ''}<section class="grid3"><label><span>Kleur</span><input name="color" required></label><label><span>Type</span><input name="type" required></label><label><span>Aantal gram</span><input name="grams" inputmode="decimal" required></label></section><label><span>Leverancier</span><input name="supplier" placeholder="Bijv. TM3D"></label><label><span>Ordernummer</span><input name="orderId" placeholder="Optioneel"></label><button type="submit">Verbruik opslaan</button></form></section>${isAdmin(user) ? `<section class="card" style="margin-bottom:16px"><h2>Levering registreren</h2><form class="small-form" method="post" action="/admin/filament/delivery"><section class="grid3"><label><span>Medewerker</span><select name="worker">${workerOptions(settings)}</select></label><label><span>Kleur</span><input name="color" required></label><label><span>Type</span><input name="type" required></label></section><section class="grid3"><label><span>Aantal gram geleverd</span><input name="grams" inputmode="decimal" required></label><label><span>Leverancier</span><input name="supplier" value="TM3D"></label><label><span>Referentie</span><input name="reference" placeholder="Bestelnummer / factuur"></label></section><button type="submit">Levering opslaan</button></form></section>` : ''}<section class="card" style="margin-bottom:16px"><h2>Beschikbare grammen per medewerker</h2><table><thead><tr><th>Medewerker</th><th>Kleur</th><th>Type</th><th>Geleverd</th><th>Verbruikt</th><th>Beschikbaar</th><th>Leverancier</th></tr></thead><tbody>${stockTable || '<tr><td colspan="7">Nog geen filamentgegevens.</td></tr>'}</tbody></table></section><section class="card"><h2>Filamentaanvragen</h2><table><thead><tr><th>Medewerker</th><th>Kleur</th><th>Type</th><th>Aantal gram</th><th>Leverancier</th><th>Status</th><th>Actie / opmerking</th></tr></thead><tbody>${requestTable || '<tr><td colspan="7">Nog geen aanvragen.</td></tr>'}</tbody></table></section>`);
+}
+
+function injectFilamentNav(user, html = '') {
+  if (typeof html !== 'string' || !html.includes('unified-nav') || html.includes('/admin/filament')) return html;
+  const item = `<a class="" href="/admin/filament">Filament<span>›</span></a>`;
+  return html.replace('</nav>', `${item}</nav>`);
+}
+
+function navInjectionMiddleware(req, res, next) {
+  if (req.method !== 'GET' || !req.path.startsWith('/admin') || req.path.startsWith('/admin/filament')) return next();
+  const user = sessionUser(req);
+  if (!user) return next();
+  const originalSend = res.send.bind(res);
+  res.send = (body) => originalSend(injectFilamentNav(user, body));
+  return next();
+}
+
+export function registerFilamentRoutes(app) {
+  app.use(navInjectionMiddleware);
+
+  app.get('/admin/filament', requireInternal, async (req, res) => {
+    const [data, quotes, settings] = await Promise.all([readFilament(), readQuotes(), readSettings()]);
+    res.send(filamentHtml(data, quotes, settings, req.internalUser, req.query.saved === '1'));
+  });
+
+  app.post('/admin/filament/request', requireInternal, async (req, res) => {
+    const data = await readFilament();
+    data.requests.unshift({
+      id: randomUUID(),
+      worker: req.internalUser.username,
+      workerName: req.internalUser.name || req.internalUser.username,
+      color: clean(req.body.color, 120),
+      type: clean(req.body.type, 80),
+      grams: grams(req.body.grams),
+      supplier: clean(req.body.supplier || 'TM3D', 120),
+      note: clean(req.body.note, 500),
+      status: 'aangevraagd',
+      createdAt: new Date().toISOString(),
+    });
+    await writeFilament(data);
+    res.redirect('/admin/filament?saved=1');
+  });
+
+  app.post('/admin/filament/use', requireInternal, async (req, res) => {
+    const data = await readFilament();
+    const worker = isAdmin(req.internalUser) ? clean(req.body.worker || req.internalUser.username, 80).toLowerCase() : req.internalUser.username;
+    data.usage.unshift({
+      id: randomUUID(),
+      worker,
+      color: clean(req.body.color, 120),
+      type: clean(req.body.type, 80),
+      grams: grams(req.body.grams),
+      supplier: clean(req.body.supplier || 'TM3D', 120),
+      orderId: clean(req.body.orderId, 120),
+      createdAt: new Date().toISOString(),
+      createdBy: req.internalUser.username,
+    });
+    await writeFilament(data);
+    res.redirect('/admin/filament?saved=1');
+  });
+
+  app.post('/admin/filament/delivery', requireAdmin, async (req, res) => {
+    const data = await readFilament();
+    data.deliveries.unshift({
+      id: randomUUID(),
+      worker: clean(req.body.worker || 'admin', 80).toLowerCase(),
+      color: clean(req.body.color, 120),
+      type: clean(req.body.type, 80),
+      grams: grams(req.body.grams),
+      supplier: clean(req.body.supplier || 'TM3D', 120),
+      reference: clean(req.body.reference, 160),
+      createdAt: new Date().toISOString(),
+      createdBy: req.internalUser.username,
+    });
+    await writeFilament(data);
+    res.redirect('/admin/filament?saved=1');
+  });
+
+  app.post('/admin/filament/request/:id/status', requireAdmin, async (req, res) => {
+    const data = await readFilament();
+    const request = data.requests.find((item) => item.id === req.params.id);
+    if (request) {
+      const allowed = new Set(['aangevraagd', 'besteld', 'geleverd', 'afgewezen']);
+      if (allowed.has(req.body.status)) request.status = req.body.status;
+      request.updatedAt = new Date().toISOString();
+      request.updatedBy = req.internalUser.username;
+    }
+    await writeFilament(data);
+    res.redirect('/admin/filament?saved=1');
+  });
+}
