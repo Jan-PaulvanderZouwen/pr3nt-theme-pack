@@ -18,7 +18,7 @@ let writeQueue = Promise.resolve();
 
 const mediaUpload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, mediaDir),
+    destination: (_req, _file, cb) => { mkdir(mediaDir, { recursive: true }).then(() => cb(null, mediaDir)).catch(cb); },
     filename: (_req, file, cb) => {
       const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^a-z0-9.]/g, '');
       cb(null, `${Date.now()}-${randomUUID()}${ext || '.bin'}`);
