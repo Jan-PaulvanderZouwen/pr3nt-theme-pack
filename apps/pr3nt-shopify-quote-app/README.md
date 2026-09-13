@@ -121,3 +121,21 @@ npm start
 ```
 
 Gebruik daarna bijvoorbeeld PM2 en Nginx reverse proxy.
+
+## Websitebeheer vanuit app.pr3nt.nl
+
+Na de update is het websitebeheer beschikbaar via:
+
+```text
+https://app.pr3nt.nl/admin/website
+```
+
+Gebruik dezelfde `ADMIN_KEY` als voor het bestaande aanvraagdashboard. Vanuit dit scherm beheer je pagina-teksten, SEO-velden en afbeeldingskoppelingen. Afbeeldingen kunnen via **Media uploaden** worden toegevoegd; de URL kan daarna in een afbeeldingsveld worden gebruikt. De website haalt gepubliceerde inhoud uit `/api/site-content` en valt automatisch terug op de ingebouwde content als de app tijdelijk niet bereikbaar is.
+
+Na een pull op de VPS:
+
+```bash
+git pull origin main
+npm install --omit=dev
+pm2 restart pr3nt-quote-app
+```
