@@ -20,6 +20,7 @@ import { registerMollieRoutes } from './mollie.js';
 import { registerMyParcelRoutes } from './myparcel.js';
 import { registerQuoteTemplateRoutes } from './quotetemplate.js';
 import { registerProductionPricingRoutes } from './productionpricing.js';
+import { registerFilamentRoutes } from './filament.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -314,6 +315,7 @@ app.get('/health', (_req, res) => {
 
 registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);
+registerFilamentRoutes(app);
 registerProductionPricingRoutes(app);
 registerMyParcelRoutes(app);
 registerMollieRoutes(app);
