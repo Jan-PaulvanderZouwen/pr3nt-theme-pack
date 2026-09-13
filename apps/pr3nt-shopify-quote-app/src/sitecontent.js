@@ -107,11 +107,11 @@ function renderPage(title, body) {
 </style></head><body><main class="shell"><div class="topbar"><a class="brand" href="/admin"><span>pr</span>3nt beheer</a><nav class="nav"><a class="button ghost" href="/admin">Aanvragen</a><a class="button ghost" href="/admin/website">Website</a></nav></div>${body}</main></body></html>`;
 }
 
-function renderEditor(store, key, saved = false) {
+function renderEditor(store, key, saved = false, published = true) {
   const entry = store.pages[key] || Object.values(store.pages)[0];
   const selected = entry ? key : Object.keys(store.pages)[0];
   const value = entry?.draft ?? entry?.published ?? {};
-  return renderPage('Websitebeheer', `<section class="hero"><div><div class="eyebrow">PR3NT WEBSITEBEHEER</div><h1>Pas je website aan vanuit je eigen portaal.</h1><p class="muted">Beheer teksten, SEO-velden en afbeeldingskoppelingen. Concepten blijven apart totdat je ze publiceert.</p></div><div class="card"><strong>Publicatie</strong><p class="muted" style="margin:5px 0 14px">Laat de preview eerst controleren door het concept op te slaan.</p><a class="button ghost" href="https://pr3nt.nl" target="_blank" rel="noreferrer">Website openen ↗</a></div></section>${saved ? '<div class="notice">De pagina is opgeslagen en gepubliceerd.</div>' : ''}<section class="card stack"><div class="toolbar"><div><h2>Pagina-inhoud</h2><p class="muted" style="margin:0">Kies een pagina en wijzig alleen wat nodig is.</p></div><form method="get" action="/admin/website"><select name="key" onchange="this.form.submit()">${pageOptions(store.pages, selected)}</select></form></div><form id="content-form" method="post" action="/admin/website/${encodeURIComponent(selected)}"><input type="hidden" name="content" id="content-json"><input type="hidden" name="revision" value="${escapeHtml(entry?.revision || 0)}">${renderFields(value)}<div class="editor-actions"><label class="check"><input type="checkbox" name="publish" value="1" checked> Direct publiceren</label><button class="button green" type="submit">Wijzigingen opslaan</button></div></form></section><section class="card" style="margin-top:18px"><div class="toolbar"><div><h2>Media uploaden</h2><p class="muted" style="margin:0">Upload een logo of foto en plak de URL in een afbeeldingsveld.</p></div><form method="post" action="/admin/website/media" enctype="multipart/form-data" class="nav"><input type="file" name="file" accept=".jpg,.jpeg,.png,.webp,.avif,.gif,.svg" required><button class="button" type="submit">Uploaden</button></form></div></section><script>
+  return renderPage('Websitebeheer', `<section class="hero"><div><div class="eyebrow">PR3NT WEBSITEBEHEER</div><h1>Pas je website aan vanuit je eigen portaal.</h1><p class="muted">Beheer teksten, SEO-velden en afbeeldingskoppelingen. Concepten blijven apart totdat je ze publiceert.</p></div><div class="card"><strong>Publicatie</strong><p class="muted" style="margin:5px 0 14px">Laat de preview eerst controleren door het concept op te slaan.</p><a class="button ghost" href="https://pr3nt.nl" target="_blank" rel="noreferrer">Website openen ↗</a></div></section>${saved ? `<div class="notice">${published ? 'De pagina is opgeslagen en gepubliceerd.' : 'Concept opgeslagen. Vink Direct publiceren aan wanneer de tekst live mag.'}</div>` : ''}<section class="card stack"><div class="toolbar"><div><h2>Pagina-inhoud</h2><p class="muted" style="margin:0">Kies een pagina en wijzig alleen wat nodig is.</p></div><form method="get" action="/admin/website"><select name="key" onchange="this.form.submit()">${pageOptions(store.pages, selected)}</select></form></div><form id="content-form" method="post" action="/admin/website/${encodeURIComponent(selected)}"><input type="hidden" name="content" id="content-json"><input type="hidden" name="revision" value="${escapeHtml(entry?.revision || 0)}">${renderFields(value)}<div class="editor-actions"><label class="check"><input type="checkbox" name="publish" value="1" checked> Direct publiceren</label><button class="button green" type="submit">Wijzigingen opslaan</button></div></form></section><section class="card" style="margin-top:18px"><div class="toolbar"><div><h2>Media uploaden</h2><p class="muted" style="margin:0">Upload een logo of foto en plak de URL in een afbeeldingsveld.</p></div><form method="post" action="/admin/website/media" enctype="multipart/form-data" class="nav"><input type="file" name="file" accept=".jpg,.jpeg,.png,.webp,.avif,.gif,.svg" required><button class="button" type="submit">Uploaden</button></form></div></section><script>
 const template=${JSON.stringify(value)};const form=document.getElementById('content-form');form.addEventListener('submit',()=>{const out=structuredClone(template);document.querySelectorAll('[data-site-field]').forEach((field)=>{const path=JSON.parse(field.dataset.sitePath);let target=out;path.forEach((part,index)=>{if(index===path.length-1){target[part]=field.value}else target=target[part]});});document.getElementById('content-json').value=JSON.stringify(out)});
 </script>`);
 }
@@ -132,7 +132,7 @@ export function registerSiteContentRoutes(app) {
   app.get('/admin/website', requireAdmin, async (req, res) => {
     const store = await readStore();
     const key = store.pages[req.query.key] ? req.query.key : Object.keys(store.pages)[0];
-    res.send(renderEditor(store, key, req.query.saved === '1'));
+    res.send(renderEditor(store, key, req.query.saved === '1', req.query.published !== '0'));
   });
 
   app.post('/admin/website/:key', requireAdmin, async (req, res) => {
@@ -151,7 +151,7 @@ export function registerSiteContentRoutes(app) {
     entry.revision += 1;
     entry.updatedAt = now;
     await queueWrite(store);
-    res.redirect(`/admin/website?key=${encodeURIComponent(req.params.key)}&saved=1`);
+    res.redirect(`/admin/website?key=${encodeURIComponent(req.params.key)}&saved=1&published=${req.body.publish === '1' ? '1' : '0'}`);
   });
 
   app.post('/admin/website/media', requireAdmin, mediaUpload.single('file'), async (req, res) => {
