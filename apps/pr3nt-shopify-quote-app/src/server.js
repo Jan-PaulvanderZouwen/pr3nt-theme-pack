@@ -10,6 +10,7 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerAdminRoutes } from './admin.js';
+import { registerSiteContentRoutes } from './sitecontent.js';
 import { registerPortalRoutes } from './portal.js';
 import { registerSelfServiceRoutes } from './selfservice.js';
 import { registerPortalDomFixRoutes } from './portaldomfix.js';
@@ -324,6 +325,7 @@ registerMollieRoutes(app);
 registerStatusMailRoutes(app);
 registerQuoteTemplateRoutes(app);
 registerAdminRoutes(app);
+registerSiteContentRoutes(app);
 
 // Customer portal routes. Keep the final portal DOM layer before the base portal renderer.
 registerPortalDomFixRoutes(app);
