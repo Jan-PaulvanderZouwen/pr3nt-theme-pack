@@ -62,8 +62,8 @@
         "padding_y": 76,
         "content_padding_y": 72,
         "eyebrow": "Materiaalkeuze",
-        "heading": "3D print materialen: PLA en PETG",
-        "intro": "Kies het juiste materiaal voor jouw 3D-print. Pr3nt helpt je met PLA en PETG voor hobbyprints, prototypes en functionele onderdelen.",
+        "heading": "PLA of PETG laten printen?",
+        "intro": "Wil je een 3D-print laten maken in PLA of PETG? Ontdek welk materiaal past bij jouw hobbyproject, prototype of functionele onderdeel.",
         "cta_label": "Vraag materiaaladvies aan",
         "cta_link": "/#upload"
       }
