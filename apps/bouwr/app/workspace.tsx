@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import ClientPortal from "./client-portal";
+import DashboardEditor from "./dashboard-editor";
+import WebsiteConfigurator, { WebsitePreview } from "./website-configurator";
+import Mailbox from "./mailbox";
+import PhasePayments from "./phase-payments";
+import { newConfiguration, WebsiteConfiguration } from "@/lib/configurator";
 import HelpCenter from "./help-center";
 import LogoutButton from "./logout-button";
 import {
@@ -244,7 +249,7 @@ const navigation = [
   { name: "Overzicht", icon: LayoutDashboard },
   { name: "Mijn projecten", icon: Layers },
   { name: "Marktplaats", icon: Store },
-  { name: "Templates", icon: FileStack },
+  { name: "Configurator", icon: FileStack },
   { name: "Berichten", icon: MessageSquare },
   { name: "Klantportaal", icon: Users },
   { name: "Betalingen", icon: Wallet },
@@ -333,10 +338,10 @@ export default function Workspace({ identity }: { identity: Identity }) {
     [busy, setBusy] = useState(false),
     [tour, setTour] = useState(-1),
     [notifyOpen, setNotifyOpen] = useState(false),
-    [projectStep, setProjectStep] = useState(0),
-    [templateId, setTemplateId] = useState("website"),
+    [configVersion, setConfigVersion] = useState(0),
+    [configInitial, setConfigInitial] = useState<WebsiteConfiguration | null>(null),
+    [configProject, setConfigProject] = useState<string | undefined>(undefined),
     [form, setForm] = useState<Data>({}),
-    [editTemplate, setEditTemplate] = useState<Data | null>(null),
     [channel, setChannel] = useState("internal"),
     [text, setText] = useState(""),
     [progress, setProgress] = useState(0),
@@ -374,6 +379,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
   }, [identity]);
   useEffect(() => {
     load();
+    if (new URLSearchParams(location.search).get("outlook") === "connected") { setPage("Berichten"); toast.success("Outlook gekoppeld. Klik op synchroniseren om je mail op te halen."); }
   }, [load]);
   useEffect(() => {
     if (data?.registered && !localStorage.getItem("bouwr-tour")) setTour(0);
@@ -397,9 +403,6 @@ export default function Workspace({ identity }: { identity: Identity }) {
           },
         ]
       : data?.market || [];
-  const templates: Data[] = demo
-    ? defaultTemplates
-    : data?.templates || defaultTemplates;
   const user = demo
     ? { name: "Jan-Paul", company: "J.P. van der Zouwen", role: "developer" }
     : data?.user || {};
@@ -515,9 +518,10 @@ export default function Workspace({ identity }: { identity: Identity }) {
           if (!input || Object.keys(input as object).length)
             throw Error("Geen velden verwacht.");
           if (client) throw Error("Klanten kunnen geen projecten plaatsen.");
-          setForm({});
-          setProjectStep(0);
-          setModal("create");
+          setConfigInitial(null);
+          setConfigProject(undefined);
+          setConfigVersion(v => v + 1);
+          setPage("Configurator");
           return { opened: true };
         },
       },
@@ -525,29 +529,18 @@ export default function Workspace({ identity }: { identity: Identity }) {
     );
     return () => controller.abort();
   }, [client]);
-  const startCreate = (t = "website") => {
-    setTemplateId(t);
-    setForm({
-      hosting: "Eigen hosting",
-      category: templates.find((x) => x.id === t)?.category || "Website",
-      paymentMode: "platform",
-      contact: false,
-    });
-    setProjectStep(0);
-    setModal("create");
+  const startCreate = () => {
+    setConfigInitial({ ...newConfiguration(), brandName: user.company || "Jouw bedrijf" });
+    setConfigProject(undefined);
+    setConfigVersion(v => v + 1);
+    setModal("");
+    setPage("Configurator");
   };
   const go = (p: string) => {
     setPage(p);
     setQuery("");
     setFilter("all");
   };
-  const saveTemplate = () =>
-    run(async () => {
-      await mutate({ op: "saveTemplate", ...editTemplate });
-      toast.success("Template opgeslagen");
-      setModal("");
-      await load();
-    });
   const filtered = (page === "Marktplaats" ? market : projects).filter(
     (p) =>
       (filter === "all" || p.status === filter) &&
@@ -597,7 +590,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
     Overzicht: "Goed overzicht. Lekker doorbouwen.",
     "Mijn projecten": "Al je projecten, op één plek.",
     Marktplaats: "Vind je volgende opdracht.",
-    Templates: "Goed werk begint met een goede basis.",
+    Configurator: "Van keuzes naar een heldere opdracht.",
     Berichten: "Korte lijnen. Duidelijke afspraken.",
     Klantportaal: "Jouw merk. Jouw klantportaal.",
     Betalingen: "Grip op elke betaling.",
@@ -794,14 +787,14 @@ export default function Workspace({ identity }: { identity: Identity }) {
               <p>
                 {page === "Overzicht"
                   ? `Welkom${demo ? " terug" : ""}, ${user.name?.split(" ")[0] || "developer"}. ${review.length ? "Er staat werk klaar voor je review." : "Hier begint je volgende mooie project."}`
-                  : page === "Templates"
-                    ? "Herbruikbare standaarden voor elk type project. Pas ze aan naar jouw manier van werken."
+                  : page === "Configurator"
+                    ? "Stel pagina’s, functies en stijl samen met een visueel voorbeeld."
                     : page === "Marktplaats"
                       ? "Bekijk open projecten en doe een voorstel dat bij jouw expertise past."
                       : page === "Klantportaal"
                         ? "Deel voortgang, bestanden en gesprekken in je eigen huisstijl."
                         : page === "Betalingen"
-                          ? "Transparante bedragen, platformvergoeding en betaalstatus."
+                          ? "Projectbetalingen en betaalfases, overzichtelijk bij elkaar."
                           : "Alle details en acties binnen handbereik."}
               </p>
             </div>
@@ -811,8 +804,8 @@ export default function Workspace({ identity }: { identity: Identity }) {
               </button>
             )}
           </div>
-          {(page === "Overzicht" || page === "Mijn projecten") && (
-            <>
+          {page === "Overzicht" && <DashboardEditor widgets={data?.dashboard} projects={projects} notifications={notifications} openProject={openProject} navigate={go} expandActivity={() => setModal("activity")} onSave={async widgets => { await mutate({ op: "saveDashboard", widgets }); await load(); }} />}
+          {page === "Mijn projecten" && <>
               <section className="stats">
                 {[
                   {
@@ -861,182 +854,6 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   </div>
                 ))}
               </section>
-              {page === "Overzicht" && (
-                <div className="overview-grid">
-                  <div className="main-column">
-                    <section className="pipeline-card">
-                      <div className="section-heading">
-                        <div>
-                          <h2>Projectpipeline</h2>
-                          <p>Elke opdracht een stap dichter bij oplevering.</p>
-                        </div>
-                        <button
-                          className="text-button"
-                          onClick={() => go("Mijn projecten")}
-                        >
-                          Alle projecten <ChevronRight size={16} />
-                        </button>
-                      </div>
-                      <div className="pipeline">
-                        {["open", "progress", "review", "completed"].map(
-                          (s, i) => (
-                            <button
-                              key={s}
-                              onClick={() => {
-                                go("Mijn projecten");
-                                setFilter(s);
-                              }}
-                              className={`pipeline-stage ${s}`}
-                            >
-                              <span className="stage-label">
-                                <span className="stage-dot" />
-                                {s === "open"
-                                  ? "Open"
-                                  : s === "progress"
-                                    ? "In uitvoering"
-                                    : s === "review"
-                                      ? "Review"
-                                      : "Opgeleverd"}
-                              </span>
-                              <b>
-                                {projects
-                                  .filter((p) => p.status === s)
-                                  .length.toString()
-                                  .padStart(2, "0")}
-                              </b>
-                              <div className="stage-bar">
-                                <span
-                                  style={{
-                                    width: `${Math.max(8, (projects.filter((p) => p.status === s).length / Math.max(projects.length, 1)) * 100)}%`,
-                                  }}
-                                />
-                              </div>
-                              {i < 3 && (
-                                <ChevronRight
-                                  className="stage-chevron"
-                                  size={16}
-                                />
-                              )}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    </section>
-                    <ProjectList
-                      title={demo ? "Voorbeeldprojecten" : "Lopende projecten"}
-                      items={projects
-                        .filter((p) => p.status !== "completed")
-                        .slice(0, 4)}
-                      open={openProject}
-                      all={() => go("Mijn projecten")}
-                      client={client}
-                    />
-                    <div className="template-strip">
-                      <div className="template-strip-icon">
-                        <FileStack size={25} />
-                      </div>
-                      <div>
-                        <h3>Begin met een voorsprong</h3>
-                        <p>Een complete projectbriefing in een paar klikken.</p>
-                      </div>
-                      <button
-                        className="outline"
-                        onClick={() => go("Templates")}
-                      >
-                        Bekijk templates
-                      </button>
-                    </div>
-                  </div>
-                  <aside className="right-column">
-                    <section className="review-card">
-                      <div className="review-head">
-                        <span>
-                          <CheckCheck size={20} />
-                        </span>
-                        <span className="pill">
-                          {review.length} PROJECT
-                          {review.length !== 1 ? "EN" : ""}
-                        </span>
-                      </div>
-                      <h2>Klaar voor jouw blik</h2>
-                      <p>
-                        {review.length
-                          ? "De laatste puntjes op de i. Bekijk het werk en geef je feedback."
-                          : "Zodra er werk klaarstaat voor review, zie je het hier."}
-                      </p>
-                      {review[0] && (
-                        <>
-                          <div className="review-project">
-                            <Avatar name="Van Dijk" small />
-                            <div>
-                              <b>{review[0].title}</b>
-                              <small>{review[0].progress}% afgerond</small>
-                            </div>
-                          </div>
-                          <button
-                            className="primary"
-                            onClick={() => openProject(review[0])}
-                          >
-                            Project bekijken
-                          </button>
-                        </>
-                      )}
-                    </section>
-                    <section className="activity-card">
-                      <div className="section-heading">
-                        <h2>Laatste activiteit</h2>
-                        <button
-                          className="icon-button"
-                          aria-label="Laatste activiteit uitbreiden"
-                          title="Activiteit uitbreiden"
-                          onClick={() => setModal("activity")}
-                        >
-                          <Maximize2 size={17} />
-                        </button>
-                      </div>
-                      <div className="activity-list">
-                        {notifications.slice(0, 4).map((n, i) => (
-                          <div className="activity" key={n.id}>
-                            <span
-                              className={`activity-icon ${["blue", "purple", "green"][i % 3]}`}
-                            >
-                              {i === 1 ? (
-                                <Wallet size={15} />
-                              ) : i === 2 ? (
-                                <Upload size={15} />
-                              ) : (
-                                <Check size={15} />
-                              )}
-                            </span>
-                            <div>
-                              <p>{n.body}</p>
-                              <small>{date(n.created)}</small>
-                            </div>
-                          </div>
-                        ))}
-                        {!notifications.length && (
-                          <p className="muted">
-                            Updates van je projecten verschijnen hier.
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        className="activity-expand"
-                        onClick={() => setModal("activity")}
-                      >
-                        Bekijk activiteiten <ArrowUpRight size={15} />
-                      </button>
-                    </section>
-                    <div className="security-note">
-                      <LockKeyhole size={17} />
-                      <p>
-                        Hostinggegevens worden pas gedeeld met de gekozen
-                        uitvoerder.
-                      </p>
-                    </div>
-                  </aside>
-                </div>
-              )}
               {page === "Mijn projecten" && (
                 <>
                   <Toolbar
@@ -1059,8 +876,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   )}
                 </>
               )}
-            </>
-          )}
+          </>}
           {page === "Marktplaats" && (
             <>
               <div className="market-info">
@@ -1120,138 +936,11 @@ export default function Workspace({ identity }: { identity: Identity }) {
               </div>
             </>
           )}
-          {page === "Templates" && (
-            <>
-              <div className="template-grid">
-                {templates.map((t, i) => (
-                  <article className="template-card" key={t.id}>
-                    <div className={`template-visual t${i % 4}`}>
-                      <div className="template-mini">
-                        <div>
-                          <span />
-                          <span />
-                        </div>
-                        <strong>{t.category}</strong>
-                        <i />
-                        <i />
-                        <i />
-                        <span className="mini-checkbox">
-                          <Check size={13} /> Projectstandaarden
-                        </span>
-                      </div>
-                      <span className="template-visual-icon">
-                        <FileStack size={31} />
-                      </span>
-                    </div>
-                    <div className="template-card-body">
-                      <span className="tag">
-                        {defaultTemplates.some((x) => x.id === t.id)
-                          ? "STANDAARD TEMPLATE"
-                          : "MIJN TEMPLATE"}
-                      </span>
-                      <h2>{t.name}</h2>
-                      <p>{t.description}</p>
-                      <div className="template-meta">
-                        <span>
-                          <CheckCheck size={15} />
-                          {t.checklist.length} controlepunten
-                        </span>
-                        <button
-                          className="icon-button"
-                          aria-label={`${t.name} aanpassen`}
-                          onClick={() => {
-                            setEditTemplate({
-                              ...t,
-                              name: defaultTemplates.some((x) => x.id === t.id)
-                                ? t.name + " · eigen versie"
-                                : t.name,
-                            });
-                            setModal("template");
-                          }}
-                        >
-                          <Settings size={16} />
-                        </button>
-                      </div>
-                      <button
-                        className="outline"
-                        onClick={() => startCreate(t.id)}
-                      >
-                        Gebruik template <Plus size={16} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-                <button
-                  className="add-template"
-                  onClick={() => {
-                    setEditTemplate({
-                      name: "Mijn template",
-                      description: "Mijn eigen projectstandaarden.",
-                      category: "Website",
-                      checklist: defaultTemplates[0].checklist,
-                    });
-                    setModal("template");
-                  }}
-                >
-                  <span>
-                    <Plus size={27} />
-                  </span>
-                  <h2>Jouw eigen basis</h2>
-                  <p>Maak een template die precies past bij hoe jij werkt.</p>
-                  <b>Template toevoegen</b>
-                </button>
-              </div>
-              <section className="standards-card">
-                <div className="section-heading">
-                  <div>
-                    <h2>Een stevig fundament voor elk project</h2>
-                    <p>Deze standaarden zitten in elk bouwpakket.</p>
-                  </div>
-                  <ShieldCheck size={22} />
-                </div>
-                <div className="standards-grid">
-                  {standards.map((s, i) => (
-                    <div key={s.group}>
-                      <span>0{i + 1}</span>
-                      <h3>{s.group}</h3>
-                      <p>{s.items.join(" · ")}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
-          {page === "Berichten" && (
-            <div className="messages-overview">
-              <div className="section-heading">
-                <h2>Projectgesprekken</h2>
-                <MessageSquare size={20} />
-              </div>
-              {projects.map((p) => (
-                <button
-                  className="conversation"
-                  key={p.id}
-                  onClick={() => openProject(p)}
-                >
-                  <Mark category={p.category} />
-                  <div>
-                    <b>{p.title}</b>
-                    <small>
-                      {p.client || "Projectgesprek"} · {statuses[p.status]}
-                    </small>
-                  </div>
-                  <ChevronRight size={18} />
-                </button>
-              ))}
-              {!projects.length && (
-                <Empty text="Gesprekken horen bij een project. Maak je eerste project aan om samen te werken." />
-              )}
-              <p className="conversation-note">
-                <LockKeyhole size={16} /> Developerchat en klantgesprekken zijn
-                apart afgeschermd.
-              </p>
-            </div>
-          )}
+          {page === "Configurator" && <WebsiteConfigurator key={configVersion} initial={configInitial || (!configProject ? data?.configuratorDraft?.configuration : null)} projectId={configProject} admin={!!data?.admin} brandName={user.company} onNew={startCreate} onDraft={async configuration => { await mutate({ op: "saveConfigurationDraft", configuration }); await load(); }} onPublish={async (configuration, projectId) => {
+            const result = await mutate({ op: projectId ? "saveConfiguration" : "create", ...(projectId ? { project: projectId } : {}), configuration });
+            await load(); setConfigProject(undefined); setConfigInitial(null); setConfigVersion(v => v + 1); go("Mijn projecten"); toast.success(projectId ? "Projectbriefing bijgewerkt" : "Opdracht geplaatst. Developers kunnen bieden."); await openProject({ id: result.id || projectId });
+          }} />}
+          {page === "Berichten" && <Mailbox user={user} workspaceMutate={mutate} openProject={openProject} />}
           {page === "Klantportaal" && (
             <div className="portal-layout">
               <section className="portal-settings">
@@ -1416,116 +1105,15 @@ export default function Workspace({ identity }: { identity: Identity }) {
               </section>
             </div>
           )}
-          {page === "Betalingen" && (
-            <>
-              <div className="payment-banner">
-                <span className="mollie-logo">mollie</span>
-                <div>
-                  <h2>Betalen via Mollie Connect</h2>
-                  <p>
-                    15% platformvergoeding. 85% voor de uitvoerder, vóór de
-                    kosten van Mollie.
-                  </p>
-                </div>
-                <span className="connection-state">
-                  {data?.capabilities?.mollieConnected
-                    ? "Account gekoppeld"
-                    : "Nog niet gekoppeld"}
-                </span>
-              </div>
-              <div className="payment-grid">
-                <section className="panel">
-                  <h2>Transparante verdeling</h2>
-                  <p className="muted">
-                    Voorbeeld bij een project van € 1.000.
-                  </p>
-                  <div className="payment-split">
-                    <span className="executor-split" />
-                    <span className="platform-split" />
-                  </div>
-                  <div className="split-label">
-                    <span>
-                      <i /> Uitvoerder <b>€ 850</b>
-                    </span>
-                    <span>
-                      <i /> Bouwr <b>€ 150</b>
-                    </span>
-                  </div>
-                  <p className="info-copy">
-                    De vergoeding wordt berekend over het transactiebedrag. Btw,
-                    terugbetalingen en de verwerking van Mollie-kosten moeten
-                    voor de livegang nog worden vastgelegd.
-                  </p>
-                </section>
-                <section className="panel">
-                  <h2>Eigen klanten, eigen afhandeling</h2>
-                  <p>
-                    Bij projecten die de beheerder zelf met zijn klanten
-                    afhandelt, wordt geen platformbetaling gestart.
-                  </p>
-                  <div className="info-note">
-                    <ShieldCheck size={20} />
-                    <p>
-                      De betaalwijze wordt bij het aanmaken vastgelegd. Alleen
-                      de beheerder kan eigen facturatie kiezen.
-                    </p>
-                  </div>
-                </section>
-              </div>
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>Projectbetalingen</h2>
-                  <Wallet size={20} />
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Bedrag</TableHead>
-                      <TableHead>Platform 15%</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projects
-                      .filter((p) => p.executor)
-                      .map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell>{p.title}</TableCell>
-                          <TableCell>{money(p.budget)}</TableCell>
-                          <TableCell>
-                            {money(Math.round(p.budget * 0.15))}
-                          </TableCell>
-                          <TableCell>
-                            <span className="tag">
-                              {data?.payments?.find(
-                                (pay: Data) => pay.project === p.id,
-                              )?.status === "paid"
-                                ? "Betaald"
-                                : data?.payments?.find(
-                                    (pay: Data) => pay.project === p.id,
-                                  )?.status || "Niet betaald"}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <button
-                              className="outline"
-                              onClick={() => openProject(p)}
-                            >
-                              Bekijken
-                            </button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-                {!projects.some((p) => p.executor) && (
-                  <Empty text="Na het accepteren van een bod verschijnt de projectbetaling hier." />
-                )}
-              </section>
-            </>
-          )}
+          {page === "Betalingen" && <section className="panel payment-overview-panel">
+            <div className="section-heading"><div><h2>Projectbetalingen</h2><p>Betaal in één keer of per afgesproken fase.</p></div><span className="mollie-logo">mollie</span></div>
+            <Table><TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Betaalwijze</TableHead><TableHead>Totaal</TableHead><TableHead>Ontvangen</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>{projects.filter(p => p.executor).map(p => {
+              const paid = (data?.payments || []).filter((pay: Data) => pay.project === p.id && pay.status === "paid").reduce((v: number, pay: Data) => v + pay.amount, 0);
+              return <TableRow key={p.id}><TableCell>{p.title}</TableCell><TableCell>{p.payment_mode === "direct" ? "Eigen facturatie" : p.payment_schedule === "phases" ? "Per fase" : "In één keer"}</TableCell><TableCell>{money(p.budget)}</TableCell><TableCell>{money(paid)}</TableCell><TableCell><span className="tag">{p.payment_mode === "direct" ? "Extern afgehandeld" : paid >= p.budget ? "Betaald" : paid > 0 ? "Deels betaald" : "Nog niet betaald"}</span></TableCell><TableCell><button className="outline" onClick={() => openProject(p)}>Betaalplan bekijken</button></TableCell></TableRow>;
+            })}</TableBody></Table>
+            {!projects.some(p => p.executor) && <Empty text="Na het kiezen van een uitvoerder zie je hier de betalingen en het betaalplan." />}
+            <details className="payment-cost-details"><summary>Betaaldetails</summary><p>Nieuwe platformbetalingen hebben een inbegrepen platformvergoeding van 5%. De kosten van Mollie worden apart door Mollie verwerkt.</p></details>
+          </section>}
           {page === "Instellingen" && (
             <div className="settings-grid">
               <section className="panel">
@@ -1598,8 +1186,8 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   Klanten krijgen alleen toegang tot hun eigen gedeelde
                   projecten.
                 </p>
-                <button className="outline" onClick={() => go("Templates")}>
-                  Projectstandaarden bekijken
+                <button className="outline" onClick={() => go("Configurator")}>
+                  Website samenstellen
                 </button>
               </section>
             </div>
@@ -1814,339 +1402,6 @@ export default function Workspace({ identity }: { identity: Identity }) {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={modal === "create"}
-        onOpenChange={(o) => !o && setModal("")}
-      >
-        <DialogContent className="app-dialog create-dialog">
-          <DialogHeader>
-            <div className="eyebrow">NIEUW PROJECT</div>
-            <DialogTitle>Van idee naar een heldere opdracht.</DialogTitle>
-            <DialogDescription>
-              Kies een basis, leg de scope vast en vind jouw developer.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="wizard-steps">
-            {["Bouwpakket", "Projectbriefing", "Samenwerking"].map((s, i) => (
-              <span
-                className={
-                  projectStep === i
-                    ? "current"
-                    : projectStep > i
-                      ? "finished"
-                      : ""
-                }
-                key={s}
-              >
-                <b>{projectStep > i ? <Check size={13} /> : i + 1}</b>
-                {s}
-              </span>
-            ))}
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (projectStep < 2) {
-                setProjectStep(projectStep + 1);
-                return;
-              }
-              run(async () => {
-                const t =
-                  templates.find((t) => t.id === templateId) || templates[0];
-                const d = await mutate({
-                  op: "create",
-                  ...form,
-                  category: t.category,
-                  budget: Math.round(Number(form.budget) * 100),
-                  checklist: t.checklist.map((c: Data) => ({
-                    ...c,
-                    done: false,
-                  })),
-                });
-                await load();
-                setModal("");
-                toast.success("Project geplaatst. Developers kunnen bieden.");
-                const r = await fetch("/api/workspace?project=" + d.id);
-                const p = (await r.json()) as Data;
-                if (r.ok) openProject(p.project);
-              });
-            }}
-          >
-            {projectStep === 0 && (
-              <div className="template-picker">
-                {templates.map((t) => (
-                  <button
-                    type="button"
-                    key={t.id}
-                    className={templateId === t.id ? "chosen" : ""}
-                    onClick={() => setTemplateId(t.id)}
-                  >
-                    <Mark category={t.category} />
-                    <span>
-                      <b>{t.name}</b>
-                      <small>{t.checklist.length} projectstandaarden</small>
-                    </span>
-                    {templateId === t.id && <CircleCheck size={18} />}
-                  </button>
-                ))}
-              </div>
-            )}
-            {projectStep === 1 && (
-              <>
-                <Field label="Projectnaam">
-                  <input
-                    required
-                    maxLength={180}
-                    placeholder="Bijvoorbeeld: Nieuwe website voor Studio Noord"
-                    value={form.title || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, title: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Klant / organisatie">
-                  <input
-                    required
-                    maxLength={180}
-                    placeholder="Alleen zichtbaar voor betrokkenen"
-                    value={form.client || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, client: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Omschrijving & scope">
-                  <textarea
-                    required
-                    rows={4}
-                    maxLength={5000}
-                    placeholder="Wat moet er worden gebouwd? Denk aan pagina’s, functies en koppelingen."
-                    value={form.description || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, description: e.target.value })
-                    }
-                  />
-                </Field>
-                <div className="form-grid">
-                  <Field label="Indicatief budget (€)">
-                    <input
-                      required
-                      type="number"
-                      min="1"
-                      max="1000000"
-                      step="0.01"
-                      value={form.budget || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, budget: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Gewenste opleverdatum">
-                    <input
-                      required
-                      type="date"
-                      value={form.deadline || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, deadline: e.target.value })
-                      }
-                    />
-                  </Field>
-                </div>
-              </>
-            )}
-            {projectStep === 2 && (
-              <>
-                <Field label="Wie beheert de hosting?">
-                  <Pick
-                    value={form.hosting || "Eigen hosting"}
-                    onChange={(v) => setForm({ ...form, hosting: v })}
-                    values={["Eigen hosting", "Hosting uitvoerder"]}
-                  />
-                </Field>
-                <div className="info-note">
-                  <LockKeyhole size={20} />
-                  <p>
-                    Bij eigen hosting vul je na het plaatsen de hostingkluis in.
-                    Alleen jij en de geaccepteerde uitvoerder krijgen toegang.
-                  </p>
-                </div>
-                <div className="switch-row">
-                  <div>
-                    <b>Uitvoerder mag de klant spreken</b>
-                    <p>Geef de uitvoerder toegang tot het klantgesprek.</p>
-                  </div>
-                  <Switch
-                    checked={!!form.contact}
-                    onCheckedChange={(v) => setForm({ ...form, contact: v })}
-                  />
-                </div>
-                {data?.admin && (
-                  <div className="switch-row">
-                    <div>
-                      <b>Eigen klantfacturatie</b>
-                      <p>Jij regelt deze opdracht zelf met je klant.</p>
-                    </div>
-                    <Switch
-                      checked={form.paymentMode === "direct"}
-                      onCheckedChange={(v) =>
-                        setForm({
-                          ...form,
-                          paymentMode: v ? "direct" : "platform",
-                        })
-                      }
-                    />
-                  </div>
-                )}
-                <div className="project-summary">
-                  <span className="tag">
-                    {templates.find((t) => t.id === templateId)?.name}
-                  </span>
-                  <h3>{form.title}</h3>
-                  <p>
-                    {form.client} ·{" "}
-                    {money(Math.round(Number(form.budget || 0) * 100))} ·{" "}
-                    {date(form.deadline)}
-                  </p>
-                  <small>
-                    {form.paymentMode === "direct"
-                      ? "Eigen facturatie"
-                      : "Via Mollie · 15% platformvergoeding"}
-                  </small>
-                </div>
-              </>
-            )}
-            <div className="dialog-actions">
-              {projectStep > 0 ? (
-                <button
-                  className="outline"
-                  type="button"
-                  onClick={() => setProjectStep(projectStep - 1)}
-                >
-                  Vorige
-                </button>
-              ) : (
-                <span />
-              )}
-              <button className="primary" disabled={busy}>
-                {busy ? (
-                  <Loader2 className="spin" size={16} />
-                ) : projectStep === 2 ? (
-                  <Plus size={16} />
-                ) : null}
-                {projectStep === 2 ? "Project plaatsen" : "Volgende"}
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={modal === "template"}
-        onOpenChange={(o) => !o && setModal("")}
-      >
-        <DialogContent className="app-dialog template-dialog">
-          <DialogHeader>
-            <DialogTitle>Maak het jouw bouwpakket.</DialogTitle>
-            <DialogDescription>
-              Standaardtemplates worden opgeslagen als jouw eigen versie.
-            </DialogDescription>
-          </DialogHeader>
-          {editTemplate && (
-            <>
-              <div className="form-grid">
-                <Field label="Templatenaam">
-                  <input
-                    value={editTemplate.name}
-                    onChange={(e) =>
-                      setEditTemplate({ ...editTemplate, name: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Categorie">
-                  <Pick
-                    value={editTemplate.category}
-                    onChange={(v) =>
-                      setEditTemplate({ ...editTemplate, category: v })
-                    }
-                    values={["Website", "WordPress", "Shopify", "Webapp"]}
-                  />
-                </Field>
-              </div>
-              <Field label="Omschrijving">
-                <textarea
-                  rows={2}
-                  value={editTemplate.description}
-                  onChange={(e) =>
-                    setEditTemplate({
-                      ...editTemplate,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </Field>
-              <div className="template-edit-list">
-                {editTemplate.checklist.map((c: Data, i: number) => (
-                  <div key={i}>
-                    <input
-                      aria-label="Controlepunt"
-                      value={c.title}
-                      onChange={(e) =>
-                        setEditTemplate({
-                          ...editTemplate,
-                          checklist: editTemplate.checklist.map(
-                            (x: Data, j: number) =>
-                              j === i ? { ...x, title: e.target.value } : x,
-                          ),
-                        })
-                      }
-                    />
-                    <button
-                      className="icon-button"
-                      aria-label="Controlepunt verwijderen"
-                      onClick={() =>
-                        setEditTemplate({
-                          ...editTemplate,
-                          checklist: editTemplate.checklist.filter(
-                            (_: Data, j: number) => j !== i,
-                          ),
-                        })
-                      }
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="dialog-actions">
-                <button
-                  className="outline"
-                  onClick={() =>
-                    setEditTemplate({
-                      ...editTemplate,
-                      checklist: [
-                        ...editTemplate.checklist,
-                        {
-                          title: "Nieuw controlepunt",
-                          done: false,
-                          group: "Eigen standaarden",
-                        },
-                      ],
-                    })
-                  }
-                >
-                  <Plus size={16} /> Controlepunt
-                </button>
-                <button
-                  className="primary"
-                  disabled={busy}
-                  onClick={saveTemplate}
-                >
-                  Template opslaan
-                </button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-      <Dialog
         open={modal === "project"}
         onOpenChange={(o) => !o && setModal("")}
       >
@@ -2202,6 +1457,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   {(detail.owner || detail.executor || detail.member) && (
                     <TabsTrigger value="chat">Gesprekken</TabsTrigger>
                   )}
+                  {(detail.owner || detail.executor) && detail.project.configuration && <TabsTrigger value="documentation">Briefing</TabsTrigger>}
                   {detail.owner && (
                     <TabsTrigger value="access">Toegang</TabsTrigger>
                   )}
@@ -2212,6 +1468,11 @@ export default function Workspace({ identity }: { identity: Identity }) {
                     <p className="briefing-copy">
                       {detail.project.description}
                     </p>
+                    {detail.owner && detail.project.status === "open" && !detail.project.configuration && <button className="outline" onClick={() => {
+                      const p = detail.project;
+                      setConfigInitial({ ...newConfiguration(), title: p.title, client: p.client || "", purpose: p.description || "", category: p.category, budget: p.budget, deadline: p.deadline || "", hosting: p.hosting, contact: !!p.contact, paymentMode: p.payment_mode });
+                      setConfigProject(p.id); setConfigVersion(v => v + 1); setModal(""); go("Configurator");
+                    }}><Settings size={16} />Uitwerken in configurator</button>}
                     <div className="progress-overview">
                       <div className="between">
                         <b>Projectvoortgang</b>
@@ -2286,37 +1547,10 @@ export default function Workspace({ identity }: { identity: Identity }) {
                         )}
                       </div>
                     )}
-                    {detail.owner && detail.project.executor && (
-                      <div className="payment-action">
-                        <div>
-                          <b>Projectbetaling</b>
-                          <small>
-                            {detail.project.payment_mode === "direct"
-                              ? "Eigen klantfacturatie"
-                              : `${money(detail.project.budget)} · platform ${money(Math.round(detail.project.budget * 0.15))}`}
-                          </small>
-                        </div>
-                        <button
-                          className="outline"
-                          disabled={
-                            busy || detail.project.payment_mode === "direct"
-                          }
-                          onClick={() =>
-                            run(async () => {
-                              const payment = await mutate({
-                                op: "payment",
-                                project: selected?.id,
-                              });
-                              window.location.assign(payment.checkout);
-                            })
-                          }
-                        >
-                          Betalen via Mollie
-                        </button>
-                      </div>
-                    )}
+                    {(detail.owner || detail.executor) && <PhasePayments key={`${detail.project.id}-${detail.project.payment_schedule}`} detail={detail} enabled={!!data?.capabilities?.mollieEnabled} mutate={mutate} refresh={refreshProject} busy={busy} />}
                   </div>
                 </TabsContent>
+                {(detail.owner || detail.executor) && detail.project.configuration && <TabsContent value="documentation"><div className="detail-body project-documentation"><div className="section-heading"><div><h3>De samengestelde website</h3><p>Briefing en checklist volgen de vastgelegde keuzes.</p></div><a className="outline" href={`/api/workspace?document=${detail.project.id}`}><FileText size={16} /> Briefing downloaden</a></div><div className="project-document-preview"><WebsitePreview c={detail.project.configuration} /></div><details><summary>Volledige projectbriefing</summary><pre className="configuration-document">{detail.project.document}</pre></details>{detail.owner && detail.project.status === "open" && <button className="outline" onClick={() => { setConfigInitial(detail.project.configuration); setConfigProject(detail.project.id); setConfigVersion(v => v + 1); setModal(""); go("Configurator"); }}><Settings size={16} />Configuratie aanpassen</button>}</div></TabsContent>}
                 <TabsContent value="progress">
                   <div className="detail-body">
                     <div className="form-grid">
@@ -2924,7 +2158,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
               {
                 [
                   "Van eerste idee tot de laatste oplevering: jouw projecten, developers en klanten komen hier samen.",
-                  "Begin met een bouwpakket. Developers bieden op jouw opdracht en jij kiest wie het project gaat bouwen.",
+                  "Stel de website samen in de configurator. Je ziet de opbouw en krijgt automatisch een briefing. Developers kunnen daarna op jouw opdracht bieden.",
                   "Na acceptatie deel je veilig bestanden en hostinggegevens. Volg de voortgang en houd contact in aparte projectgesprekken.",
                   "Geef je klant veilig toegang tot een portaal in jouw huisstijl. Je bepaalt zelf of de uitvoerder met de klant mag chatten.",
                 ][tour]

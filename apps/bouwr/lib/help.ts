@@ -18,27 +18,27 @@ export const helpGuides: HelpGuide[] = [
       },
       {
         title: "Verken je overzicht",
-        text: "Je ziet lopende projecten, biedingen, werk voor review en recente activiteit. Via Mijn projecten open je de details van een opdracht. In Marktplaats vind je opdrachten waarop je kunt bieden.",
+        text: "Je ziet lopende projecten, werk voor review en recente activiteit. Klik op Overzicht bewerken om widgets toe te voegen, te verslepen, van formaat te veranderen of te verwijderen. Je kunt ook eigen notities en links maken. Klik op Opslaan om jouw indeling te bewaren. Via Mijn projecten open je de details van een opdracht. In Marktplaats vind je opdrachten waarop je kunt bieden.",
       },
       {
         title: "Start je eerste project",
-        text: "Kies Nieuw project en begin met een standaardtemplate of een eigen template. Voeg de briefing, planning en afspraken toe. Je kunt ook eerst de visuele rondleiding doorlopen met de knop bovenaan dit helpvenster.",
+        text: "Kies Nieuw project en stel de website samen in de configurator. Selecteer pagina’s, secties, functies en stijl. De briefing en checklist worden automatisch gemaakt. Voeg planning en afspraken toe. Je kunt ook eerst de visuele rondleiding doorlopen met de knop bovenaan dit helpvenster.",
       },
     ],
     note: "Je moet ingelogd zijn voordat je het portaal kunt bekijken. Na registratie start je met je eigen projecten.",
   },
   {
     id: "projecten",
-    title: "Projecten & templates",
+    title: "Websiteconfigurator",
     description: "Leg de opdracht en je werkwijze helder vast.",
     sections: [
       {
-        title: "Kies je bouwpakket",
-        text: "Open Templates voor de standaardtemplates: zakelijke website, WordPress/ACF, Shopify en webapplicatie. Je kunt een template als uitgangspunt voor een eigen versie gebruiken en de briefing en checklist aanpassen. Sla deze op om hem later opnieuw te gebruiken.",
+        title: "Bepaal pagina’s en secties",
+        text: "Open Configurator of Nieuw project. Kies een type project en voeg pagina’s toe. Je bepaalt per pagina welke secties nodig zijn en in welke volgorde ze staan. In het voorbeeld ernaast zie je de gekozen structuur. Wissel tussen desktop- en mobiel voorbeeld.",
       },
       {
         title: "Vul de projectbriefing in",
-        text: "Klik op Nieuw project. Kies een template en vul titel, klant of organisatie, beschrijving, budget en deadline in. Beschrijf wat moet worden opgeleverd, welke onderdelen buiten de opdracht vallen en hoe de oplevering wordt beoordeeld.",
+        text: "Vul doel en doelgroep in en kies functies, talen, stijl, CMS en kwaliteitseisen. Geef budget, deadline en eventuele betaalfases op. In Documentatie controleer je de automatisch samengestelde briefing en download je die als Markdown. Sla een concept op om later verder te gaan. Na Opdracht plaatsen kunnen developers bieden.",
       },
       {
         title: "Maak afspraken over hosting en contact",
@@ -121,6 +121,19 @@ export const helpGuides: HelpGuide[] = [
     note: "De projectlink is geen toegangsbewijs. Het e-mailadres moet overeenkomen met het aangemelde account en de klant moet eerst zijn of haar e-mailadres bevestigen.",
   },
   {
+    id: "mailbox",
+    title: "Mailbox & Outlook",
+    description: "Lees projectberichten en e-mail op één plek.",
+    sections: [
+      { title: "Gebruik de postvakken", text: "Open Berichten. Je vindt Postvak IN, Met ster, Verzonden, Concepten en Archief. Zoek op onderwerp of berichtvoorbeeld. Open een gesprek, markeer het met een ster of archiveer het. Projectgesprekken blijven gescheiden in developer- en klantgesprekken volgens de bestaande projectrechten." },
+      { title: "Reageer of maak een concept", text: "Klik op Reageren of Nieuw bericht. Kies het juiste projectgesprek of de gekoppelde Outlook-mailbox. Met Concept opslaan bewaar je een bericht voor later. Er wordt alleen verstuurd wanneer je op Versturen klikt. Gebruik de hostingkluis voor wachtwoorden." },
+      { title: "Koppel jouw Outlook-mailbox", text: "De beheerder registreert Bouwr eerst in Microsoft Entra en vult de clientgegevens op de VPS in. Via Mailboxinstellingen kies je Outlook-account koppelen, meld je je aan bij Microsoft en geef je toestemming. Ondersteund zijn je eigen Microsoft 365- of Outlook.com-mailbox; gedeelde mailboxen worden in deze versie niet gekoppeld." },
+      { title: "Synchroniseer", text: "Klik op Synchroniseren om mail op te halen. Terwijl de mailboxpagina openstaat, worden wijzigingen iedere minuut opgehaald. Postvak IN, Verzonden, Concepten en Archief worden meegenomen. Gelezen, sterren en archiveren worden ook naar Outlook bijgewerkt. Oudere berichten worden stapsgewijs opgehaald. Bekijk e-mailbijlagen via Open in Outlook." },
+      { title: "Ontkoppel", text: "In Mailboxinstellingen klik je op Ontkoppelen. De lokale Outlook-berichten en toegangstokens worden uit Bouwr verwijderd. Je mailbox bij Microsoft blijft bestaan. Je kunt de toestemming van Bouwr ook bij Microsoft intrekken." },
+    ],
+    note: "De Outlook-mailbox is alleen voor de gekoppelde developer zichtbaar. Mail wordt als tekst weergegeven; externe afbeeldingen en scripts worden niet geladen.",
+  },
+  {
     id: "betalingen",
     title: "Betalingen",
     description: "Bekijk de betaalroute en de platformvergoeding.",
@@ -135,14 +148,18 @@ export const helpGuides: HelpGuide[] = [
       },
       {
         title: "Houd rekening met de vergoeding",
-        text: "Bij betalingen via het platform gaat 15% van het transactiebedrag naar Bouwr. Bij een bedrag van € 1.000 is dit € 150; voor de uitvoerder blijft € 850 over vóór de kosten van Mollie.",
+        text: "Nieuwe platformbetalingen bevatten een platformvergoeding van 5%. Je vindt de toelichting bij Betaaldetails. Eerder gestarte betalingen houden hun oorspronkelijke vergoeding.",
+      },
+      {
+        title: "Betaal per fase",
+        text: "Kies in de configurator Betalen per fase en verdeel samen 100%. Je kunt een bestaand betaalplan aanpassen zolang nog geen betaling is gestart. Na acceptatie van het bod biedt de uitvoerder een fase aan voor akkoord. De opdrachtgever keurt de fase goed en start daarna de Mollie-checkout. Het projecttotaal wordt verdeeld over de fases; een fase wordt niet opnieuw betaald nadat betaling is ontvangen.",
       },
       {
         title: "Eigen facturatie",
         text: "Voor opdrachten die de beheerder rechtstreeks met eigen klanten afrekent, is er een aparte route voor eigen facturatie. Stem die af met de beheerder voordat je een betaling start.",
       },
     ],
-    note: "Mollie is in deze werkplek nog niet geactiveerd. De voorbeeldomgeving voert geen echte betalingen uit.",
+    note: "Betalen wordt beschikbaar nadat Mollie is geactiveerd en de uitvoerder zijn account heeft gekoppeld. De beheerder kan ook eigen facturatie kiezen.",
   },
 ];
 

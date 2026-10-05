@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./phase-two.css";
 
 export const metadata: Metadata = {
   title: "Bouwr — jouw developmentwerkplek",

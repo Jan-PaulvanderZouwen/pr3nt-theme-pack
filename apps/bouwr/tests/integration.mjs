@@ -1,6 +1,6 @@
 // Tests use isolated storage and intercept email in this process; no real mail is sent.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -13,6 +13,11 @@ Object.assign(process.env, {
   BETTER_AUTH_SECRET: randomBytes(48).toString("base64"),
   VAULT_KEY: randomBytes(32).toString("base64"),
   ADMIN_EMAIL: "owner@test.invalid",
+  MOLLIE_CLIENT_ID: "mock-client",
+  MOLLIE_CLIENT_SECRET: "mock-secret",
+  MOLLIE_ENABLED: "true",
+  MICROSOFT_CLIENT_ID: "mock-client",
+  MICROSOFT_CLIENT_SECRET: "mock-secret",
 });
 await import("../scripts/migrate.ts");
 const { env, getSqlite } = await import("../lib/runtime.ts");
@@ -79,7 +84,7 @@ async function prepareAccounts(people) {
     assert.ok(person.cookie);
   }
 }
-const server = spawn(process.execPath, [".next/standalone/server.js"], {
+const server = spawn(process.execPath, ["--import", "./tests/provider-mock.mjs", ".next/standalone/server.js"], {
   env: {
     ...process.env,
     NODE_ENV: "production",
@@ -410,6 +415,140 @@ try {
   });
   assert.equal(csrf.status, 403);
   count++;
+
+  // Personal overview and configurator remain private and server-validated.
+  const { newConfiguration } = await import("../lib/configurator.ts");
+  const { defaultWidgets } = await import("../lib/dashboard.ts");
+  const { encrypt } = await import("../lib/server.ts");
+  const widgets = defaultWidgets().reverse();
+  widgets.push({ id: crypto.randomUUID(), kind: "notes", title: "Private owner note", width: "small", content: "Owner-only reminder", links: [] });
+  await call("owner", "", { op: "saveDashboard", widgets });
+  assert.equal((await call("owner")).dashboard.at(-1).content, "Owner-only reminder");
+  assert.ok(!JSON.stringify((await call("executor")).dashboard).includes("Owner-only reminder"));
+  await call("client", "", { op: "saveDashboard", widgets }, 403);
+  await call("owner", "", { op: "saveDashboard", widgets: [{ ...widgets[0], links: [{ label: "Unsafe", url: "javascript:alert(1)" }] }] }, 400);
+  const configuration = { ...newConfiguration(), title: "Configured website", client: "Private configured client", purpose: "Public website goal", audience: "Private audience note", technicalNotes: "Private integration requirements", budget: 123457, deadline: "2026-12-01", paymentSchedule: "phases" };
+  await call("owner", "", { op: "saveConfigurationDraft", configuration });
+  assert.equal((await call("owner")).configuratorDraft.configuration.technicalNotes, "Private integration requirements");
+  assert.equal((await call("executor")).configuratorDraft, null);
+  await call("client", "", { op: "saveConfigurationDraft", configuration }, 403);
+  const configured = await call("owner", "", { op: "create", configuration });
+  let configuredDetail = await call("owner", "?project=" + configured.id);
+  assert.equal(configuredDetail.project.payment_schedule, "phases");
+  assert.equal(configuredDetail.phases.length, 3);
+  assert.equal(configuredDetail.phases.reduce((v, phase) => v + phase.amount, 0), 123457);
+  assert.ok(configuredDetail.project.document.includes("Private integration requirements"));
+  assert.ok(configuredDetail.project.checklist.some(item => item.title.includes("Contactformulier")));
+  assert.equal((await call("owner")).configuratorDraft, null);
+  const publicConfig = await call("outsider", "?project=" + configured.id);
+  assert.equal(publicConfig.project.configuration, undefined);
+  assert.equal(publicConfig.project.document, undefined);
+  assert.ok(!JSON.stringify(await call("outsider")).includes("Private integration requirements"));
+  const briefing = await mf.dispatchFetch("https://test.invalid/api/workspace?document=" + configured.id, { headers: { Cookie: people.owner.cookie } });
+  assert.equal(briefing.status, 200); assert.ok((await briefing.text()).includes("# Projectbriefing")); count++;
+  const deniedBriefing = await mf.dispatchFetch("https://test.invalid/api/workspace?document=" + configured.id, { headers: { Cookie: people.outsider.cookie } });
+  assert.equal(deniedBriefing.status, 403); count++;
+  await call("executor", "", { op: "bid", project: configured.id, amount: 100001, days: 20, message: "Configure this scope" });
+  await call("owner", "", { op: "saveConfiguration", project: configured.id, configuration: { ...configuration, headline: "Updated design" } });
+  assert.equal((await call("owner", "?project=" + configured.id)).bids[0].status, "declined");
+  await call("executor", "", { op: "bid", project: configured.id, amount: 100001, days: 20, message: "Updated scope accepted" });
+  const currentBid = (await call("owner", "?project=" + configured.id)).bids[0];
+  await call("owner", "", { op: "accept", project: configured.id, bid: currentBid.id });
+  configuredDetail = await call("owner", "?project=" + configured.id);
+  assert.equal(configuredDetail.phases.reduce((v, phase) => v + phase.amount, 0), 100001);
+  await call("owner", "", { op: "saveConfiguration", project: configured.id, configuration }, 403);
+  await call("owner", "", { op: "paymentPlan", project: configured.id, schedule: "phases", phases: [{ name: "One", percentage: 20 }, { name: "Two", percentage: 20 }] }, 400);
+  await call("executor", "", { op: "paymentPlan", project: configured.id, schedule: "full" }, 403);
+  const [phaseOne, phaseTwo] = configuredDetail.phases;
+  await call("owner", "", { op: "payment", project: configured.id }, 503);
+  await call("owner", "", { op: "payment", project: configured.id, phase: phaseOne.id }, 503);
+  await call("outsider", "", { op: "phaseStatus", project: configured.id, phase: phaseOne.id, status: "submitted" }, 403);
+  await call("executor", "", { op: "phaseStatus", project: configured.id, phase: phaseOne.id, status: "submitted" });
+  await call("executor", "", { op: "phaseStatus", project: configured.id, phase: phaseOne.id, status: "approved" }, 403);
+  await call("owner", "", { op: "phaseStatus", project: configured.id, phase: phaseOne.id, status: "approved" });
+  getSqlite().prepare("INSERT INTO mollie_connections (user,tokens,profile,expires) VALUES (?,?,?,?)").run(people.executor.id, await encrypt(JSON.stringify({ access_token: "mock-token", refresh_token: "mock-refresh" })), "pfl_mock", Date.now() + 3600000);
+  const firstCheckout = await call("owner", "", { op: "payment", project: configured.id, phase: phaseOne.id });
+  assert.ok(firstCheckout.checkout.startsWith("https://www.mollie.com/"));
+  const sameCheckout = await call("owner", "", { op: "payment", project: configured.id, phase: phaseOne.id });
+  assert.equal(sameCheckout.checkout, firstCheckout.checkout);
+  const paymentRows = getSqlite().prepare("SELECT * FROM payments WHERE phase=?").all(phaseOne.id);
+  assert.equal(paymentRows.length, 1); assert.equal(paymentRows[0].fee, Math.round(phaseOne.amount * 0.05));
+  await call("owner", "", { op: "paymentStatus", project: configured.id });
+  assert.equal((await call("owner", "?project=" + configured.id)).payments[0].status, "paid");
+  await call("owner", "", { op: "payment", project: configured.id, phase: phaseOne.id }, 503);
+  await call("owner", "", { op: "phaseStatus", project: configured.id, phase: phaseOne.id, status: "pending" }, 409);
+  await call("owner", "", { op: "paymentPlan", project: configured.id, schedule: "full" }, 409);
+  await call("executor", "", { op: "phaseStatus", project: configured.id, phase: phaseTwo.id, status: "submitted" });
+  await call("owner", "", { op: "phaseStatus", project: configured.id, phase: phaseTwo.id, status: "approved" });
+  getSqlite().prepare("INSERT INTO payments (id,project,phase,amount,fee,status,attempt,created) VALUES (?,?,?,?,?,'open',1,?)").run("tr_Expired", configured.id, phaseTwo.id, phaseTwo.amount, Math.round(phaseTwo.amount * 0.15), new Date().toISOString());
+  await call("owner", "", { op: "payment", project: configured.id, phase: phaseTwo.id });
+  const retry = getSqlite().prepare("SELECT * FROM payments WHERE phase=? ORDER BY attempt DESC").all(phaseTwo.id);
+  assert.equal(retry.length, 2); assert.equal(retry[0].attempt, 2); assert.equal(retry[1].status, "expired");
+  assert.equal(retry[0].fee, Math.round(phaseTwo.amount * 0.05)); assert.equal(retry[1].fee, Math.round(phaseTwo.amount * 0.15));
+
+  // Mailbox views use the same project rights; state/drafts belong to one user.
+  async function mailCall(person, suffix = "", body, expected = 200) {
+    const response = await mf.dispatchFetch("https://test.invalid/api/mailbox" + suffix, { method: body ? "POST" : "GET", headers: { ...(person ? { Cookie: people[person].cookie } : {}), ...(body ? { Origin: "https://test.invalid", "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const value = await response.json(); assert.equal(response.status, expected, JSON.stringify(value)); count++; return value;
+  }
+  await mailCall(null, "", undefined, 401);
+  await call("owner", "", { op: "chat", project: configured.id, channel: "internal", body: "Private configurator conversation" });
+  await call("owner", "", { op: "chat", project: configured.id, channel: "client", body: "Private customer conversation" });
+  const executorMail = await mailCall("executor");
+  assert.ok(executorMail.threads.some(t => t.id === configured.id + ":internal"));
+  assert.ok(!executorMail.threads.some(t => t.id === configured.id + ":client"));
+  assert.ok(!JSON.stringify(await mailCall("outsider")).includes("Private configurator conversation"));
+  const internal = await mailCall("executor", "?thread=" + configured.id + ":internal");
+  assert.equal(internal.messages[0].body, "Private configurator conversation");
+  await mailCall("executor", "?thread=" + configured.id + ":client", undefined, 403);
+  await mailCall("executor", "", { op: "threadState", thread: configured.id + ":internal", readUntil: internal.messages[0].created, starred: true });
+  assert.equal((await mailCall("executor")).threads.find(t => t.id === configured.id + ":internal").unread, 0);
+  assert.equal((await mailCall("owner")).threads.find(t => t.id === configured.id + ":internal").starred, false);
+  const draft = await mailCall("executor", "", { op: "saveDraft", kind: "project", project: configured.id, channel: "internal", subject: "Private draft", body: "Unsent message" });
+  assert.equal((await mailCall("executor")).drafts.length, 1);
+  assert.equal((await mailCall("owner")).drafts.length, 0);
+  await mailCall("owner", "", { op: "saveDraft", id: draft.id, kind: "project", project: configured.id, channel: "internal", subject: "Attempt", body: "Denied" }, 403);
+  const chatRequest = crypto.randomUUID();
+  for (let i = 0; i < 2; i++) await call("executor", "", { op: "chat", project: configured.id, channel: "internal", body: "One message only", requestId: chatRequest });
+  assert.equal(getSqlite().prepare("SELECT COUNT(*) AS count FROM messages WHERE request_id=?").get(chatRequest).count, 1);
+
+  // Fake Microsoft OAuth and Graph endpoints; real credentials/email are never used.
+  const connect = await mf.dispatchFetch("https://test.invalid/api/outlook/connect", { headers: { Cookie: people.owner.cookie } });
+  assert.equal(connect.status, 302); const authorize = new URL(connect.headers.get("location"));
+  assert.equal(authorize.searchParams.get("code_challenge_method"), "S256");
+  const state = authorize.searchParams.get("state");
+  const wrongUser = await mf.dispatchFetch("https://test.invalid/api/outlook/callback?state=" + state + "&code=mock-code", { headers: { Cookie: people.executor.cookie } });
+  assert.equal(wrongUser.status, 403);
+  const callback = await mf.dispatchFetch("https://test.invalid/api/outlook/callback?state=" + state + "&code=mock-code", { headers: { Cookie: people.owner.cookie } });
+  assert.equal(callback.status, 302); count += 3;
+  const consumedCallback = await mf.dispatchFetch("https://test.invalid/api/outlook/callback?state=" + state + "&code=mock-code", { headers: { Cookie: people.owner.cookie } }); assert.equal(consumedCallback.status, 403); count++;
+  const tokenRow = getSqlite().prepare("SELECT tokens FROM outlook_connections WHERE user=?").get(people.owner.id);
+  assert.ok(!tokenRow.tokens.includes("mock-graph-token"));
+  await mailCall("owner", "", { op: "sync" });
+  const outlook = await mailCall("owner");
+  assert.equal(outlook.external.length, 4); assert.equal(outlook.outlook.connection.email, "owner@example.invalid");
+  assert.equal((await mailCall("executor")).external.length, 0);
+  await mailCall("executor", "?external=message-inbox", undefined, 404);
+  await mailCall("executor", "", { op: "externalState", id: "message-inbox", read: true }, 404);
+  await mailCall("owner", "", { op: "externalState", id: "message-inbox", read: true, starred: true });
+  let externalRow = (await mailCall("owner", "?external=message-inbox")).message;
+  assert.equal(externalRow.is_read, 1); assert.equal(externalRow.starred, 1);
+  assert.ok(externalRow.reply_to.includes("support@example.invalid"));
+  await mailCall("owner", "", { op: "externalState", id: "message-inbox", archived: true });
+  assert.equal((await mailCall("owner", "?external=message-inbox")).message.folder, "archive");
+  const sendRequest = crypto.randomUUID();
+  await mailCall("owner", "", { op: "sendOutlook", requestId: sendRequest, replyId: "message-inbox", subject: "Re: review", body: "Simulated reply only" });
+  await mailCall("owner", "", { op: "sendOutlook", requestId: sendRequest, replyId: "message-inbox", subject: "Re: review", body: "Simulated reply only" });
+  assert.equal(JSON.parse(readFileSync(path.join(directory, "provider-counts.json"), "utf8")).send, 1);
+  await mailCall("owner", "", { op: "saveOutlookDraft", remoteDraftId: "message-drafts", recipient: "client@example.invalid", subject: "Edited draft", body: "Draft content only" });
+  assert.equal((await mailCall("owner", "?external=message-drafts")).message.subject, "Edited draft");
+  getSqlite().prepare("UPDATE outlook_sync SET cursor=? WHERE user=? AND folder='inbox'").run("https://malicious.invalid/token-collector", people.owner.id);
+  await mailCall("owner", "", { op: "sync" }, 400);
+  await mailCall("client", "", { op: "sync" }, 403);
+  await mailCall("owner", "", { op: "disconnect" });
+  assert.equal((await mailCall("owner")).external.length, 0);
+  assert.equal(getSqlite().prepare("SELECT user FROM outlook_connections WHERE user=?").get(people.owner.id), undefined);
+  const mailboxCsrf = await mf.dispatchFetch("https://test.invalid/api/mailbox", { method: "POST", headers: { Cookie: people.owner.cookie, Origin: "https://evil.invalid", "Content-Type": "application/json" }, body: JSON.stringify({ op: "disconnect" }) }); assert.equal(mailboxCsrf.status, 403); count++;
   const home = await mf.dispatchFetch("https://test.invalid/");
   assert.equal(home.status, 307);
   assert.ok(home.headers.get("location")?.startsWith("/inloggen"));
@@ -450,7 +589,7 @@ try {
   });
   assert.equal(signedOut.status, 307);
   console.log(
-    `PASS: ${count} integration requests · authentication, roles, bids, secrets, client access, chat, progress, notifications, CSRF and SSR.`,
+    `PASS: ${count} integration requests · authentication, roles, configurator, documents, widgets, private mailbox, mocked Outlook OAuth/send/sync, phases, 5% fees, payment retries, CSRF and SSR.`,
   );
 } finally {
   await mf.dispose();

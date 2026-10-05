@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { account, projectAccess, fail } from "@/lib/access";
+import { dashboardSchema, defaultWidgets } from "@/lib/dashboard";
+import { configurationSchema, configurationChecklist, configurationDocument, configurationSummary } from "@/lib/configurator";
+import { phasePlanSchema, phaseAmounts } from "@/lib/payment-plan";
 import { db, config, encrypt, decrypt, notify, now, uid } from "@/lib/server";
 import { defaultTemplates, folders } from "@/lib/standards";
-import { env } from "@/lib/runtime";
+import { env, getSqlite } from "@/lib/runtime";
 import { createPayment, syncPayment } from "@/lib/mollie";
 import { z } from "zod";
 import { boundedBody } from "@/lib/http";
@@ -31,53 +34,9 @@ const projectSchema = z.object({
   contact: z.boolean(),
   paymentMode: z.enum(["platform", "direct"]),
   checklist,
+  paymentSchedule: z.enum(["full", "phases"]).default("full"),
+  phases: phasePlanSchema.optional(),
 });
-function fail(message: string, status = 400): never {
-  throw Object.assign(new Error(message), { status });
-}
-async function account() {
-  const u = await getCurrentUser();
-  if (!u) fail("Log eerst veilig in.", 401);
-  const p = await db()
-    .prepare("SELECT * FROM users WHERE id=?")
-    .bind(u.userId)
-    .first<Row>();
-  return {
-    u,
-    p,
-    admin:
-      !!config().ADMIN_EMAIL &&
-      u.email.toLowerCase() === config().ADMIN_EMAIL.toLowerCase(),
-  };
-}
-async function projectAccess(
-  id: string,
-  a: Awaited<ReturnType<typeof account>>,
-  allowOpen = false,
-) {
-  const p = await db()
-    .prepare("SELECT * FROM projects WHERE id=?")
-    .bind(id)
-    .first<Row>();
-  if (!p) fail("Project niet gevonden.", 404);
-  const owner = p.owner === a.u.userId,
-    executor = p.executor === a.u.userId;
-  const member = await db()
-    .prepare(
-      "SELECT id FROM memberships WHERE project=? AND email=? AND revoked=0",
-    )
-    .bind(id, a.u.email.toLowerCase())
-    .first();
-  if (
-    !owner &&
-    !executor &&
-    !member &&
-    !a.admin &&
-    !(allowOpen && p.status === "open" && a.p?.role === "developer")
-  )
-    fail("Je hebt geen toegang tot dit project.", 403);
-  return { p, owner, executor, member: !!member };
-}
 async function detail(id: string, a: Awaited<ReturnType<typeof account>>) {
   const x = await projectAccess(id, a, true);
   const { p, owner, executor, member } = x;
@@ -104,6 +63,9 @@ async function detail(id: string, a: Awaited<ReturnType<typeof account>>) {
     delete project.payment_mode;
     delete project.owner;
     delete project.executor;
+    delete project.configuration;
+    delete project.document;
+    delete project.payment_schedule;
   }
   project.checklist =
     typeof project.checklist === "string"
@@ -165,13 +127,13 @@ async function detail(id: string, a: Awaited<ReturnType<typeof account>>) {
     .prepare("SELECT name,company,brand FROM users WHERE id=?")
     .bind(p.owner)
     .first<Row>();
-  const payment =
-    owner || executor
-      ? await db()
-          .prepare("SELECT id,status,amount,fee FROM payments WHERE project=?")
-          .bind(id)
-          .first()
-      : null;
+  if (full && project.configuration) {
+    project.configuration = JSON.parse(project.configuration);
+    project.document = configurationDocument(project.configuration, p);
+  }
+  const payments = full ? (await db().prepare("SELECT * FROM payments WHERE project=? ORDER BY created DESC").bind(id).all()).results : [];
+  const phases = full ? (await db().prepare("SELECT * FROM project_phases WHERE project=? ORDER BY position").bind(id).all()).results : [];
+  const payment = payments.find((payment: any) => !payment.phase) || null;
   return {
     project,
     bids,
@@ -179,6 +141,9 @@ async function detail(id: string, a: Awaited<ReturnType<typeof account>>) {
     files,
     invites,
     payment,
+    payments,
+    phases,
+    merchantConnected: full && p.executor ? !!await db().prepare("SELECT user FROM mollie_connections WHERE user=?").bind(p.executor).first() : false,
     owner,
     executor,
     member,
@@ -193,6 +158,13 @@ export async function GET(req: Request) {
   try {
     const a = await account();
     const url = new URL(req.url);
+    if (url.searchParams.has("document")) {
+      const x = await projectAccess(z.string().uuid().parse(url.searchParams.get("document")), a);
+      if (!(x.owner || x.executor || a.admin)) fail("Geen toegang tot de projectbriefing.", 403);
+      if (!x.p.configuration) fail("Dit project heeft nog geen configuratorbriefing.", 404);
+      const document = configurationDocument(JSON.parse(x.p.configuration), x.p);
+      return new Response(document, { headers: { "Content-Type": "text/markdown; charset=utf-8", "Content-Disposition": 'attachment; filename="bouwr-projectbriefing.md"', "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+    }
     if (url.searchParams.get("project"))
       return json(await detail(url.searchParams.get("project")!, a));
     if (url.searchParams.get("download")) {
@@ -228,6 +200,9 @@ export async function GET(req: Request) {
       if (p.owner !== a.u.userId && p.executor !== a.u.userId) {
         delete p.budget;
         delete p.payment_mode;
+        delete p.configuration;
+        delete p.document;
+        delete p.payment_schedule;
       }
       return { ...p, checklist: JSON.parse(p.checklist) };
     });
@@ -264,6 +239,8 @@ export async function GET(req: Request) {
         .bind(a.u.userId, a.u.userId)
         .all()
     ).results;
+    const dashboard = await db().prepare("SELECT widgets FROM dashboard_preferences WHERE user=?").bind(a.u.userId).first<Row>();
+    const draft = await db().prepare("SELECT configuration,updated FROM configurator_drafts WHERE user=?").bind(a.u.userId).first<Row>();
     const admin = a.admin
       ? {
           users: (
@@ -290,6 +267,8 @@ export async function GET(req: Request) {
       templates: [...defaultTemplates, ...templates],
       notifications: notes,
       payments,
+      dashboard: dashboard ? JSON.parse(dashboard.widgets) : defaultWidgets(),
+      configuratorDraft: draft ? { configuration: JSON.parse(draft.configuration), updated: draft.updated } : null,
       admin,
       capabilities: {
         vault: !!config().VAULT_KEY,
@@ -423,6 +402,19 @@ export async function POST(req: Request) {
         .run();
       return json({ ok: true });
     }
+    if (op === "saveDashboard") {
+      if (a.p.role !== "developer") fail("Alleen developers kunnen hun overzicht aanpassen.", 403);
+      const widgets = dashboardSchema.parse(b.widgets);
+      await db().prepare("INSERT INTO dashboard_preferences (user,widgets,updated) VALUES (?,?,?) ON CONFLICT(user) DO UPDATE SET widgets=excluded.widgets,updated=excluded.updated").bind(a.u.userId, JSON.stringify(widgets), now()).run();
+      return json({ ok: true });
+    }
+    if (op === "saveConfigurationDraft") {
+      if (a.p.role !== "developer") fail("Alleen developers kunnen een opdracht configureren.", 403);
+      const configuration = configurationSchema.parse(b.configuration);
+      if (configuration.paymentMode === "direct" && !a.admin) fail("Eigen facturatie is alleen beschikbaar voor de beheerder.", 403);
+      await db().prepare("INSERT INTO configurator_drafts (user,configuration,updated) VALUES (?,?,?) ON CONFLICT(user) DO UPDATE SET configuration=excluded.configuration,updated=excluded.updated").bind(a.u.userId, JSON.stringify(configuration), now()).run();
+      return json({ ok: true });
+    }
     if (op === "saveTemplate") {
       if (a.p.role !== "developer")
         fail("Alleen developers kunnen templates maken.", 403);
@@ -473,39 +465,89 @@ export async function POST(req: Request) {
     if (op === "create") {
       if (a.p.role !== "developer")
         fail("Alleen developers kunnen opdrachten plaatsen.", 403);
-      const v = projectSchema.parse(b);
+      const configuration = b.configuration ? configurationSchema.parse(b.configuration) : null;
+      const v = projectSchema.parse(configuration ? { ...configuration, description: configurationSummary(configuration), checklist: configurationChecklist(configuration) } : b);
+      if (v.paymentSchedule === "phases" && !v.phases) fail("Voeg een betaalplan met fases toe.");
       if (v.paymentMode === "direct" && !a.admin)
         fail(
           "Eigen klantfacturatie is alleen beschikbaar voor de beheerder.",
           403,
         );
       const id = uid();
-      await db()
-        .prepare(
-          "INSERT INTO projects (id,owner,title,client,description,category,budget,deadline,status,progress,hosting,contact,checklist,payment_mode,created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        )
-        .bind(
-          id,
-          a.u.userId,
-          v.title,
-          v.client,
-          v.description,
-          v.category,
-          v.budget,
-          v.deadline,
-          "open",
-          0,
-          v.hosting,
-          v.contact ? 1 : 0,
-          JSON.stringify(v.checklist),
-          v.paymentMode,
-          now(),
-        )
-        .run();
+      const phases = v.paymentSchedule === "phases" ? v.phases! : [];
+      const amounts = phaseAmounts(v.budget, phases);
+      if (amounts.some(amount => amount < 100)) fail("Het bedrag per betaalfase moet minimaal € 1 zijn.");
+      await db().batch([
+        db().prepare("INSERT INTO projects (id,owner,title,client,description,category,budget,deadline,status,progress,hosting,contact,checklist,payment_mode,created,configuration,document,payment_schedule) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+          .bind(id, a.u.userId, v.title, v.client, v.description, v.category, v.budget, v.deadline, "open", 0, v.hosting, v.contact ? 1 : 0, JSON.stringify(v.checklist), v.paymentMode, now(), configuration ? JSON.stringify(configuration) : null, configuration ? configurationDocument(configuration) : null, v.paymentSchedule),
+        ...phases.map((phase, position) => db().prepare("INSERT INTO project_phases (id,project,name,position,percentage,amount,created) VALUES (?,?,?,?,?,?,?)").bind(uid(), id, phase.name, position, phase.percentage, amounts[position], now())),
+        ...(configuration ? [db().prepare("DELETE FROM configurator_drafts WHERE user=?").bind(a.u.userId)] : []),
+      ]);
       return json({ ok: true, id });
     }
     const id = z.string().uuid().parse(b.project);
     const x = await projectAccess(id, a, op === "bid");
+    if (op === "saveConfiguration") {
+      if (!x.owner || x.p.status !== "open" || x.p.executor) fail("De configuratie kan alleen vóór toewijzing door de opdrachtgever worden gewijzigd.", 403);
+      const c = configurationSchema.parse(b.configuration);
+      if (!c.title || !c.client || !c.deadline || c.budget < 100) fail("Vul projectnaam, klant, budget en opleverdatum in.");
+      if (c.paymentMode === "direct" && !a.admin) fail("Eigen facturatie is alleen beschikbaar voor de beheerder.", 403);
+      const phases = c.paymentSchedule === "phases" ? c.phases : [], amounts = phaseAmounts(c.budget, phases);
+      if (amounts.some(amount => amount < 100)) fail("Het bedrag per betaalfase moet minimaal € 1 zijn.");
+      const changes = [
+        db().prepare("UPDATE projects SET title=?,client=?,description=?,category=?,budget=?,deadline=?,hosting=?,contact=?,payment_mode=?,payment_schedule=?,configuration=?,document=?,checklist=? WHERE id=? AND executor IS NULL AND status='open'").bind(c.title, c.client, configurationSummary(c), c.category, c.budget, c.deadline, c.hosting, c.contact ? 1 : 0, c.paymentMode, c.paymentSchedule, JSON.stringify(c), configurationDocument(c), JSON.stringify(configurationChecklist(c)), id),
+        db().prepare("DELETE FROM project_phases WHERE project=?").bind(id),
+        ...phases.map((phase, position) => db().prepare("INSERT INTO project_phases (id,project,name,position,percentage,amount,created) VALUES (?,?,?,?,?,?,?)").bind(uid(), id, phase.name, position, phase.percentage, amounts[position], now())),
+        db().prepare("UPDATE bids SET status='declined' WHERE project=? AND status='pending'").bind(id),
+      ];
+      getSqlite().transaction(() => {
+        const current = getSqlite().prepare("SELECT status,executor,owner FROM projects WHERE id=?").get(id) as Row;
+        if (current.status !== "open" || current.executor || current.owner !== a.u.userId) fail("Het project is inmiddels toegewezen. Vernieuw het project.", 409);
+        for (const change of changes) change.execute();
+      })();
+      const bidders = (await db().prepare("SELECT developer FROM bids WHERE project=?").bind(id).all<Row>()).results;
+      for (const bidder of bidders) await notify(bidder.developer, id, `De briefing van ${c.title} is gewijzigd. Bekijk de nieuwe scope en dien zo nodig opnieuw een bod in.`);
+      return json({ ok: true, id });
+    }
+    if (op === "paymentPlan") {
+      if (!x.owner || x.p.payment_mode !== "platform") fail("Geen rechten om het betaalplan aan te passen.", 403);
+      if (await db().prepare("SELECT id FROM payments WHERE project=? LIMIT 1").bind(id).first()) fail("Het betaalplan ligt vast zodra een betaling is gestart.", 409);
+      const schedule = z.enum(["full", "phases"]).parse(b.schedule);
+      const phases = schedule === "phases" ? phasePlanSchema.parse(b.phases) : [];
+      const amounts = phaseAmounts(x.p.budget, phases);
+      if (amounts.some(amount => amount < 100)) fail("Het bedrag per betaalfase moet minimaal € 1 zijn.");
+      const c = x.p.configuration ? { ...JSON.parse(x.p.configuration), paymentSchedule: schedule, phases: phases.length ? phases : JSON.parse(x.p.configuration).phases } : null;
+      const changes = [
+        db().prepare("UPDATE projects SET payment_schedule=?,configuration=? WHERE id=?").bind(schedule, c ? JSON.stringify(c) : null, id),
+        db().prepare("DELETE FROM project_phases WHERE project=?").bind(id),
+        ...phases.map((phase, position) => db().prepare("INSERT INTO project_phases (id,project,name,position,percentage,amount,created) VALUES (?,?,?,?,?,?,?)").bind(uid(), id, phase.name, position, phase.percentage, amounts[position], now())),
+      ];
+      getSqlite().transaction(() => {
+        if (getSqlite().prepare("SELECT id FROM payments WHERE project=? LIMIT 1").get(id) || getSqlite().prepare("SELECT id FROM payment_intents WHERE project=? LIMIT 1").get(id)) fail("Het betaalplan ligt vast zodra een betaling is gestart.", 409);
+        const current = getSqlite().prepare("SELECT budget FROM projects WHERE id=?").get(id) as Row;
+        if (current.budget !== x.p.budget) fail("Het projectbedrag is gewijzigd. Vernieuw het project.", 409);
+        for (const change of changes) change.execute();
+      })();
+      await notify(x.p.executor, id, `Het betaalplan van ${x.p.title} is ingesteld op ${schedule === "phases" ? "betaling per fase" : "één projectbetaling"}.`);
+      return json({ ok: true });
+    }
+    if (op === "phaseStatus") {
+      if (!x.p.executor || !(x.owner || x.executor)) fail("Fases zijn beschikbaar na het kiezen van een uitvoerder.", 403);
+      const phase = await db().prepare("SELECT * FROM project_phases WHERE id=? AND project=?").bind(z.string().uuid().parse(b.phase), id).first<Row>();
+      if (!phase) fail("Fase niet gevonden.", 404);
+      const status = z.enum(["pending", "submitted", "approved"]).parse(b.status);
+      if (status !== "submitted" && !x.owner) fail("Alleen de opdrachtgever kan een fase goedkeuren of terugzetten.", 403);
+      if (await db().prepare("SELECT id FROM payments WHERE phase=? AND status IN ('open','pending','authorized','paid')").bind(phase.id).first()) fail("Deze fase heeft al een lopende of ontvangen betaling.", 409);
+      if (status === "approved" && phase.status !== "submitted") fail("Laat de fase eerst aanbieden voor akkoord.", 409);
+      if (status === "submitted" && phase.status !== "pending") fail("Deze fase is al aangeboden.", 409);
+      getSqlite().transaction(() => {
+        if (getSqlite().prepare("SELECT id FROM payment_intents WHERE phase=? AND status IN ('creating','open','pending','authorized','paid')").get(phase.id) || getSqlite().prepare("SELECT id FROM payments WHERE phase=? AND status IN ('open','pending','authorized','paid')").get(phase.id)) fail("Deze fase heeft een lopende of ontvangen betaling.", 409);
+        const changed = getSqlite().prepare("UPDATE project_phases SET status=? WHERE id=? AND status=?").run(status, phase.id, phase.status);
+        if (!changed.changes) fail("Deze fase is inmiddels gewijzigd. Vernieuw het project.", 409);
+      })();
+      await notify(x.owner ? x.p.executor : x.p.owner, id, `${phase.name}: ${status === "submitted" ? "klaar voor jouw akkoord" : status === "approved" ? "goedgekeurd" : "opnieuw in uitvoering"}.`);
+      return json({ ok: true });
+    }
     if (op === "bid") {
       if (a.p.role !== "developer" || x.owner || x.p.status !== "open")
         fail("Je kunt niet bieden op dit project.", 403);
@@ -551,12 +593,16 @@ export async function POST(req: Request) {
         .bind(z.string().uuid().parse(b.bid), id)
         .first<Row>();
       if (!bid) fail("Bod niet beschikbaar.", 404);
+      const phases = (await db().prepare("SELECT * FROM project_phases WHERE project=? ORDER BY position").bind(id).all<Row>()).results;
+      const amounts = phaseAmounts(bid.amount, phases.map(phase => ({ percentage: Number(phase.percentage) })));
+      if (amounts.some(amount => amount < 100)) fail("Dit bod is te laag voor de gekozen betaalfases.");
       const result = await db().batch([
         db()
           .prepare(
-            "UPDATE projects SET executor=?,budget=?,status='progress' WHERE id=? AND executor IS NULL AND status='open'",
+            "UPDATE projects SET executor=?,budget=?,status='progress' WHERE id=? AND executor IS NULL AND status='open' AND EXISTS (SELECT 1 FROM bids WHERE id=? AND status='pending' AND amount=?)",
           )
-          .bind(bid.developer, bid.amount, id),
+          .bind(bid.developer, bid.amount, id, bid.id, bid.amount),
+        ...phases.map((phase, index) => db().prepare("UPDATE project_phases SET amount=? WHERE id=? AND EXISTS (SELECT 1 FROM projects WHERE id=? AND executor=?)").bind(amounts[index], phase.id, id, bid.developer)),
         db()
           .prepare(
             "UPDATE bids SET status=CASE WHEN id=? THEN 'accepted' ELSE 'declined' END WHERE project=? AND EXISTS (SELECT 1 FROM projects WHERE id=? AND executor=?)",
@@ -615,6 +661,7 @@ export async function POST(req: Request) {
         .object({
           channel: z.enum(["internal", "client"]),
           body: str.max(3000),
+          requestId: z.string().uuid().optional(),
         })
         .parse(b);
       if (v.channel === "internal" && !x.owner && !x.executor)
@@ -626,12 +673,11 @@ export async function POST(req: Request) {
         !(x.executor && x.p.contact)
       )
         fail("Klantcontact is niet toegestaan.", 403);
-      await db()
-        .prepare(
-          "INSERT INTO messages (id,project,author,channel,body,created) VALUES (?,?,?,?,?,?)",
-        )
-        .bind(uid(), id, a.u.userId, v.channel, v.body, now())
+      const sent = await db()
+        .prepare("INSERT INTO messages (id,project,author,channel,body,created,request_id) VALUES (?,?,?,?,?,?,?) ON CONFLICT(author,request_id) DO NOTHING")
+        .bind(uid(), id, a.u.userId, v.channel, v.body, now(), v.requestId || null)
         .run();
+      if (!sent.meta.changes) return json({ ok: true });
       await notify(
         x.owner ? x.p.executor : x.p.owner,
         id,
@@ -695,11 +741,17 @@ export async function POST(req: Request) {
       }
       return json({ value: x.p.secret ? await decrypt(x.p.secret) : "" });
     }
+    if (op === "paymentStatus") {
+      if (!(x.owner || x.executor)) fail("Geen toegang tot betaalgegevens.", 403);
+      const pending = (await db().prepare("SELECT id FROM payments WHERE project=? AND status IN ('open','pending','authorized')").bind(id).all<Row>()).results;
+      for (const payment of pending) await syncPayment(payment.id);
+      return json({ ok: true });
+    }
     if (op === "payment") {
       if (!x.owner || !x.p.executor || x.p.payment_mode !== "platform")
         fail("Betaling niet beschikbaar.", 403);
       try {
-        return json(await createPayment(x.p));
+        return json(await createPayment(x.p, b.phase ? z.string().uuid().parse(b.phase) : undefined));
       } catch (e) {
         fail((e as Error).message, 503);
       }

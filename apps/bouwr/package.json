@@ -11,7 +11,7 @@
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "db:migrate": "node --import tsx scripts/migrate.ts",
     "check": "tsc --noEmit --incremental false",
-    "test": "node --import tsx tests/integration.mjs"
+    "test": "node --import tsx tests/migration.mjs && node --import tsx tests/integration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
