@@ -38,7 +38,7 @@ export const helpGuides: HelpGuide[] = [
       },
       {
         title: "Vul de projectbriefing in",
-        text: "Vul doel en doelgroep in en kies functies, talen, stijl, CMS en kwaliteitseisen. Geef budget, deadline en eventuele betaalfases op. In Documentatie controleer je de automatisch samengestelde briefing en download je die als Markdown. Sla een concept op om later verder te gaan. Na Opdracht plaatsen kunnen developers bieden.",
+        text: "Vul doel en doelgroep in en kies functies, talen, stijl, CMS en kwaliteitseisen. Geef budget, deadline en eventuele betaalfases op. In Documentatie controleer je de automatisch samengestelde briefing en download je die als PDF zonder websitevoorbeeld. Sla een concept op om later verder te gaan. Na Opdracht plaatsen kunnen developers bieden.",
       },
       {
         title: "Maak afspraken over hosting en contact",
@@ -107,7 +107,7 @@ export const helpGuides: HelpGuide[] = [
       },
       {
         title: "Geef de klant toegang",
-        text: "Open het project en kies Toegang. Vul het e-mailadres in waarmee de klant inlogt en klik op Toegang geven. Gebruik Projectlink kopiëren en stuur die link zelf naar de klant. Er wordt geen uitnodigingsmail verstuurd.",
+        text: "Klik op Portaal delen in je project of op de Klantportaal-pagina. Vul het klantadres in en kies Toegang geven & link kopiëren. Deel de link of kopieer de uitnodigingstekst. De klant logt in met hetzelfde adres en komt direct in het project. Een nieuw account moet eerst worden geregistreerd en bevestigd. Er wordt geen automatische uitnodigingsmail verstuurd.",
       },
       {
         title: "Bepaal wie mag chatten",
@@ -126,7 +126,7 @@ export const helpGuides: HelpGuide[] = [
     description: "Lees projectberichten en e-mail op één plek.",
     sections: [
       { title: "Gebruik de postvakken", text: "Open Berichten. Je vindt Postvak IN, Met ster, Verzonden, Concepten en Archief. Zoek op onderwerp of berichtvoorbeeld. Open een gesprek, markeer het met een ster of archiveer het. Projectgesprekken blijven gescheiden in developer- en klantgesprekken volgens de bestaande projectrechten." },
-      { title: "Reageer of maak een concept", text: "Klik op Reageren of Nieuw bericht. Kies het juiste projectgesprek of de gekoppelde Outlook-mailbox. Met Concept opslaan bewaar je een bericht voor later. Er wordt alleen verstuurd wanneer je op Versturen klikt. Gebruik de hostingkluis voor wachtwoorden." },
+      { title: "Reageer of maak een concept", text: "Klik op Nieuwe e-mail om vanuit je gekoppelde Outlook-account naar een extern adres te mailen. Nieuw projectbericht naast de lijst opent een projectgesprek. Met Reageren beantwoord je het geselecteerde bericht. Met Concept opslaan bewaar je een bericht voor later. Er wordt alleen verstuurd wanneer je op Versturen klikt. Gebruik de hostingkluis voor wachtwoorden." },
       { title: "Koppel jouw Outlook-mailbox", text: "De beheerder registreert Bouwr eerst in Microsoft Entra en vult de clientgegevens op de VPS in. Via Mailboxinstellingen kies je Outlook-account koppelen, meld je je aan bij Microsoft en geef je toestemming. Ondersteund zijn je eigen Microsoft 365- of Outlook.com-mailbox; gedeelde mailboxen worden in deze versie niet gekoppeld." },
       { title: "Synchroniseer", text: "Klik op Synchroniseren om mail op te halen. Terwijl de mailboxpagina openstaat, worden wijzigingen iedere minuut opgehaald. Postvak IN, Verzonden, Concepten en Archief worden meegenomen. Gelezen, sterren en archiveren worden ook naar Outlook bijgewerkt. Oudere berichten worden stapsgewijs opgehaald. Bekijk e-mailbijlagen via Open in Outlook." },
       { title: "Ontkoppel", text: "In Mailboxinstellingen klik je op Ontkoppelen. De lokale Outlook-berichten en toegangstokens worden uit Bouwr verwijderd. Je mailbox bij Microsoft blijft bestaan. Je kunt de toestemming van Bouwr ook bij Microsoft intrekken." },

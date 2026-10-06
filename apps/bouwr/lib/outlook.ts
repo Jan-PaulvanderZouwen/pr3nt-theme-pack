@@ -58,8 +58,9 @@ export async function finishOutlook(user: string, state: string, code: string) {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("Het Microsoft-account heeft geen bruikbaar mailboxadres.", 400);
   const encrypted = await encrypt(JSON.stringify(token));
   getSqlite().transaction(() => {
+    const replacing = getSqlite().prepare("SELECT user FROM outlook_connections WHERE user=?").get(user);
     for (const table of ["outlook_messages", "outlook_sync", "outlook_sync_locks"]) getSqlite().prepare(`DELETE FROM ${table} WHERE user=?`).run(user);
-    getSqlite().prepare("DELETE FROM mail_drafts WHERE user=? AND kind='outlook'").run(user);
+    if (replacing) getSqlite().prepare("DELETE FROM mail_drafts WHERE user=? AND kind='outlook'").run(user);
     getSqlite().prepare("INSERT INTO outlook_connections (user,email,tokens,expires,updated,generation) VALUES (?,?,?,?,?,?) ON CONFLICT(user) DO UPDATE SET email=excluded.email,tokens=excluded.tokens,expires=excluded.expires,updated=excluded.updated,generation=excluded.generation")
       .run(user, email.toLowerCase(), encrypted, Date.now() + Number(token.expires_in || 3600) * 1000, now(), uid());
   })();

@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     if (op === "saveDraft") {
       const v = draftSchema.parse(b);
       if (v.kind === "project") await chatAccess(z.string().uuid().parse(v.project), z.enum(["internal", "client"]).parse(v.channel), a);
-      if (v.kind === "outlook" && !await db().prepare("SELECT user FROM outlook_connections WHERE user=?").bind(user).first()) fail("Koppel eerst Outlook.", 409);
+      if (v.kind === "outlook" && a.p.role !== "developer") fail("Geen toegang tot Outlook-concepten.", 403);
       if (v.replyId && v.kind === "outlook") await externalMessage(user, v.replyId);
       if (v.id && !await db().prepare("SELECT id FROM mail_drafts WHERE user=? AND id=?").bind(user, v.id).first()) fail("Geen toegang tot dit concept.", 403);
       const id = v.id || uid();

@@ -1,3 +1,4 @@
+import { briefingPdf, briefingFilename } from "@/lib/briefing-pdf";
 import { NextResponse } from "next/server";
 import { account, projectAccess, fail } from "@/lib/access";
 import { dashboardSchema, defaultWidgets } from "@/lib/dashboard";
@@ -163,7 +164,7 @@ export async function GET(req: Request) {
       if (!(x.owner || x.executor || a.admin)) fail("Geen toegang tot de projectbriefing.", 403);
       if (!x.p.configuration) fail("Dit project heeft nog geen configuratorbriefing.", 404);
       const document = configurationDocument(JSON.parse(x.p.configuration), x.p);
-      return new Response(document, { headers: { "Content-Type": "text/markdown; charset=utf-8", "Content-Disposition": 'attachment; filename="bouwr-projectbriefing.md"', "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+      return new Response(new Uint8Array(await briefingPdf(document, x.p.title)).buffer, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${briefingFilename(x.p.title)}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
     }
     if (url.searchParams.get("project"))
       return json(await detail(url.searchParams.get("project")!, a));
@@ -346,6 +347,13 @@ export async function POST(req: Request) {
       new TextDecoder().decode(await boundedBody(req, 2500000)),
     ) as Row;
     const op = z.string().parse(b.op);
+    if (op === "preparePortal") {
+      const project = z.string().uuid().parse(b.project);
+      const invited = await db().prepare("SELECT p.client FROM projects p JOIN memberships m ON m.project=p.id WHERE p.id=? AND m.email=? AND m.revoked=0").bind(project, a.u.email).first<Row>();
+      if (!invited) fail("Je bent niet uitgenodigd voor dit klantportaal.", 403);
+      if (!a.p) await db().prepare("INSERT INTO users (id,email,name,company,role,brand,created) VALUES (?,?,?,?,'client','{}',?) ON CONFLICT(id) DO NOTHING").bind(a.u.userId, a.u.email, a.u.fullName || a.u.email, invited.client || "Klant", now()).run();
+      return json({ ok: true });
+    }
     if (op === "register") {
       const v = z
         .object({
@@ -716,7 +724,7 @@ export async function POST(req: Request) {
         )
         .bind(uid(), id, email, 0, now())
         .run();
-      return json({ ok: true, url: `/?project=${id}&client=1` });
+      return json({ ok: true, url: `/portaal/${id}` });
     }
     if (op === "revoke") {
       if (!x.owner) fail("Geen rechten.", 403);

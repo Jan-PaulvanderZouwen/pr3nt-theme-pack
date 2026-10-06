@@ -267,6 +267,14 @@ Deze installatie begint met een nieuwe database. De bestaande Sites-versie blijf
 
 Nieuwe platformbetalingen gebruiken **5% platformvergoeding**. Bestaande betaalrecords behouden hun oorspronkelijke bedrag en vergoeding. Je kunt één projectbetaling of een verdeling over 2 tot 8 fasen kiezen. Fasebedragen tellen exact op tot het afgesproken projectbedrag; een fase kan pas worden betaald nadat de opdrachtgever akkoord heeft gegeven. Nieuwe betaalpogingen gebruiken idempotentiesleutels; een lopende of ontvangen betaling wordt niet nogmaals aangemaakt. De vergoeding staat onder de uitklapbare betaaldetails. Mollie staat uit totdat de beheerder de OAuth-app, callback, webhook en accountkoppeling heeft ingesteld. Callback: `https://bouwr.jpvanderzouwen.nl/api/mollie/callback`; webhook: `https://bouwr.jpvanderzouwen.nl/api/mollie/webhook`. Activeer eerst testbetalingen. Live Mollie-transacties zijn niet getest.
 
+## Mailbox, PDF en klantlinks
+
+Berichten vult de hele werkruimte zonder mailboxheader of extra paginamarges. **Nieuwe e-mail** opent direct een externe e-mail met ontvanger en onderwerp; verzending loopt via je gekoppelde Outlook-account. Zonder koppeling opent de knop de mogelijkheid om Outlook te koppelen. Via **Nieuw projectbericht** bij de berichtenlijst schrijf je in een bestaand projectgesprek. Er wordt uitsluitend verzonden wanneer je op Versturen klikt.
+
+Briefings zijn als **PDF** te downloaden vanuit de configurator en de Briefing-tab van een project. De PDF bevat de projecttekst, scope, afspraken en checklist, zonder websitevoorbeeld. De opgeslagen projectbriefing is alleen toegankelijk voor het projectteam; de bestaande toegangscontroles blijven gelden.
+
+Klik op **Portaal delen** bovenin een eigen project of naast het project op de Klantportaal-pagina. Voeg het klantadres toe; de link wordt direct gekopieerd. Je kunt ook de uitnodigingstekst kopiëren of zelf in je e-mailprogramma openen. Er wordt geen automatische uitnodigingsmail verzonden. De link is `https://bouwr.jpvanderzouwen.nl/portaal/PROJECT-ID`. De klant logt in of registreert met het toegestane adres, bevestigt de e-mail en komt direct in het project. Het klantprofiel wordt automatisch voorbereid voor een uitgenodigde, geverifieerde gebruiker. Een verkeerd adres of ingetrokken toegang krijgt geen projectgegevens te zien. Ook oude links met `?project=...&client=1` blijven werken.
+
 ## Fase 2: bestaande installatie bijwerken
 
 Deze update voegt een persoonlijk widgetdashboard, een visuele websiteconfigurator met automatische briefing en checklist, een mailbox en fasebetalingen toe. De Templates-pagina wordt vervangen door Configurator. Oude projecten, accounts, bestanden en opgeslagen templates blijven in de database behouden. Een eigen, nog openstaand project kan via **Uitwerken in configurator** worden aangevuld; als de scope verandert moeten bestaande bieders opnieuw bieden. Na acceptatie blijft de vastgelegde configuratie vergrendeld.

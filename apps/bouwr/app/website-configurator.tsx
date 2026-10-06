@@ -14,9 +14,14 @@ const pagePresets = [
   { title: "Webshop", slug: "/webshop", sections: ["hero", "products", "faq"] as SectionKind[] },
   { title: "Veelgestelde vragen", slug: "/vragen", sections: ["hero", "faq", "contact"] as SectionKind[] },
 ];
-function downloadDocument(text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
-  const a = document.createElement("a"); a.href = url; a.download = "bouwr-projectbriefing.md"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function downloadDocument(text: string, title: string) {
+  try {
+    const { briefingPdf, briefingFilename } = await import("@/lib/briefing-pdf");
+    const bytes = await briefingPdf(text, title);
+    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: "application/pdf" }));
+    const a = window.document.createElement("a"); a.href = url; a.download = briefingFilename(title); a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch { toast.error("De PDF kon niet worden gemaakt. Probeer het opnieuw."); }
 }
 export default function WebsiteConfigurator({ initial, projectId, admin, brandName, onDraft, onPublish, onNew }: {
   initial?: WebsiteConfiguration | null; projectId?: string; admin?: boolean; brandName?: string;
@@ -120,7 +125,7 @@ export default function WebsiteConfigurator({ initial, projectId, admin, brandNa
           </>}
           {step === 6 && <>
             <div className="config-final-summary"><span><CheckCheck size={22} /></span><div><h3>{c.title || "Jouw nieuwe project"}</h3><p>{c.category} · {c.pages.length} pagina’s · {c.features.length} functies</p><strong>{euro(c.budget)}</strong><small>{c.paymentMode === "direct" ? "Eigen facturatie" : c.paymentSchedule === "phases" ? `${c.phases.length} betaalfases via Mollie` : "Projectbetaling via Mollie"}</small></div></div>
-            <div className="config-document-actions"><button className="outline" onClick={() => downloadDocument(document)}><Download size={16} /> Briefing downloaden</button><button className="text-button" onClick={() => setShowDocument(!showDocument)}><FileText size={16} />{showDocument ? "Briefing sluiten" : "Volledige briefing bekijken"}</button></div>
+            <div className="config-document-actions"><button className="outline" onClick={() => downloadDocument(document, c.title || "Nieuw project")}><Download size={16} /> Briefing downloaden (PDF)</button><button className="text-button" onClick={() => setShowDocument(!showDocument)}><FileText size={16} />{showDocument ? "Briefing sluiten" : "Volledige briefing bekijken"}</button></div>
             {showDocument ? <pre className="configuration-document">{document}</pre> : <div className="config-document-sections">{["Doel & doelgroep", "Pagina’s & secties", "Functies & koppelingen", "Huisstijl & content", "Techniek & kwaliteit", "Afspraken & betaalplan", "Opleverchecklist"].map(label => <div key={label}><Check size={16} />{label}</div>)}</div>}
             <p className="config-hint">De volledige briefing blijft binnen het projectteam. In de marktplaats verschijnt een korte omschrijving van het doel, de pagina’s en functies.</p>
             {projectId && <p className="config-hint">Een gewijzigde scope vervangt de openstaande biedingen. Bieders krijgen een melding en kunnen een nieuw bod doen.</p>}

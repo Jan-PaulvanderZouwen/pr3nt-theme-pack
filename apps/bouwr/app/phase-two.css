@@ -122,3 +122,21 @@
 @media(prefers-reduced-motion:reduce){.dashboard-widget,.config-preview-frame,.mailbox-list-item{transition:none}}
 
 .mail-message-text{font-size:16px;line-height:1.85}.mailbox-item-main>strong,.mailbox-item-top b,.mailbox-folders>button,.mailbox-sources>button{font-size:14px}.mailbox-item-main>p{font-size:13px}.widget-note{font-size:16px}.configuration-fields input,.configuration-fields textarea{font-size:15px}
+/* Mailbox occupies the workspace without a page title, account header or card gutter. */
+.content.mailbox-page{padding:0;max-width:none;margin:0;animation:none;height:calc(100dvh - 72px);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.mailbox-page .mailbox{flex:1;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;box-shadow:none}
+.mailbox-page .mailbox-layout{height:100%;min-height:0;flex:1}
+.mailbox-page .mailbox-folders{padding-top:16px}
+.mailbox-folders>.mailbox-compose{background:#175cff;color:white;border:1px solid #175cff;justify-content:center;font-size:13px;padding:11px 7px;margin-bottom:18px;gap:5px}
+.mailbox-folders>.mailbox-compose:hover{background:#124be0}
+.mailbox-list-actions{display:flex;align-items:center;gap:2px}.mailbox-list-actions .icon-button{width:27px;height:29px}
+.outlook-compose-connect{background:#f0f5ff;border:1px solid #dce7fb;border-radius:8px;padding:14px;margin-bottom:17px;font-size:14px;line-height:1.7}.outlook-compose-connect button{margin-top:10px}
+.portal-project-row{display:flex;align-items:center;gap:10px;margin:10px 0}.portal-project-row .portal-project-button{flex:1;margin:0;min-width:0}.portal-share-button{white-space:nowrap;font-size:13px}.project-detail-summary>.portal-share-button{margin-left:auto}
+.portal-sharing-panel>p{font-size:14px;line-height:1.7;color:#7a879b;margin:0 0 20px}.portal-invite-form{display:flex;flex-direction:column;gap:12px;margin:15px 0 25px}.portal-invite-form .field,.portal-link-field .field{margin-bottom:0}.portal-invite-form>.primary{justify-content:center}
+.portal-link-field{display:flex;align-items:flex-end;gap:9px}.portal-link-field>.field{flex:1;min-width:0}.portal-link-field input{font-size:13px}.portal-link-field>.outline{height:43px;font-size:13px;white-space:nowrap}
+.portal-share-options{display:flex;flex-wrap:wrap;gap:10px 17px;margin:15px 0 25px}.portal-share-options .text-button{font-size:13px}.portal-invite-list>h3{font-size:14px;margin-bottom:12px}.portal-sharing-panel>.portal-share-note{font-size:12px;line-height:1.7;color:#8a96a8;margin-top:18px}
+.portal-access-message{max-width:520px;margin:10dvh auto;padding:30px;display:flex;flex-direction:column;gap:20px}.portal-access-message h1{font-size:24px}.portal-access-message p{line-height:1.8;color:#7a879b}
+@media(max-width:1050px){.mailbox-page .mailbox-layout{grid-template-rows:auto minmax(0,1fr)}.mailbox-page .mailbox-folders{padding:8px;align-items:center;min-height:54px;overflow-y:hidden}.mailbox-folders>.mailbox-compose{margin:0 6px 0 0;padding:8px 10px}}
+@media(max-width:700px){.portal-project-row{flex-wrap:wrap}.portal-project-row>.portal-share-button{margin-bottom:8px}.portal-link-field{align-items:stretch;flex-direction:column}.project-detail-summary>.portal-share-button{margin-left:0}.portal-access-message{margin:5dvh 12px;padding:20px}}
+
+@media(max-width:767px){.content.mailbox-page{height:calc(100dvh - 60px)}}

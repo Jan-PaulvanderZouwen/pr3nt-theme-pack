@@ -2,9 +2,10 @@
 import { useEffect, useState, useCallback } from "react";
 import ClientPortal from "./client-portal";
 import DashboardEditor from "./dashboard-editor";
-import WebsiteConfigurator, { WebsitePreview } from "./website-configurator";
+import WebsiteConfigurator from "./website-configurator";
 import Mailbox from "./mailbox";
 import PhasePayments from "./phase-payments";
+import PortalShare, { PortalSharingPanel } from "./portal-share";
 import { newConfiguration, WebsiteConfiguration } from "@/lib/configurator";
 import HelpCenter from "./help-center";
 import LogoutButton from "./logout-button";
@@ -773,8 +774,8 @@ export default function Workspace({ identity }: { identity: Identity }) {
             {error} <button onClick={load}>Opnieuw proberen</button>
           </div>
         )}
-        <main className="content">
-          <div className="page-heading">
+        <main className={`content ${page === "Berichten" ? "mailbox-page" : ""}`}>
+          {page !== "Berichten" && <div className="page-heading">
             <div>
               <div className="eyebrow">
                 {demo
@@ -803,7 +804,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                 <Plus size={18} /> Nieuw project
               </button>
             )}
-          </div>
+          </div>}
           {page === "Overzicht" && <DashboardEditor widgets={data?.dashboard} projects={projects} notifications={notifications} openProject={openProject} navigate={go} expandActivity={() => setModal("activity")} onSave={async widgets => { await mutate({ op: "saveDashboard", widgets }); await load(); }} />}
           {page === "Mijn projecten" && <>
               <section className="stats">
@@ -1026,14 +1027,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   {client ? "Beschikbare projecten" : "Klanttoegang beheren"}
                 </h3>
                 {projects.map((p) => (
-                  <button
-                    key={p.id}
-                    className="portal-project-button"
-                    onClick={() => openProject(p)}
-                  >
-                    <span>{p.title}</span>
-                    <ChevronRight size={16} />
-                  </button>
+                  <div key={p.id} className="portal-project-row"><button className="portal-project-button" onClick={() => openProject(p)}><span>{p.title}</span><ChevronRight size={16} /></button>{p.owner === user.id && <PortalShare project={p} />}</div>
                 ))}
                 {!projects.length && (
                   <p className="muted">Nog geen gedeelde projecten.</p>
@@ -1224,7 +1218,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
               />
             </>
           )}
-          <footer className="content-footer">
+          {page !== "Berichten" && <footer className="content-footer">
             <span>
               bouwr<span className="blue-dot">.</span>{" "}
               <small>Een werkplek voor mooi werk.</small>
@@ -1232,7 +1226,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
             <button onClick={() => setModal("help")}>
               <HelpCircle size={14} /> Hulp & rondleiding
             </button>
-          </footer>
+          </footer>}
         </main>
       </SidebarInset>
       <HelpCenter
@@ -1436,6 +1430,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                   <Globe size={15} />
                   {detail.project.hosting}
                 </span>
+                {detail.owner && <PortalShare project={detail.project} />}
               </div>
               <Tabs defaultValue="overview" key={selected?.id}>
                 <TabsList className="detail-tabs">
@@ -1550,7 +1545,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                     {(detail.owner || detail.executor) && <PhasePayments key={`${detail.project.id}-${detail.project.payment_schedule}`} detail={detail} enabled={!!data?.capabilities?.mollieEnabled} mutate={mutate} refresh={refreshProject} busy={busy} />}
                   </div>
                 </TabsContent>
-                {(detail.owner || detail.executor) && detail.project.configuration && <TabsContent value="documentation"><div className="detail-body project-documentation"><div className="section-heading"><div><h3>De samengestelde website</h3><p>Briefing en checklist volgen de vastgelegde keuzes.</p></div><a className="outline" href={`/api/workspace?document=${detail.project.id}`}><FileText size={16} /> Briefing downloaden</a></div><div className="project-document-preview"><WebsitePreview c={detail.project.configuration} /></div><details><summary>Volledige projectbriefing</summary><pre className="configuration-document">{detail.project.document}</pre></details>{detail.owner && detail.project.status === "open" && <button className="outline" onClick={() => { setConfigInitial(detail.project.configuration); setConfigProject(detail.project.id); setConfigVersion(v => v + 1); setModal(""); go("Configurator"); }}><Settings size={16} />Configuratie aanpassen</button>}</div></TabsContent>}
+                {(detail.owner || detail.executor) && detail.project.configuration && <TabsContent value="documentation"><div className="detail-body project-documentation"><div className="section-heading"><div><h3>Projectbriefing</h3><p>Briefing en checklist volgen de vastgelegde keuzes.</p></div><a className="outline" href={`/api/workspace?document=${detail.project.id}`}><FileText size={16} /> Briefing downloaden (PDF)</a></div><details><summary>Volledige projectbriefing</summary><pre className="configuration-document">{detail.project.document}</pre></details>{detail.owner && detail.project.status === "open" && <button className="outline" onClick={() => { setConfigInitial(detail.project.configuration); setConfigProject(detail.project.id); setConfigVersion(v => v + 1); setModal(""); go("Configurator"); }}><Settings size={16} />Configuratie aanpassen</button>}</div></TabsContent>}
                 <TabsContent value="progress">
                   <div className="detail-body">
                     <div className="form-grid">
@@ -2002,84 +1997,7 @@ export default function Workspace({ identity }: { identity: Identity }) {
                         }
                       />
                     </div>
-                    <h3>Klant veilig toegang geven</h3>
-                    <p className="muted">
-                      De klant logt in met dit e-mailadres. Deel daarna de
-                      projectlink.
-                    </p>
-                    <form
-                      className="invite-form"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        run(async () => {
-                          const d = await mutate({
-                            op: "invite",
-                            project: selected?.id,
-                            email: form.email,
-                          });
-                          setForm({ ...form, share: location.origin + d.url });
-                          await refreshProject();
-                          toast.success(
-                            "Klanttoegang vastgelegd. Deel de link met je klant.",
-                          );
-                        });
-                      }}
-                    >
-                      <input
-                        required
-                        type="email"
-                        placeholder="klant@bedrijf.nl"
-                        value={form.email || ""}
-                        onChange={(e) =>
-                          setForm({ ...form, email: e.target.value })
-                        }
-                      />
-                      <button className="primary" disabled={busy}>
-                        <Plus size={16} /> Toegang geven
-                      </button>
-                    </form>
-                    <button
-                      className="outline share-link"
-                      onClick={() =>
-                        run(async () => {
-                          await navigator.clipboard.writeText(
-                            location.origin +
-                              "/?project=" +
-                              selected?.id +
-                              "&client=1",
-                          );
-                          toast.success("Projectlink gekopieerd");
-                        })
-                      }
-                    >
-                      <Copy size={16} /> Projectlink kopiëren
-                    </button>
-                    {detail.invites.map((i: Data) => (
-                      <div className="invite-row" key={i.id}>
-                        <span>{i.email}</span>
-                        <span className="tag">
-                          {i.revoked ? "Ingetrokken" : "Toegang"}
-                        </span>
-                        {!i.revoked && (
-                          <button
-                            className="text-button"
-                            disabled={busy}
-                            onClick={() =>
-                              run(async () => {
-                                await mutate({
-                                  op: "revoke",
-                                  project: selected?.id,
-                                  invite: i.id,
-                                });
-                                await refreshProject();
-                              })
-                            }
-                          >
-                            Intrekken
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    <PortalSharingPanel project={detail.project} />
                     <div className="info-note">
                       <ShieldCheck size={20} />
                       <p>

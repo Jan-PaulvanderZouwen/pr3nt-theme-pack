@@ -1,10 +1,10 @@
 // Tests use isolated storage and intercept email in this process; no real mail is sent.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const directory = mkdtempSync(path.join(tmpdir(), "bouwr-test-"));
 Object.assign(process.env, {
@@ -445,9 +445,37 @@ try {
   assert.equal(publicConfig.project.document, undefined);
   assert.ok(!JSON.stringify(await call("outsider")).includes("Private integration requirements"));
   const briefing = await mf.dispatchFetch("https://test.invalid/api/workspace?document=" + configured.id, { headers: { Cookie: people.owner.cookie } });
-  assert.equal(briefing.status, 200); assert.ok((await briefing.text()).includes("# Projectbriefing")); count++;
+  assert.equal(briefing.status, 200); assert.equal(briefing.headers.get("content-type"), "application/pdf");
+  assert.ok(briefing.headers.get("content-disposition").endsWith('.pdf"'));
+  const pdfBytes = Buffer.from(await briefing.arrayBuffer()); assert.ok(pdfBytes.subarray(0, 5).equals(Buffer.from("%PDF-")));
+  const { PDFDocument, PDFName } = await import("pdf-lib"); const pdf = await PDFDocument.load(pdfBytes);
+  assert.ok(pdf.getPageCount() >= 2); for (const page of pdf.getPages()) assert.equal(page.node.Resources()?.lookup(PDFName.of("XObject"))?.keys().length || 0, 0);
+  const pdfPath = path.join(directory, "briefing.pdf"); writeFileSync(pdfPath, pdfBytes);
+  const extracted = spawnSync("pdftotext", [pdfPath, "-"], { encoding: "utf8" });
+  if (!extracted.error) { assert.equal(extracted.status, 0); assert.ok(extracted.stdout.includes("Private integration requirements")); assert.ok(extracted.stdout.includes("Opleverchecklist")); }
+  count++;
   const deniedBriefing = await mf.dispatchFetch("https://test.invalid/api/workspace?document=" + configured.id, { headers: { Cookie: people.outsider.cookie } });
   assert.equal(deniedBriefing.status, 403); count++;
+  // Short portal links retain login redirects and enforce the invited, verified address.
+  const portalLink = await call("owner", "", { op: "invite", project: configured.id, email: people.client.email });
+  assert.equal(portalLink.url, `/portaal/${configured.id}`);
+  const portalLogin = await mf.dispatchFetch("https://test.invalid" + portalLink.url);
+  assert.equal(portalLogin.status, 307); assert.equal(portalLogin.headers.get("location"), "/inloggen?returnTo=" + encodeURIComponent(portalLink.url)); count++;
+  const wrongPortal = await mf.dispatchFetch("https://test.invalid" + portalLink.url, { headers: { Cookie: people.outsider.cookie } });
+  const wrongHtml = await wrongPortal.text(); assert.ok(wrongHtml.includes("Geen toegang tot dit klantportaal")); assert.ok(!wrongHtml.includes("Private integration requirements")); count++;
+  await call("outsider", "", { op: "preparePortal", project: configured.id }, 403);
+  getSqlite().prepare("DELETE FROM users WHERE id=?").run(people.client.id);
+  const portalPage = await mf.dispatchFetch("https://test.invalid" + portalLink.url, { headers: { Cookie: people.client.cookie } });
+  assert.equal(portalPage.status, 200); assert.ok(!(await portalPage.text()).includes("Private integration requirements")); count++;
+  await call("client", "", { op: "preparePortal", project: configured.id });
+  await call("client", "", { op: "preparePortal", project: configured.id });
+  assert.equal(getSqlite().prepare("SELECT role FROM users WHERE id=?").get(people.client.id).role, "client");
+  await call("client", "?project=" + configured.id);
+  const clientBriefing = await mf.dispatchFetch("https://test.invalid/api/workspace?document=" + configured.id, { headers: { Cookie: people.client.cookie } }); assert.equal(clientBriefing.status, 403); count++;
+  const portalInvite = (await call("owner", "?project=" + configured.id)).invites.find(i => i.email === people.client.email);
+  await call("owner", "", { op: "revoke", project: configured.id, invite: portalInvite.id });
+  await call("client", "", { op: "preparePortal", project: configured.id }, 403);
+  const revokedPortal = await mf.dispatchFetch("https://test.invalid" + portalLink.url, { headers: { Cookie: people.client.cookie } }); assert.ok((await revokedPortal.text()).includes("Geen toegang tot dit klantportaal")); count++;
   await call("executor", "", { op: "bid", project: configured.id, amount: 100001, days: 20, message: "Configure this scope" });
   await call("owner", "", { op: "saveConfiguration", project: configured.id, configuration: { ...configuration, headline: "Updated design" } });
   assert.equal((await call("owner", "?project=" + configured.id)).bids[0].status, "declined");
@@ -512,6 +540,8 @@ try {
   for (let i = 0; i < 2; i++) await call("executor", "", { op: "chat", project: configured.id, channel: "internal", body: "One message only", requestId: chatRequest });
   assert.equal(getSqlite().prepare("SELECT COUNT(*) AS count FROM messages WHERE request_id=?").get(chatRequest).count, 1);
 
+  const offlineEmailDraft = await mailCall("owner", "", { op: "saveDraft", kind: "outlook", recipient: "outside@external.invalid", subject: "Write before connecting", body: "Keep this concept through the initial connection" });
+  await mailCall("client", "", { op: "saveDraft", kind: "outlook", subject: "Denied", body: "Client cannot create mailbox drafts" }, 403);
   // Fake Microsoft OAuth and Graph endpoints; real credentials/email are never used.
   const connect = await mf.dispatchFetch("https://test.invalid/api/outlook/connect", { headers: { Cookie: people.owner.cookie } });
   assert.equal(connect.status, 302); const authorize = new URL(connect.headers.get("location"));
@@ -524,6 +554,7 @@ try {
   const consumedCallback = await mf.dispatchFetch("https://test.invalid/api/outlook/callback?state=" + state + "&code=mock-code", { headers: { Cookie: people.owner.cookie } }); assert.equal(consumedCallback.status, 403); count++;
   const tokenRow = getSqlite().prepare("SELECT tokens FROM outlook_connections WHERE user=?").get(people.owner.id);
   assert.ok(!tokenRow.tokens.includes("mock-graph-token"));
+  assert.ok((await mailCall("owner")).drafts.some(d => d.id === offlineEmailDraft.id));
   await mailCall("owner", "", { op: "sync" });
   const outlook = await mailCall("owner");
   assert.equal(outlook.external.length, 4); assert.equal(outlook.outlook.connection.email, "owner@example.invalid");
@@ -540,6 +571,11 @@ try {
   await mailCall("owner", "", { op: "sendOutlook", requestId: sendRequest, replyId: "message-inbox", subject: "Re: review", body: "Simulated reply only" });
   await mailCall("owner", "", { op: "sendOutlook", requestId: sendRequest, replyId: "message-inbox", subject: "Re: review", body: "Simulated reply only" });
   assert.equal(JSON.parse(readFileSync(path.join(directory, "provider-counts.json"), "utf8")).send, 1);
+  const externalRequest = crypto.randomUUID();
+  for (let i = 0; i < 2; i++) await mailCall("owner", "", { op: "sendOutlook", requestId: externalRequest, recipient: "outside@external.invalid", subject: "New external email", body: "Explicit outbound email test" });
+  const outbound = JSON.parse(readFileSync(path.join(directory, "provider-counts.json"), "utf8"));
+  assert.equal(outbound.send, 2); assert.equal(outbound.lastSent.recipients[0].emailAddress.address, "outside@external.invalid"); assert.equal(outbound.lastSent.subject, "New external email");
+  await mailCall("owner", "", { op: "sendOutlook", requestId: crypto.randomUUID(), recipient: "invalid-address", subject: "Denied", body: "Invalid destination" }, 400);
   await mailCall("owner", "", { op: "saveOutlookDraft", remoteDraftId: "message-drafts", recipient: "client@example.invalid", subject: "Edited draft", body: "Draft content only" });
   assert.equal((await mailCall("owner", "?external=message-drafts")).message.subject, "Edited draft");
   getSqlite().prepare("UPDATE outlook_sync SET cursor=? WHERE user=? AND folder='inbox'").run("https://malicious.invalid/token-collector", people.owner.id);

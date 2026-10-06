@@ -52,7 +52,7 @@ globalThis.fetch = async (input, init = {}) => {
     const id = decodeURIComponent(match[1]), op = match[2], m = mail.get(id);
     if (!m) return json({}, 404);
     if (op === "createReply") { const draftId = "reply-" + mail.size, draft = { ...fixture(draftId, "drafts"), subject: "Re: " + m.subject, toRecipients: m.replyTo }; mail.set(draftId, draft); return json(draft, 201); }
-    if (op === "send") { counters.send++; count(); m.folder = "sentitems"; return new Response(null, { status: 202 }); }
+    if (op === "send") { counters.send++; counters.lastSent = { recipients: m.toRecipients, subject: m.subject, body: m.body }; count(); m.folder = "sentitems"; return new Response(null, { status: 202 }); }
     if (op === "move") { m.folder = JSON.parse(init.body).destinationId; return json(m, 201); }
     if (method === "PATCH") { Object.assign(m, JSON.parse(init.body)); return json(m); }
     return json(m);
