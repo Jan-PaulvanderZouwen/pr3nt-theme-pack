@@ -76,7 +76,7 @@ function fullAddress(shipping = {}, parsed = {}) {
   return address || houseNumber || '';
 }
 
-function shippingOf(quote = {}) {
+export function shippingOf(quote = {}) {
   const parsed = parseShippingFromNote(`${quote.description || ''}\n${quote.note || ''}`);
   const shipping = quote.shipping || {};
   const address = fullAddress(shipping, parsed);
