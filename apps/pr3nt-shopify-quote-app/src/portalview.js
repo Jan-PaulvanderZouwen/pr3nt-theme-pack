@@ -4,7 +4,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { e, formatDate, logo, renderShell } from './ui/layout.js';
+import { assetVersion, e, formatDate, logo, renderShell } from './ui/layout.js';
 import { fmt, money, quoteLines, quoteSubtotalExVat, quoteVatAmount, quoteTotalInclVat, vatRatePercent } from './vat.js';
 import { shippingOf } from './shippingcontext.js';
 
@@ -125,7 +125,7 @@ function acceptForm(quote, state, label) {
 
 function actionPanel(quote, state) {
   const token = tokenOf(quote);
-  const amount = state.ready ? `<div class="amount">€ ${fmt(state.total)}<small>Totaal incl. ${vatLabel()}% btw en verzending</small></div>` : '';
+  const amount = state.ready ? `<div class="amount"><span data-count="${state.total}">€ ${fmt(state.total)}</span><small>Totaal incl. ${vatLabel()}% btw en verzending</small></div>` : '';
   if (state.waiting) {
     return `<div class="action"><span class="label">Volgende stap</span><p>Beantwoord onze vraag bij Berichten, dan gaan we verder.</p><a class="btn btn-dark" href="#berichten">Naar berichten</a></div>`;
   }
@@ -136,7 +136,7 @@ function actionPanel(quote, state) {
     return `<div class="action"><span class="label">Openstaand bedrag</span>${amount}<a class="btn btn-primary" href="${e(state.payUrl)}">Betaal veilig via Mollie</a><p>Je betaalt met iDEAL of Bancontact.</p></div>`;
   }
   if (state.status === 'shipped' && quote.trackingCode) {
-    return `<div class="action"><span class="label">Track & trace</span><div class="code"><span>${e(quote.trackingCode)}</span></div><p>Gebruik deze code op de site van de vervoerder.</p></div>`;
+    return `<div class="action"><span class="label">Track & trace</span><div class="code"><span>${e(quote.trackingCode)}</span><button class="btn btn-quiet" type="button" data-copy="${e(quote.trackingCode)}">Kopiëren</button></div><p>Gebruik deze code op de site van de vervoerder.</p></div>`;
   }
   if (state.status === 'ready_to_ship' && !addressComplete(shippingOf(quote))) {
     return `<div class="action"><span class="label">Nog nodig</span><p>We hebben je verzendadres nodig om je print te versturen.</p><a class="btn btn-dark" href="#verzending">Verzendadres invullen</a></div>`;
@@ -156,9 +156,11 @@ function actionPanel(quote, state) {
 function statusSection(quote, state) {
   const [title, text] = heading(quote, state);
   const step = state.index + 1;
-  const layers = statuses.map((_, index) => `<span class="${index < state.index ? 'done' : index === state.index ? 'now' : ''}"></span>`).join('');
+  const active = state.status !== 'delivered';
+  const layers = statuses.map(([, label], index) => `<span class="${index < state.index ? 'done' : index === state.index ? `now${active ? ' active' : ''}` : ''}" style="--i:${index}" data-label="${index + 1}. ${e(label)}"></span>`).join('');
+  const steps = statuses.map(([, label], index) => `<li class="${index < state.index ? 'done' : index === state.index ? 'now' : ''}"><span class="mono">${String(index + 1).padStart(2, '0')}</span>${e(label)}${index === state.index ? '<em>nu</em>' : ''}</li>`).join('');
   const facts = [quote.material, quote.color, String(quote.rush || '').toLowerCase().startsWith('j') ? 'Spoed' : ''].filter(Boolean).map((fact) => `<span>${e(fact)}</span>`).join('');
-  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${statuses.length} · ${e(statuses[state.index][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${statuses.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div>${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
+  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${statuses.length} · ${e(statuses[state.index][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${statuses.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div><details class="steps"><summary>Alle stappen bekijken</summary><ol>${steps}</ol></details>${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
 }
 
 function quotePanel(quote, state) {
@@ -198,17 +200,17 @@ function filesPanel(quote, state) {
   const list = files.length
     ? `<ul class="files">${files.map((file, index) => `<li class="file${index === 0 ? ' is-active' : ''}" data-file="${index}"><span class="file-ext">${e(fileExt(file))}</span><div class="file-main"><strong title="${e(fileName(file))}">${e(fileName(file))}</strong><small>${file.createdAt ? e(formatDate(file.createdAt)) : 'Bij aanvraag'}${file.uploadedBy === 'pr3nt' ? ' · van pr3nt' : ''}</small></div><div class="file-actions">${/\.(stl|obj)$/i.test(fileName(file)) ? `<button class="btn btn-quiet" type="button" data-preview="${index}">Bekijken</button>` : ''}<a class="btn btn-quiet" href="${e(file.url)}" download>Download</a></div></li>`).join('')}</ul>`
     : '<p class="empty">Er is nog geen bestand bij deze aanvraag.</p>';
-  const viewer = files.length ? '<div class="viewer" id="viewer"><div class="viewer-msg">3D-voorbeeld wordt geladen</div></div>' : '';
+  const viewer = files.length ? '<div class="viewer-wrap"><div class="viewer" id="viewer"><div class="viewer-msg">3D-voorbeeld wordt geladen</div></div><div class="viewer-tools" hidden><button class="btn btn-quiet" type="button" data-viewer="spin" aria-pressed="true">Draaien</button><button class="btn btn-quiet" type="button" data-viewer="reset">Beginpositie</button><button class="btn btn-quiet" type="button" data-viewer="full">Volledig scherm</button></div><p class="viewer-hint">Sleep om te draaien, scroll of knijp om te zoomen.</p></div>' : '';
   const replace = state.accepted ? '' : '<button class="btn" type="button" data-open="dlg-replace">Bestand vervangen</button>';
   return `<section class="panel" aria-labelledby="files-title"><div class="panel-head"><h2 id="files-title">Bestanden</h2><div class="btn-row">${replace}<button class="btn" type="button" data-open="dlg-upload">Toevoegen</button></div></div><div class="panel-body">${viewer}${list}</div></section>${uploadDialogs(quote, state, token)}`;
 }
 
 function uploadDialogs(quote, state, token) {
   const accept = '.stl,.3mf,.obj,.step,.stp';
-  const extra = `<dialog id="dlg-upload" aria-labelledby="dlg-upload-title"><div class="panel-head"><h2 id="dlg-upload-title">Bestand toevoegen</h2><button class="btn btn-quiet" type="button" data-close>Sluiten</button></div><form class="panel-body form" method="post" action="/portal/${token}/upload" enctype="multipart/form-data"><input id="upload-file" type="file" name="file" accept="${accept}" multiple required><div class="form-grid"><label class="field"><span>Materiaal <small>(optioneel)</small></span><input id="upload-material" name="material" value="${e(quote.material || '')}"></label><label class="field"><span>Kleur <small>(optioneel)</small></span><input id="upload-color" name="color" value="${e(quote.color || '')}"></label></div><label class="field"><span>Toelichting <small>(optioneel)</small></span><textarea id="upload-description" name="description" placeholder="Bijvoorbeeld: dit onderdeel graag 2 keer"></textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Uploaden</button><button class="btn btn-quiet" type="button" data-close>Annuleren</button></div></form></dialog>`;
+  const extra = `<dialog id="dlg-upload" aria-labelledby="dlg-upload-title"><div class="panel-head"><h2 id="dlg-upload-title">Bestand toevoegen</h2><button class="btn btn-quiet" type="button" data-close>Sluiten</button></div><form class="panel-body form" method="post" action="/portal/${token}/upload" enctype="multipart/form-data"><label class="drop"><input id="upload-file" type="file" name="file" accept="${accept}" multiple required><span class="drop-text"><strong>Sleep je bestand hierheen</strong> of klik om te kiezen<small>STL, 3MF, OBJ, STEP</small></span><span class="drop-files" aria-live="polite"></span></label><div class="form-grid"><label class="field"><span>Materiaal <small>(optioneel)</small></span><input id="upload-material" name="material" value="${e(quote.material || '')}"></label><label class="field"><span>Kleur <small>(optioneel)</small></span><input id="upload-color" name="color" value="${e(quote.color || '')}"></label></div><label class="field"><span>Toelichting <small>(optioneel)</small></span><textarea id="upload-description" name="description" placeholder="Bijvoorbeeld: dit onderdeel graag 2 keer"></textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Uploaden</button><button class="btn btn-quiet" type="button" data-close>Annuleren</button></div></form></dialog>`;
   if (state.accepted) return extra;
   const material = String(quote.material || 'PLA').toUpperCase();
-  const replace = `<dialog id="dlg-replace" aria-labelledby="dlg-replace-title"><div class="panel-head"><h2 id="dlg-replace-title">Bestand vervangen</h2><button class="btn btn-quiet" type="button" data-close>Sluiten</button></div><form class="panel-body form" method="post" action="/portal/${token}/selfservice-upload" enctype="multipart/form-data"><p class="muted">Upload de nieuwste versie van je model. We maken de prijsopgaaf dan op basis van dit bestand.</p><input id="replace-file" type="file" name="file" accept="${accept}" multiple required><div class="field"><span>Materiaal</span><div class="choice"><label><input type="radio" name="material" value="PLA" ${material !== 'PETG' ? 'checked' : ''}><span>PLA</span></label><label><input type="radio" name="material" value="PETG" ${material === 'PETG' ? 'checked' : ''}><span>PETG</span></label></div></div><label class="field"><span>Kleur</span><input id="replace-color" name="color" value="${e(quote.color || '')}"></label><label class="field"><span>Wat is er veranderd? <small>(optioneel)</small></span><textarea id="replace-description" name="description"></textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Uploaden en vervangen</button><button class="btn btn-quiet" type="button" data-close>Annuleren</button></div></form></dialog>`;
+  const replace = `<dialog id="dlg-replace" aria-labelledby="dlg-replace-title"><div class="panel-head"><h2 id="dlg-replace-title">Bestand vervangen</h2><button class="btn btn-quiet" type="button" data-close>Sluiten</button></div><form class="panel-body form" method="post" action="/portal/${token}/selfservice-upload" enctype="multipart/form-data"><p class="muted">Upload de nieuwste versie van je model. We maken de prijsopgaaf dan op basis van dit bestand.</p><label class="drop"><input id="replace-file" type="file" name="file" accept="${accept}" multiple required><span class="drop-text"><strong>Sleep je nieuwe bestand hierheen</strong> of klik om te kiezen<small>STL, 3MF, OBJ, STEP</small></span><span class="drop-files" aria-live="polite"></span></label><div class="field"><span>Materiaal</span><div class="choice"><label><input type="radio" name="material" value="PLA" ${material !== 'PETG' ? 'checked' : ''}><span>PLA</span></label><label><input type="radio" name="material" value="PETG" ${material === 'PETG' ? 'checked' : ''}><span>PETG</span></label></div></div><label class="field"><span>Kleur</span><input id="replace-color" name="color" value="${e(quote.color || '')}"></label><label class="field"><span>Wat is er veranderd? <small>(optioneel)</small></span><textarea id="replace-description" name="description"></textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Uploaden en vervangen</button><button class="btn btn-quiet" type="button" data-close>Annuleren</button></div></form></dialog>`;
   return extra + replace;
 }
 
@@ -226,7 +228,7 @@ function messagesPanel(quote) {
       return `<div class="msg${mine ? ' me' : ''}">${e(message.text || '')}<small>${mine ? 'Jij' : 'pr3nt'} · ${e(formatDate(message.createdAt, true))}</small></div>`;
     }).join('')
     : '<p class="empty">Nog geen berichten. Stel hier gerust je vraag.</p>';
-  return `<section class="panel" id="berichten" aria-labelledby="msg-title"><div class="panel-head"><h2 id="msg-title">Berichten</h2></div><div class="panel-body"><div class="thread" data-thread>${list}</div><form class="form" method="post" action="/portal/${tokenOf(quote)}/message"><label class="field"><span>Bericht aan pr3nt</span><textarea id="message" name="message" required placeholder="Typ je vraag of toelichting"></textarea></label><div><button class="btn btn-dark" type="submit">Versturen</button></div></form></div></section>`;
+  return `<section class="panel" id="berichten" aria-labelledby="msg-title"><div class="panel-head"><h2 id="msg-title">Berichten</h2></div><div class="panel-body"><div class="thread" data-thread>${list}</div><form class="form" method="post" action="/portal/${tokenOf(quote)}/message"><label class="field"><span>Bericht aan pr3nt</span><textarea id="message" name="message" required placeholder="Typ je vraag of toelichting" data-autosize></textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Versturen</button><span class="muted small kbd-hint">of Ctrl + Enter</span></div></form></div></section>`;
 }
 
 function shippingPanel(quote, state) {
@@ -277,18 +279,34 @@ function footer() {
 }
 
 function notice(saved) {
-  return saved ? `<div class="notice" role="status">${e(saved)}</div>` : '';
+  return saved ? `<div class="notice" role="status" data-notice><span>${e(saved)}</span><button class="btn btn-quiet" type="button" data-dismiss aria-label="Melding sluiten">Sluiten</button></div>` : '';
+}
+
+// Filamentkleur van de aanvraag, zodat het 3D-voorbeeld lijkt op wat de klant krijgt.
+function filamentColor(name = '') {
+  const value = String(name).toLowerCase();
+  const colors = [
+    [/zwart|black/, 0x2a2f35], [/wit|white|naturel|natural/, 0xe9e6df], [/grijs|grey|gray|zilver|silver/, 0x8d949b],
+    [/rood|red/, 0xc8321e], [/oranje|orange/, 0xff8a3d], [/geel|yellow/, 0xf2c230], [/groen|green/, 0x00b070],
+    [/blauw|blue/, 0x3d8bff], [/paars|purple/, 0x7a4fd1], [/roze|pink/, 0xec7fb0], [/bruin|brown|hout|wood/, 0x8a5a36],
+    [/goud|gold/, 0xc9a24a], [/transparant|clear/, 0xcfe3e8],
+  ];
+  const match = colors.find(([pattern]) => pattern.test(value));
+  return match ? match[1] : 0x9aa3ac;
 }
 
 function viewerScript(quote) {
   const files = quoteFiles(quote).map((file, index) => ({ index, name: fileName(file), url: file.url }));
   if (!files.length) return '';
+  const config = { files, color: filamentColor(quote.color) };
   return `<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script><script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-const files = ${JSON.stringify(files).replace(/</g, '\\u003c')};
+const { files, color } = ${JSON.stringify(config).replace(/</g, '\\u003c')};
 const mount = document.getElementById('viewer');
-let renderer = null, frame = null;
+const tools = document.querySelector('.viewer-tools');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let view = null;
 function message(text, url) {
   mount.innerHTML = '';
   const box = document.createElement('div'); box.className = 'viewer-msg';
@@ -296,51 +314,107 @@ function message(text, url) {
   if (url) { const a = document.createElement('a'); a.className = 'btn'; a.href = url; a.textContent = 'Bestand downloaden'; box.appendChild(a); }
   mount.appendChild(box);
 }
-function reset() { if (frame) cancelAnimationFrame(frame); frame = null; if (renderer) { renderer.dispose(); renderer = null; } }
+function loading() {
+  mount.innerHTML = '<div class="viewer-msg"><span class="nozzle" aria-hidden="true"><i></i></span><p>Model wordt geladen</p></div>';
+}
+function reset() {
+  if (!view) return;
+  cancelAnimationFrame(view.frame); view.observer.disconnect(); view.renderer.dispose(); view = null;
+}
 async function show(file) {
   if (!mount) return;
   document.querySelectorAll('.file').forEach((item) => item.classList.toggle('is-active', Number(item.dataset.file) === file.index));
-  reset();
+  reset(); if (tools) tools.hidden = true;
   if (!/\\.(stl|obj)$/i.test(file.name)) return message('Een 3D-voorbeeld kan alleen van STL- en OBJ-bestanden. Dit bestand kun je wel downloaden.', file.url);
-  message('3D-voorbeeld wordt geladen');
+  loading();
   try {
     const isObj = /\\.obj$/i.test(file.name);
     const mod = await import(isObj ? 'three/addons/loaders/OBJLoader.js' : 'three/addons/loaders/STLLoader.js');
     const loader = isObj ? new mod.OBJLoader() : new mod.STLLoader();
-    loader.load(file.url, (loaded) => {
-      const width = Math.max(mount.clientWidth, 280), height = Math.max(mount.clientHeight, 240);
-      const scene = new THREE.Scene(); scene.background = new THREE.Color(0xefebe3);
-      const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 5000); camera.position.set(140, 120, 170);
-      renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setSize(width, height);
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 2.2));
-      const light = new THREE.DirectionalLight(0xffffff, 1.8); light.position.set(120, 200, 120); scene.add(light);
-      const object = isObj ? loaded : new THREE.Mesh(loaded, new THREE.MeshStandardMaterial({ color: 0x9aa3ac, roughness: .6 }));
-      const box = new THREE.Box3().setFromObject(object); object.position.sub(box.getCenter(new THREE.Vector3()));
-      object.scale.multiplyScalar(135 / Math.max(box.getSize(new THREE.Vector3()).length(), 1)); scene.add(object);
-      const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
-      mount.innerHTML = ''; mount.appendChild(renderer.domElement);
-      const tick = () => { frame = requestAnimationFrame(tick); controls.update(); renderer.render(scene, camera); }; tick();
-    }, undefined, () => message('Het 3D-voorbeeld kon niet worden geladen.', file.url));
+    loader.load(file.url, (loaded) => build(loaded, isObj), undefined, () => message('Het 3D-voorbeeld kon niet worden geladen.', file.url));
   } catch (error) { console.error(error); message('Het 3D-voorbeeld is tijdelijk niet beschikbaar.', file.url); }
 }
-document.addEventListener('click', (event) => { const button = event.target.closest('[data-preview]'); if (button) show(files[Number(button.dataset.preview)]); });
+function build(loaded, isObj) {
+  const width = Math.max(mount.clientWidth, 280), height = Math.max(mount.clientHeight, 240);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xefebe3);
+  const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 5000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setSize(width, height); renderer.localClippingEnabled = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 2.1));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(120, 220, 140); scene.add(sun);
+  // Laag-voor-laag opbouw: een snijvlak schuift van de printplaat omhoog.
+  const clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  const material = new THREE.MeshStandardMaterial({ color, roughness: .55, metalness: .02, clippingPlanes: [clip], side: THREE.DoubleSide });
+  let object;
+  if (isObj) { object = loaded; object.traverse((child) => { if (child.isMesh) child.material = material; }); }
+  else { loaded.computeVertexNormals(); object = new THREE.Mesh(loaded, material); }
+  // STL's zijn meestal Z-boven; zet het model rechtop op de plaat.
+  if (!isObj) object.rotation.x = -Math.PI / 2;
+  const holder = new THREE.Group(); holder.add(object); scene.add(holder);
+  let box = new THREE.Box3().setFromObject(holder);
+  const size = box.getSize(new THREE.Vector3());
+  const scale = 120 / Math.max(size.x, size.y, size.z, 1);
+  holder.scale.setScalar(scale);
+  box = new THREE.Box3().setFromObject(holder);
+  const center = box.getCenter(new THREE.Vector3());
+  holder.position.set(-center.x, -box.min.y, -center.z);
+  const modelHeight = box.max.y - box.min.y;
+  // Printplaat met raster
+  const bedSize = 220;
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(bedSize, 3, bedSize), new THREE.MeshStandardMaterial({ color: 0x1b232b, roughness: .8 }));
+  bed.position.y = -1.6; scene.add(bed);
+  const grid = new THREE.GridHelper(bedSize, 22, 0x3b4651, 0x2c3640); grid.position.y = 0.05; scene.add(grid);
+  const target = new THREE.Vector3(0, modelHeight * .45, 0);
+  const home = new THREE.Vector3(150, 110 + modelHeight * .5, 170);
+  camera.position.copy(home); camera.lookAt(target);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.copy(target); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .49;
+  controls.minDistance = 60; controls.maxDistance = 600;
+  controls.autoRotate = !reduceMotion; controls.autoRotateSpeed = 1.1;
+  controls.addEventListener('start', () => setSpin(false));
+  mount.innerHTML = ''; mount.appendChild(renderer.domElement);
+  const observer = new ResizeObserver(() => {
+    const w = Math.max(mount.clientWidth, 280), h = Math.max(mount.clientHeight, 240);
+    renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+  });
+  observer.observe(mount);
+  const started = performance.now();
+  const duration = reduceMotion ? 0 : 1800;
+  const tick = (time) => {
+    const progress = duration ? Math.min((time - started) / duration, 1) : 1;
+    clip.constant = (1 - Math.pow(1 - progress, 2)) * (modelHeight + 1);
+    controls.update(); renderer.render(scene, camera);
+    view.frame = requestAnimationFrame(tick);
+  };
+  view = { renderer, controls, camera, home, target, observer, frame: 0 };
+  view.frame = requestAnimationFrame(tick);
+  if (tools) { tools.hidden = false; setSpin(controls.autoRotate); }
+}
+function setSpin(on) {
+  if (!view) return;
+  view.controls.autoRotate = on;
+  const button = document.querySelector('[data-viewer="spin"]');
+  if (button) button.setAttribute('aria-pressed', String(on));
+}
+document.addEventListener('click', (event) => {
+  const preview = event.target.closest('[data-preview]');
+  if (preview) { show(files[Number(preview.dataset.preview)]); mount.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' }); return; }
+  const tool = event.target.closest('[data-viewer]');
+  if (!tool || !view) return;
+  const action = tool.dataset.viewer;
+  if (action === 'spin') setSpin(!view.controls.autoRotate);
+  if (action === 'reset') { view.camera.position.copy(view.home); view.controls.target.copy(view.target); view.controls.update(); }
+  if (action === 'full') { const wrap = mount.closest('.viewer-wrap'); if (document.fullscreenElement) document.exitFullscreen(); else if (wrap.requestFullscreen) wrap.requestFullscreen().catch(() => {}); }
+});
 show(files.find((file) => /\\.(stl|obj)$/i.test(file.name)) || files[0]);
 </script>`;
 }
 
-const pageScript = `<script>
-document.addEventListener('click', function (event) {
-  var opener = event.target.closest('[data-open]');
-  if (opener) { var dialog = document.getElementById(opener.getAttribute('data-open')); if (dialog && dialog.showModal) dialog.showModal(); }
-  var closer = event.target.closest('[data-close]');
-  if (closer) { var parent = closer.closest('dialog'); if (parent) parent.close(); }
-});
-document.querySelectorAll('[data-thread]').forEach(function (thread) { thread.scrollTop = thread.scrollHeight; });
-</script>`;
+const pageScript = `<script src="/assets/portal.js?v=${assetVersion}" defer></script>`;
 
 export function renderPortalPage(quote, allQuotes, saved = '') {
   const state = stateOf(quote);
-  const body = `${notice(saved)}${statusSection(quote, state)}<div class="grid-2"><div class="stack">${quotePanel(quote, state)}${filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack">${detailsPanel(quote)}${messagesPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
+  const body = `${notice(saved)}${statusSection(quote, state)}<div class="portal-layout"><div class="stack area-main">${quotePanel(quote, state)}${filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack area-chat">${messagesPanel(quote)}</div><div class="stack area-side">${detailsPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
   return renderShell({ title: `Project ${quote.id}`, topbar: topbar(quote, allQuotes, 'project'), body, scripts: pageScript + viewerScript(quote) });
 }
 
@@ -360,7 +434,7 @@ export function renderAccountPage(quote, allQuotes, saved = '') {
   const invoicePanel = `<section class="panel" aria-labelledby="inv-title"><div class="panel-head"><h2 id="inv-title">Facturen</h2></div><div class="panel-body">${invoiceItems.length ? `<ul class="actions-list">${invoiceItems.join('')}</ul>` : '<p class="empty">Na je betaling staat hier je factuur.</p>'}</div></section>`;
   const intro = `<section class="status-text"><span class="label">Account</span><h1>${e(quote.name || 'Je account')}</h1><p>Je contact- en factuurgegevens, je projecten en je facturen.</p></section>`;
   const body = `${notice(saved)}${intro}<div class="grid-2"><div class="stack">${contact}</div><div class="stack">${projectList}${invoicePanel}</div></div>${footer()}`;
-  return renderShell({ title: 'Account', topbar: topbar(quote, allQuotes, 'account'), body });
+  return renderShell({ title: 'Account', topbar: topbar(quote, allQuotes, 'account'), body, scripts: pageScript });
 }
 
 function notFound() {

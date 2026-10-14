@@ -3,9 +3,11 @@ import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const stylesheetPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public/app.css');
-// Versie in de URL zodat browsers na een deploy direct de nieuwe opmaak laden.
-const assetVersion = (() => { try { return Math.round(statSync(stylesheetPath).mtimeMs).toString(36); } catch { return '1'; } })();
+const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
+// Versie in de URL zodat browsers na een deploy direct de nieuwe opmaak en scripts laden.
+export const assetVersion = (() => {
+  try { return ['app.css', 'portal.js'].map((file) => Math.round(statSync(path.join(publicDir, file)).mtimeMs).toString(36)).join(''); } catch { return '1'; }
+})();
 
 export function e(value = '') {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
