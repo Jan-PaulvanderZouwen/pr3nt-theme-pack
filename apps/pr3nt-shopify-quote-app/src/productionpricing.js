@@ -107,7 +107,7 @@ export function applyAutomaticProductionPrice(quote = {}) {
   return changed;
 }
 
-async function updateMissingProductionPrices() {
+export async function updateMissingProductionPrices() {
   let quotes = [];
   try {
     quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));

@@ -12,7 +12,7 @@ const dataDir = path.resolve(appRoot, process.env.DATA_DIR || 'data');
 const uploadDir = path.resolve(appRoot, process.env.UPLOAD_DIR || 'uploads/quotes');
 const quotesFilePath = path.join(dataDir, 'quotes.json');
 const baseUrl = process.env.APP_BASE_URL || 'https://app.pr3nt.nl';
-const archiveRetentionDays = Number(process.env.QUOTE_ARCHIVE_RETENTION_DAYS || 30);
+export const archiveRetentionDays = Number(process.env.QUOTE_ARCHIVE_RETENTION_DAYS || 30);
 
 const statuses = [
   ['received', 'Order ontvangen'],
@@ -70,7 +70,7 @@ function quoteLines(quote) {
   return [];
 }
 
-function quoteTotal(quote) {
+export function quoteTotal(quote) {
   return quoteLines(quote).reduce((sum, line) => sum + money(line.qty || 1) * money(line.unit || 0), 0);
 }
 
@@ -83,16 +83,16 @@ function statusOptions(selected) {
   return statuses.map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${label}</option>`).join('');
 }
 
-function ensurePortalToken(quote) {
+export function ensurePortalToken(quote) {
   if (!quote.portalToken) quote.portalToken = randomUUID();
   return quote.portalToken;
 }
 
-function portalUrl(quote) {
+export function portalUrl(quote) {
   return `${baseUrl}/portal/${encodeURIComponent(ensurePortalToken(quote))}`;
 }
 
-function applyAutomaticStatus(quote) {
+export function applyAutomaticStatus(quote) {
   if (quote.archivedAt || ['print_queue', 'ready_to_ship', 'shipped', 'delivered'].includes(quote.status)) return;
   if (quote.trackingCode) return void (quote.status = 'shipped');
   if (quote.paidAt || quote.status === 'paid') return void (quote.status = 'paid');
@@ -101,7 +101,7 @@ function applyAutomaticStatus(quote) {
   quote.status = quote.status || 'received';
 }
 
-function archiveDeleteDate(archivedAt = new Date().toISOString()) {
+export function archiveDeleteDate(archivedAt = new Date().toISOString()) {
   const date = new Date(archivedAt);
   date.setDate(date.getDate() + archiveRetentionDays);
   return date.toISOString();
@@ -137,7 +137,7 @@ async function purgeExpiredArchives(quotes) {
   return { quotes: keep, changed };
 }
 
-async function readQuotes() {
+export async function readQuotes() {
   let quotes = [];
   try {
     quotes = JSON.parse(await readFile(quotesFilePath, 'utf8'));
@@ -150,7 +150,7 @@ async function readQuotes() {
   return purged.quotes;
 }
 
-async function writeQuotes(quotes) {
+export async function writeQuotes(quotes) {
   await writeFile(quotesFilePath, JSON.stringify(quotes, null, 2));
 }
 

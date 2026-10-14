@@ -23,6 +23,8 @@ import { registerQuoteTemplateRoutes } from './quotetemplate.js';
 import { registerProductionPricingRoutes } from './productionpricing.js';
 import { registerFilamentRoutes } from './filament.js';
 import { registerPortalViewRoutes } from './portalview.js';
+import { registerAdminViewRoutes } from './adminview.js';
+import { registerWorkViewRoutes } from './workview.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -320,6 +322,13 @@ app.use('/assets', express.static(path.join(appRoot, 'public'), { maxAge: '1h' }
 // Nieuw klantportaal. Staat bovenaan zodat de oude HTML-aanpassende middleware deze pagina's niet meer raakt.
 // Terug naar het oude portaal: zet PORTAL_DESIGN=classic in .env en herstart.
 if (process.env.PORTAL_DESIGN !== 'classic') registerPortalViewRoutes(app);
+
+// Nieuw beheer (orders, productie, planning, filament, instellingen, cijfers, website). Alleen de pagina's (GET) en het inloggen;
+// opslaan loopt nog via de bestaande routes hieronder. Terug naar het oude beheer: zet ADMIN_DESIGN=classic in .env en herstart.
+if (process.env.ADMIN_DESIGN !== 'classic' && process.env.PORTAL_DESIGN !== 'classic') {
+  registerAdminViewRoutes(app);
+  registerWorkViewRoutes(app);
+}
 
 registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);

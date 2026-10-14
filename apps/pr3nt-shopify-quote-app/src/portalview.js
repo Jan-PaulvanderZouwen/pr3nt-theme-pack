@@ -54,17 +54,17 @@ function accountProjects(current, allQuotes) {
   return allQuotes.filter((quote) => !quote.archivedAt && String(quote.email || '').toLowerCase() === email);
 }
 
-function quoteFiles(quote) {
+export function quoteFiles(quote) {
   if (Array.isArray(quote.files) && quote.files.length) return quote.files.filter((file) => file && file.url);
   if (quote.fileUrl) return [{ url: quote.fileUrl, originalName: quote.fileOriginalName || 'model.stl' }];
   return [];
 }
 
-function fileName(file) {
+export function fileName(file) {
   return String(file.originalName || file.safeOriginalName || file.storedName || 'Bestand');
 }
 
-function fileExt(file) {
+export function fileExt(file) {
   const match = fileName(file).match(/\.([a-z0-9]+)$/i);
   return match ? match[1].toUpperCase() : 'BESTAND';
 }
@@ -295,7 +295,7 @@ function notice(saved) {
 }
 
 // Filamentkleur van de aanvraag, zodat het 3D-voorbeeld lijkt op wat de klant krijgt.
-function filamentColor(name = '') {
+export function filamentColor(name = '') {
   const value = String(name).toLowerCase();
   const colors = [
     [/zwart|black/, 0x2a2f35], [/wit|white|naturel|natural/, 0xe9e6df], [/grijs|grey|gray|zilver|silver/, 0x8d949b],
@@ -307,7 +307,7 @@ function filamentColor(name = '') {
   return match ? match[1] : 0x9aa3ac;
 }
 
-function viewerScript(quote) {
+export function viewerScript(quote) {
   const files = quoteFiles(quote).map((file, index) => ({ index, name: fileName(file), url: file.url }));
   if (!files.length) return '';
   const config = { files, color: filamentColor(quote.color) };
