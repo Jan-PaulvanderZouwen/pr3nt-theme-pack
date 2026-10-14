@@ -40,6 +40,13 @@
     }
   }
 
+  // Hover over een printlaag licht dezelfde stap in de lijst op
+  var stepItems = document.querySelectorAll('.steps li');
+  document.querySelectorAll('.layers span').forEach(function (layer, index) {
+    layer.addEventListener('mouseenter', function () { if (stepItems[index]) stepItems[index].classList.add('is-hover'); });
+    layer.addEventListener('mouseleave', function () { if (stepItems[index]) stepItems[index].classList.remove('is-hover'); });
+  });
+
   // Bedrag telt op naar het totaal
   document.querySelectorAll('[data-count]').forEach(function (el) {
     var target = Number(el.getAttribute('data-count'));

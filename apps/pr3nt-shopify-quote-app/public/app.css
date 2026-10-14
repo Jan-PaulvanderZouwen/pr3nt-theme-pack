@@ -63,7 +63,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* 2. Paginaopbouw */
 .app {
-  max-width: 1440px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 20px max(clamp(16px, 3vw, 40px), env(safe-area-inset-right, 0px)) 64px max(clamp(16px, 3vw, 40px), env(safe-area-inset-left, 0px));
   display: grid;
@@ -495,27 +495,12 @@ dialog {
 dialog::backdrop { background: rgba(16, 24, 32, .45); }
 dialog .panel-head h2 { font-size: 18px; }
 
-/* Portaalindeling: hoofdkolom, berichten en projectinfo.
-   Breed: drie kolommen. Middel: berichten onder de projectinfo. Smal: alles onder elkaar. */
+/* Portaalindeling: brede hoofdkolom met offerte en bestanden, smalle kolom met projectinfo en berichten. */
 .portal-layout {
   display: grid;
   gap: var(--gap);
   align-items: start;
-  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
-  grid-template-areas: "main side" "main chat";
-}
-.area-main { grid-area: main; }
-.area-side { grid-area: side; }
-.area-chat { grid-area: chat; }
-
-@media (min-width: 1240px) {
-  .portal-layout {
-    grid-template-columns: minmax(0, 1.55fr) minmax(280px, .95fr) minmax(300px, 1fr);
-    grid-template-areas: "main side chat";
-  }
-  .area-chat { position: sticky; top: 16px; }
-  .area-chat .thread { max-height: calc(100vh - 290px); min-height: 220px; }
-  .status { grid-template-columns: minmax(0, 2.5fr) minmax(300px, 1fr); }
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
 }
 
 /* 7. Beweging en interactie */
@@ -538,9 +523,9 @@ dialog .panel-head h2 { font-size: 18px; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .status-text, .action, .portal-layout .stack > .panel { animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 .action { animation-delay: .12s; }
-.area-main > .panel:nth-child(1), .area-side > .panel:nth-child(1) { animation-delay: .18s; }
-.area-chat > .panel, .area-main > .panel:nth-child(2), .area-side > .panel:nth-child(2) { animation-delay: .26s; }
-.area-main > .panel:nth-child(n+3), .area-side > .panel:nth-child(n+3) { animation-delay: .34s; }
+.portal-layout .stack > .panel:nth-child(1) { animation-delay: .18s; }
+.portal-layout .stack > .panel:nth-child(2) { animation-delay: .26s; }
+.portal-layout .stack > .panel:nth-child(n+3) { animation-delay: .34s; }
 .panel.will-reveal { opacity: 0; transform: translateY(14px); animation: none; }
 .panel.will-reveal.is-in { opacity: 1; transform: none; transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .2, 1), border-color .2s ease; }
 
@@ -567,12 +552,17 @@ dialog .panel-head h2 { font-size: 18px; }
   z-index: 2;
 }
 .layers span:hover::after { opacity: 1; transform: translate(-50%, 0); }
+.layers span:hover { background: var(--line-strong); }
+.layers span.done:hover { background: #4A5865; }
+.layers span.now:hover { background: #00A86B; animation-play-state: paused; }
+.steps li { transition: background-color .15s ease; border-radius: var(--r-sm); padding-inline: 6px; margin-inline: -6px; }
+.steps li.is-hover { background: var(--soft); }
 .layers span:first-child::after { left: 0; transform: translate(0, 4px); }
 .layers span:first-child:hover::after { transform: none; }
 .layers span:last-child::after { left: auto; right: 0; transform: translate(0, 4px); }
 .layers span:last-child:hover::after { transform: none; }
 .layers { padding-top: 4px; }
-.layers span { height: 10px; transition: height .15s ease; }
+.layers span { height: 10px; transition: height .15s ease, background-color .15s ease; }
 .layers:hover span { height: 12px; }
 
 .steps { font-size: 13.5px; }
@@ -634,7 +624,7 @@ dialog .panel-head h2 { font-size: 18px; }
 /* 8. Responsive */
 @media (max-width: 900px) {
   .status, .grid-2 { grid-template-columns: 1fr; }
-  .portal-layout { grid-template-columns: 1fr; grid-template-areas: "main" "chat" "side"; }
+  .portal-layout { grid-template-columns: 1fr; }
   .app { gap: 22px; }
 }
 

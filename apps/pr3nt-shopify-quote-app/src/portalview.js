@@ -414,7 +414,7 @@ const pageScript = `<script src="/assets/portal.js?v=${assetVersion}" defer></sc
 
 export function renderPortalPage(quote, allQuotes, saved = '') {
   const state = stateOf(quote);
-  const body = `${notice(saved)}${statusSection(quote, state)}<div class="portal-layout"><div class="stack area-main">${quotePanel(quote, state)}${filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack area-chat">${messagesPanel(quote)}</div><div class="stack area-side">${detailsPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
+  const body = `${notice(saved)}${statusSection(quote, state)}<div class="portal-layout"><div class="stack">${quotePanel(quote, state)}${filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack">${detailsPanel(quote)}${messagesPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
   return renderShell({ title: `Project ${quote.id}`, topbar: topbar(quote, allQuotes, 'project'), body, scripts: pageScript + viewerScript(quote) });
 }
 
