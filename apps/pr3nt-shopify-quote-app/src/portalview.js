@@ -68,6 +68,29 @@ function fileExt(file) {
   return match ? match[1].toUpperCase() : 'BESTAND';
 }
 
+// Verwacht klaar: alleen als de print in Productie is ingepland en nog niet klaar is.
+function expectedReady(quote, state) {
+  if (!quote.scheduledEndAt || state.index >= statusIndex('ready_to_ship')) return '';
+  const end = new Date(quote.scheduledEndAt);
+  if (Number.isNaN(end.getTime())) return '';
+  const day = end.toLocaleDateString('nl-NL', { timeZone: 'Europe/Amsterdam', weekday: 'long', day: 'numeric', month: 'long' });
+  const time = end.toLocaleTimeString('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' });
+  return `${day}, rond ${time}`;
+}
+
+// Track & trace-link. Standaard PostNL (de vervoerder achter MyParcel); een geplakte URL wordt direct gebruikt.
+function trackingUrl(quote) {
+  const code = String(quote.trackingCode || '').trim();
+  if (!code) return '';
+  if (/^https?:\/\//i.test(code)) return code;
+  const shipping = shippingOf(quote);
+  const country = /belgi|^be$/i.test(String(shipping.country || '')) ? 'BE' : 'NL';
+  const postal = String(shipping.postalCode || '').replace(/\s+/g, '').toUpperCase();
+  const barcode = encodeURIComponent(code.replace(/\s+/g, ''));
+  if (postal) return `https://jouw.postnl.nl/track-and-trace/${barcode}-${country}-${encodeURIComponent(postal)}`;
+  return `https://postnl.nl/tracktrace/?B=${barcode}&D=${country}&T=C`;
+}
+
 function vatLabel() {
   return vatRatePercent().toLocaleString('nl-NL', { maximumFractionDigits: 2 });
 }
@@ -101,10 +124,10 @@ function heading(quote, state) {
       ? ['Je offerte staat klaar', state.payUrl ? 'Kijk de regels na. Klopt alles, accepteer dan de offerte en betaal direct via Mollie.' : 'Kijk de regels na en geef akkoord als alles klopt.']
       : ['We maken je offerte', 'We controleren materiaal, printtijd en haalbaarheid. Je hoeft nu niets te doen.'],
     accepted: ['Akkoord ontvangen', 'We zetten de betaallink voor je klaar. We starten met printen zodra de betaling binnen is.'],
-    paid: ['Betaling ontvangen', 'Bedankt. We plannen je print in en laten het weten zodra hij op de printer ligt.'],
+    paid: ['Betaling ontvangen', quote.scheduledEndAt ? 'Bedankt. Je print is ingepland, hieronder zie je wanneer hij klaar is.' : 'Bedankt. We plannen je print in en laten het weten zodra hij op de printer ligt.'],
     print_queue: ['Je print wordt gemaakt', 'Je model staat in de wachtrij of ligt op de printer.'],
     ready_to_ship: ['Klaar voor verzending', 'Je print is klaar en wordt verpakt.'],
-    shipped: ['Je pakket is onderweg', quote.trackingCode ? 'Volg je pakket met de track & trace-code hieronder.' : 'Je pakket is aan de vervoerder meegegeven.'],
+    shipped: ['Je pakket is onderweg', quote.trackingCode ? 'Met de knop Volg je pakket zie je waar hij nu is.' : 'Je pakket is aan de vervoerder meegegeven.'],
     delivered: ['Geleverd', 'Veel plezier met je print. We horen graag hoe hij is bevallen.'],
   };
   return map[state.status] || map.received;
@@ -136,7 +159,7 @@ function actionPanel(quote, state) {
     return `<div class="action"><span class="label">Openstaand bedrag</span>${amount}<a class="btn btn-primary" href="${e(state.payUrl)}">Betaal veilig via Mollie</a><p>Je betaalt met iDEAL of Bancontact.</p></div>`;
   }
   if (state.status === 'shipped' && quote.trackingCode) {
-    return `<div class="action"><span class="label">Track & trace</span><div class="code"><span>${e(quote.trackingCode)}</span><button class="btn btn-quiet" type="button" data-copy="${e(quote.trackingCode)}">Kopiëren</button></div><p>Gebruik deze code op de site van de vervoerder.</p></div>`;
+    return `<div class="action"><span class="label">Track & trace</span><a class="btn btn-primary" href="${e(trackingUrl(quote))}" target="_blank" rel="noopener">Volg je pakket</a><div class="code"><span>${e(quote.trackingCode)}</span><button class="btn btn-quiet" type="button" data-copy="${e(quote.trackingCode)}">Kopiëren</button></div><p>Je volgt je pakket op de site van PostNL.</p></div>`;
   }
   if (state.status === 'ready_to_ship' && !addressComplete(shippingOf(quote))) {
     return `<div class="action"><span class="label">Nog nodig</span><p>We hebben je verzendadres nodig om je print te versturen.</p><a class="btn btn-dark" href="#verzending">Verzendadres invullen</a></div>`;
@@ -159,8 +182,9 @@ function statusSection(quote, state) {
   const active = state.status !== 'delivered';
   const layers = statuses.map(([, label], index) => `<span class="${index < state.index ? 'done' : index === state.index ? `now${active ? ' active' : ''}` : ''}" style="--i:${index}" data-label="${index + 1}. ${e(label)}"></span>`).join('');
   const steps = statuses.map(([, label], index) => `<li class="${index < state.index ? 'done' : index === state.index ? 'now' : ''}"><span class="mono">${String(index + 1).padStart(2, '0')}</span>${e(label)}${index === state.index ? '<em>nu</em>' : ''}</li>`).join('');
+  const ready = expectedReady(quote, state);
   const facts = [quote.material, quote.color, String(quote.rush || '').toLowerCase().startsWith('j') ? 'Spoed' : ''].filter(Boolean).map((fact) => `<span>${e(fact)}</span>`).join('');
-  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${statuses.length} · ${e(statuses[state.index][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${statuses.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div><details class="steps"><summary>Alle stappen bekijken</summary><ol>${steps}</ol></details>${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
+  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${statuses.length} · ${e(statuses[state.index][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${statuses.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div><details class="steps"><summary>Alle stappen bekijken</summary><ol>${steps}</ol></details>${ready ? `<div class="eta"><span class="label">Verwacht klaar</span><strong>${e(ready)}</strong></div>` : ''}${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
 }
 
 function quotePanel(quote, state) {
