@@ -358,8 +358,231 @@
   });
 
   // Productiebord: kaart die net verplaatst is in beeld brengen
-  var moved = document.querySelector('.job.is-moved');
-  if (moved) moved.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+  function showMoved() {
+    var landed = document.querySelector('.job.is-moved, .job-row.is-moved');
+    if (landed) landed.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+    return landed;
+  }
+  var moved = showMoved();
+
+  // ---------- Productiebord: kaarten slepen ----------
+  // Een kaart oppakken laat hem aan je cursor hangen en meeslingeren. Loslaten in een andere kolom
+  // verstuurt hetzelfde formulier als de knoppen op de kaart, en ververst daarna alleen het bord.
+  if (document.querySelector('[data-board]')) {
+    document.body.classList.add('can-drag');
+    var drag = null;
+    var interactive = 'a, button, input, select, textarea, summary, label, details[open], .job-files';
+
+    function fieldsFor(card, lane) {
+      var d = card.dataset;
+      var planned = Boolean(d.start);
+      var fields = { assignedPrinter: d.printer, scheduledStartAt: d.start, estimatedPrintHours: d.hours };
+      if (lane === 'plan') { fields.status = 'paid'; fields.scheduledStartAt = ''; }
+      if (lane === 'planned') {
+        fields.status = 'paid';
+        if (!planned) { fields.assignedPrinter = d.slotPrinter; fields.scheduledStartAt = d.slotStart; }
+      }
+      if (lane === 'printing') {
+        fields.status = 'print_queue';
+        if (!planned) { fields.assignedPrinter = d.nowPrinter; fields.scheduledStartAt = d.nowStart; }
+      }
+      if (lane === 'ship') fields.status = 'ready_to_ship';
+      return fields;
+    }
+
+    function laneAt(x, y) {
+      var el = document.elementFromPoint(x, y);
+      return el && el.closest ? el.closest('.lane[data-lane]') : null;
+    }
+
+    function setOver(lane) {
+      if (drag.over === lane) return;
+      if (drag.over) drag.over.classList.remove('is-over');
+      if (drag.slot) drag.slot.remove();
+      drag.over = lane;
+      drag.slot = null;
+      if (lane && lane.dataset.lane !== drag.from) {
+        lane.classList.add('is-over');
+        drag.slot = document.createElement('div');
+        drag.slot.className = 'drop-slot';
+        drag.slot.style.height = drag.rect.height + 'px';
+        drag.slot.innerHTML = '<span>Hier loslaten</span>';
+        var body = lane.querySelector('.lane-body');
+        var empty = body.querySelector('.lane-empty');
+        body.insertBefore(drag.slot, empty || body.firstChild);
+      }
+    }
+
+    function start() {
+      var card = drag.card;
+      var rect = card.getBoundingClientRect();
+      drag.rect = rect;
+      drag.ox = drag.x - rect.left;
+      drag.oy = drag.y - rect.top;
+      var ghost = card.cloneNode(true);
+      ghost.removeAttribute('id');
+      ghost.classList.remove('is-moved');
+      ghost.classList.add('job-ghost');
+      ghost.setAttribute('aria-hidden', 'true');
+      ghost.style.width = rect.width + 'px';
+      ghost.style.transformOrigin = drag.ox + 'px ' + drag.oy + 'px';
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      drag.started = true;
+      drag.angle = 0;
+      drag.spin = reduceMotion ? 0 : (drag.x > rect.left + rect.width / 2 ? -2.4 : 2.4);
+      drag.lastX = drag.x;
+      drag.lift = 0;
+      drag.t0 = performance.now();
+      card.classList.add('is-lifted');
+      document.body.classList.add('is-dragging');
+      if (navigator.vibrate && drag.touch) navigator.vibrate(12);
+      tick();
+    }
+
+    // Slinger: de kaart hangt aan het punt waar je hem vastpakt en zwaait na met de beweging.
+    function tick() {
+      if (!drag || !drag.started || drag.dropping) return;
+      var dx = drag.x - drag.lastX;
+      drag.lastX = drag.x;
+      if (!reduceMotion) {
+        var sway = Math.sin((performance.now() - drag.t0) / 420) * 0.6;
+        drag.spin += dx * 0.32 - (drag.angle - sway) * 0.09;
+        drag.spin *= 0.86;
+        drag.angle = Math.max(-26, Math.min(26, drag.angle + drag.spin));
+      }
+      drag.lift = Math.min(1, drag.lift + 0.18);
+      var scale = 1 + 0.04 * drag.lift;
+      drag.ghost.style.transform = 'translate(' + (drag.x - drag.ox) + 'px,' + (drag.y - drag.oy) + 'px) rotate(' + drag.angle.toFixed(2) + 'deg) scale(' + scale + ')';
+      autoScroll();
+      drag.frame = requestAnimationFrame(tick);
+    }
+
+    function autoScroll() {
+      var edge = 60;
+      var board = document.querySelector('[data-board]');
+      if (drag.y < edge) window.scrollBy(0, -Math.ceil((edge - drag.y) / 4));
+      else if (drag.y > window.innerHeight - edge) window.scrollBy(0, Math.ceil((drag.y - window.innerHeight + edge) / 4));
+      if (board && board.scrollWidth > board.clientWidth) {
+        var box = board.getBoundingClientRect();
+        if (drag.x < box.left + edge) board.scrollLeft -= Math.ceil((box.left + edge - drag.x) / 4);
+        else if (drag.x > box.right - edge) board.scrollLeft += Math.ceil((drag.x - box.right + edge) / 4);
+      }
+      setOver(laneAt(drag.x, drag.y));
+    }
+
+    function settle(ghost, rect, done) {
+      ghost.classList.add('is-settling');
+      ghost.style.transform = 'translate(' + rect.left + 'px,' + rect.top + 'px) rotate(0deg) scale(1)';
+      var finished = false;
+      function end() { if (finished) return; finished = true; done(); }
+      ghost.addEventListener('transitionend', end);
+      setTimeout(end, reduceMotion ? 0 : 320);
+    }
+
+    function cleanup() {
+      if (!drag) return;
+      clearTimeout(drag.timer);
+      cancelAnimationFrame(drag.frame);
+      if (drag.over) drag.over.classList.remove('is-over');
+      if (drag.slot) drag.slot.remove();
+      if (drag.ghost) drag.ghost.remove();
+      drag.card.classList.remove('is-lifted');
+      document.body.classList.remove('is-dragging');
+      drag = null;
+    }
+
+    function swapBoard(html) {
+      var next = new DOMParser().parseFromString(html, 'text/html');
+      var live = next.querySelector('[data-work-live]');
+      if (!live || !next.querySelector('[data-board]')) return false;
+      document.querySelector('[data-work-live]').replaceWith(live);
+      ['.side-nav', '.side-printers'].forEach(function (selector) {
+        var fresh = next.querySelector(selector);
+        var old = document.querySelector(selector);
+        if (fresh && old) old.replaceWith(fresh);
+      });
+      showMoved();
+      return true;
+    }
+
+    function drop() {
+      var lane = drag.over;
+      var target = lane && lane.dataset.lane;
+      cancelAnimationFrame(drag.frame);
+      drag.dropping = true;
+      if (!target || target === drag.from) {
+        var home = drag.card.getBoundingClientRect();
+        settle(drag.ghost, home, cleanup);
+        return;
+      }
+      var current = drag;
+      settle(current.ghost, current.slot.getBoundingClientRect(), function () {
+        current.ghost.classList.add('is-saving');
+      });
+      var body = new URLSearchParams(fieldsFor(current.card, target));
+      fetch(current.card.dataset.action, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Opslaan mislukt');
+          return response.text();
+        })
+        .then(function (html) {
+          if (!swapBoard(html)) throw new Error('Onverwacht antwoord');
+          if (current.ghost) current.ghost.remove();
+          document.body.classList.remove('is-dragging');
+          drag = null;
+        })
+        .catch(function () { window.location.reload(); });
+    }
+
+    document.addEventListener('pointerdown', function (event) {
+      if (drag || event.button > 0) return;
+      var card = event.target.closest && event.target.closest('[data-board] .job[data-drag]');
+      if (!card || event.target.closest(interactive)) return;
+      drag = { card: card, from: card.dataset.lane, x: event.clientX, y: event.clientY, sx: event.clientX, sy: event.clientY, id: event.pointerId, touch: event.pointerType !== 'mouse' };
+      // Op een telefoon even vasthouden om op te pakken, zodat scrollen gewoon blijft werken
+      if (drag.touch) drag.timer = setTimeout(function () { if (drag && !drag.started) start(); }, 260);
+    });
+
+    document.addEventListener('pointermove', function (event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag.x = event.clientX;
+      drag.y = event.clientY;
+      if (drag.started || drag.dropping) return;
+      var moved = Math.abs(drag.x - drag.sx) + Math.abs(drag.y - drag.sy);
+      if (drag.touch) { if (moved > 10) cleanup(); }
+      else if (moved > 6) start();
+    });
+
+    document.addEventListener('touchmove', function (event) {
+      if (drag && drag.started) event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('pointerup', function (event) {
+      if (!drag || event.pointerId !== drag.id || drag.dropping) return;
+      if (drag.started) drop();
+      else cleanup();
+    });
+
+    document.addEventListener('pointercancel', function (event) {
+      if (drag && event.pointerId === drag.id && !drag.dropping) cleanup();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && drag && drag.started && !drag.dropping) {
+        setOver(null);
+        drop();
+      }
+    });
+
+    // Een sleepbeweging is geen klik
+    document.addEventListener('click', function (event) {
+      if (document.body.classList.contains('is-dragging')) { event.preventDefault(); event.stopPropagation(); }
+    }, true);
+    document.addEventListener('contextmenu', function (event) {
+      if (drag && drag.touch) event.preventDefault();
+    });
+  }
   if (window.location.hash && /^#q-/.test(window.location.hash)) {
     var card = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
     if (card) {

@@ -67,6 +67,28 @@ function progressOf(quote) {
   return { pct, left: Math.max(0, (end - now) / 60000) };
 }
 
+// Wat een kaart nodig heeft om naar een andere kolom gesleept te worden (zie public/admin.js).
+// Zonder planning: 'Ingepland' pakt de eerste vrije plek, 'Printen' start nu op de printer die het eerst vrij is.
+function dragData(quote, quotes, settings, column) {
+  const hours = printHours(quote);
+  const planned = String(quote.scheduledStartAt || '').slice(0, 16);
+  const slot = planned ? null : nextFreeSlot(quotes, settings, hours);
+  const free = planned ? null : nextFreeSlot(quotes, settings, hours, { fromNow: true });
+  const attrs = {
+    'data-drag': quote.id,
+    'data-action': `/admin/work/quotes/${encodeURIComponent(quote.id)}`,
+    'data-lane': column,
+    'data-printer': quote.assignedPrinter || '',
+    'data-start': planned,
+    'data-hours': String(quote.estimatedPrintHours || hours),
+    'data-slot-printer': slot?.printer?.id || '',
+    'data-slot-start': slot?.start || '',
+    'data-now-printer': free?.printer?.id || '',
+    'data-now-start': free ? nowWallClock().stamp.slice(0, 16) : '',
+  };
+  return Object.entries(attrs).map(([key, value]) => `${key}="${e(value)}"`).join(' ');
+}
+
 function boardCard(quote, quotes, settings, user, moved) {
   const column = columnOf(quote);
   const id = encodeURIComponent(quote.id);
@@ -91,26 +113,67 @@ function boardCard(quote, quotes, settings, user, moved) {
     const label = column === 'ship' && quote.myParcelLabelUrl ? `<a class="btn" href="${e(quote.myParcelLabelUrl)}" target="_blank" rel="noopener">Label</a>` : '';
     actions = `<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${column === 'ship' ? 'btn-dark' : 'btn-primary'}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>${label}${column !== 'ship' ? `<details class="card-more"><summary class="btn btn-quiet">Planning</summary><form class="form" method="post" action="${action}"><input type="hidden" name="status" value="${e(quote.status)}">${planFields(quote, settings)}<button class="btn" type="submit">Opslaan</button></form></details>` : ''}`;
   }
-  return `<article class="job${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}"><div class="job-head"><strong>${name}</strong>${isRush(quote) ? '<em class="tag-rush">Spoed</em>' : ''}</div><p class="job-meta">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span></p><p class="job-facts"><span>${e(hoursText(printHours(quote)))}</span>${amount ? `<span>${e(euro(amount))}</span>` : ''}<span class="mono">${e(quote.id)}</span></p>${when}${bar}${fileLinks ? `<div class="job-files">${fileLinks}</div>` : ''}<div class="job-actions">${actions}</div></article>`;
+  return `<article class="job${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}" ${dragData(quote, quotes, settings, column)}><div class="job-head"><strong>${name}</strong>${isRush(quote) ? '<em class="tag-rush">Spoed</em>' : ''}</div><p class="job-meta">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span></p><p class="job-facts"><span>${e(hoursText(printHours(quote)))}</span>${amount ? `<span>${e(euro(amount))}</span>` : ''}<span class="mono">${e(quote.id)}</span></p>${when}${bar}${fileLinks ? `<div class="job-files">${fileLinks}</div>` : ''}<div class="job-actions">${actions}</div></article>`;
 }
 
-function workPage({ context, user, moved }) {
+// Lijstweergave: dezelfde orders per fase onder elkaar, met één knop voor de volgende stap.
+function listAction(quote, quotes, settings, column) {
+  const action = `/admin/work/quotes/${encodeURIComponent(quote.id)}`;
+  const hours = String(quote.estimatedPrintHours || printHours(quote));
+  if (column === 'plan') {
+    const slot = nextFreeSlot(quotes, settings, printHours(quote));
+    return `<form method="post" action="${action}"><input type="hidden" name="status" value="paid"><input type="hidden" name="assignedPrinter" value="${e(slot.printer?.id || '')}"><input type="hidden" name="scheduledStartAt" value="${e(slot.start)}"><input type="hidden" name="estimatedPrintHours" value="${e(hours)}"><button class="btn btn-dark" type="submit" title="Eerste vrije plek waar deze print in past">Inplannen ${e(clockText(slot.start))}</button></form>`;
+  }
+  const next = { planned: ['print_queue', 'Start printen', 'btn-primary'], printing: ['ready_to_ship', 'Klaar ✓', 'btn-primary'], ship: ['shipped', 'Verzonden', 'btn-dark'] }[column];
+  return `<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${next[2]}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>`;
+}
+
+function listRow(quote, quotes, settings, user, moved) {
+  const column = columnOf(quote);
+  const id = encodeURIComponent(quote.id);
+  const printer = printerOf(quote, settings);
+  const name = isAdmin(user) ? `<a href="/admin/quotes/${id}">${e(quote.name || 'Order')}</a>` : e(quote.name || 'Order');
+  const progress = column === 'printing' ? progressOf(quote) : null;
+  const when = quote.scheduledStartAt
+    ? `<strong>${e(printer?.name || 'Printer')}</strong><small>${e(clockText(quote.scheduledStartAt))}–${e(timeOnly(quote.scheduledEndAt))}</small>`
+    : '<strong class="muted">Nog geen plek</strong><small>Betaald</small>';
+  const bar = progress ? `<span class="row-progress" style="--p:${progress.pct}%" title="${progress.pct}%"><i></i></span>` : '';
+  return `<article class="job-row${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}"><div class="row-main"><strong>${name}${isRush(quote) ? ' <em class="tag-rush">Spoed</em>' : ''}</strong><small>${dot(quote.color)}${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')} · <span class="mono">${e(quote.id)}</span></small></div><div class="row-when">${when}${bar}</div><div class="row-hours num">${e(hoursText(printHours(quote)))}</div><div class="row-action">${listAction(quote, quotes, settings, column)}</div></article>`;
+}
+
+function workList(orders, quotes, settings, user, moved) {
+  return `<div class="work-list">${columns.map(([key, label, hint]) => {
+    const rows = orders.filter((quote) => columnOf(quote) === key);
+    if (!rows.length) return '';
+    return `<section class="work-group group-${key}"><header><h2>${label}</h2><span class="lane-count num">${rows.length}</span><small>${hint}</small></header>${rows.map((quote) => listRow(quote, quotes, settings, user, quote.id === moved)).join('')}</section>`;
+  }).join('')}</div>`;
+}
+
+function viewToggle(view) {
+  const item = (key, label, icon) => `<a href="/admin/work?view=${key}" ${view === key ? 'aria-current="page"' : ''}>${icon}<span>${label}</span></a>`;
+  const boardIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1"/><rect x="6.25" y="2" width="3.5" height="8" rx="1"/><rect x="11" y="2" width="3.5" height="10" rx="1"/></svg>';
+  const listIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="2.5" rx="1"/><rect x="1.5" y="6.75" width="13" height="2.5" rx="1"/><rect x="1.5" y="11" width="13" height="2.5" rx="1"/></svg>';
+  return `<nav class="view-toggle" aria-label="Weergave">${item('bord', 'Bord', boardIcon)}${item('lijst', 'Lijst', listIcon)}</nav>`;
+}
+
+function workPage({ context, user, moved, view = 'bord' }) {
   const { quotes, settings } = context;
   const orders = productionOrders(quotes).sort((a, b) => (isRush(b) - isRush(a)) || String(a.scheduledStartAt || 'z').localeCompare(String(b.scheduledStartAt || 'z')) || String(a.paidAt || a.createdAt).localeCompare(String(b.paidAt || b.createdAt)));
   const slot = nextFreeSlot(quotes, settings, 1);
   const plannedHours = orders.filter((quote) => quote.scheduledStartAt && quote.status !== 'ready_to_ship').reduce((sum, quote) => sum + printHours(quote), 0);
   const cols = columns.map(([key, label, hint], index) => {
     const cards = orders.filter((quote) => columnOf(quote) === key);
-    return `<section class="lane lane-${key}" style="--i:${index}" aria-labelledby="lane-${key}"><header class="lane-head"><h2 id="lane-${key}">${label}</h2><span class="lane-count num">${cards.length}</span><small>${hint}</small></header><div class="lane-body">${cards.map((quote) => boardCard(quote, quotes, settings, user, quote.id === moved)).join('') || '<p class="lane-empty">Leeg</p>'}</div></section>`;
+    return `<section class="lane lane-${key}" style="--i:${index}" data-lane="${key}" aria-labelledby="lane-${key}"><header class="lane-head"><h2 id="lane-${key}">${label}</h2><span class="lane-count num">${cards.length}</span><small>${hint}</small></header><div class="lane-body">${cards.map((quote) => boardCard(quote, quotes, settings, user, quote.id === moved)).join('') || '<p class="lane-empty">Leeg</p>'}</div></section>`;
   }).join('');
   const text = orders.length
     ? `${plural(orders.length, 'order', 'orders')} in de werkplaats, ${hoursText(plannedHours)} ingepland. ${slot.isNow ? `${slot.printer?.name || 'Een printer'} is nu vrij.` : `Eerstvolgende vrije printer: ${slot.printer?.name || 'printer'}, ${clockText(slot.start)}.`}`
     : 'De werkplaats is leeg. Zodra er een order betaald is, verschijnt hij hier.';
   const movedQuote = moved ? quotes.find((quote) => quote.id === moved) : null;
   const flash = movedQuote ? (movedQuote.status === 'shipped' ? notice(`Verzonden! ${movedQuote.name || 'De klant'} krijgt een mail.`, 'party') : notice(`${movedQuote.name || 'Order'} staat nu bij ${statusText(movedQuote).toLowerCase()}.`)) : '';
-  const head = pageHead({ eyebrow: 'Werkplaats', title: 'Productie', text: e(text), actions: '<a class="btn" href="/admin/work/agenda">Planning bekijken</a>' });
-  const body = orders.length ? `<div class="board">${cols}</div>` : `<section class="panel">${emptyState('Niks op de planning', 'Tijd om de printbedden schoon te maken.')}</section>`;
-  return renderAdmin({ title: 'Productie', user, active: 'work', context, body: flash + head + body });
+  const head = pageHead({ eyebrow: 'Werkplaats', title: 'Productie', text: e(text), actions: `${orders.length ? viewToggle(view) : ''}<a class="btn" href="/admin/work/agenda">Planning bekijken</a>` });
+  const content = view === 'lijst' ? workList(orders, quotes, settings, user, moved) : `<div class="board" data-board>${cols}</div>`;
+  const body = orders.length ? content : `<section class="panel">${emptyState('Niks op de planning', 'Tijd om de printbedden schoon te maken.')}</section>`;
+  return renderAdmin({ title: 'Productie', user, active: 'work', context, body: `<div data-work-live>${flash}${head}${body}</div>` });
 }
 
 // ---------- Planning ----------
@@ -324,7 +387,11 @@ export function registerWorkViewRoutes(app) {
   app.get('/admin/work', staffOnly, async (req, res) => {
     await updateMissingProductionPrices().catch(() => {});
     const context = await adminContext(req.internalUser);
-    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || '') }));
+    // Bord of lijst: een keuze via ?view= wordt onthouden in een cookie
+    const asked = ['bord', 'lijst'].includes(req.query.view) ? req.query.view : '';
+    if (asked) res.cookie('pr3nt_work_view', asked, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 1000 * 60 * 60 * 24 * 365 });
+    const view = asked || (req.cookies?.pr3nt_work_view === 'lijst' ? 'lijst' : 'bord');
+    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || ''), view }));
   });
 
   app.get('/admin/work/agenda', staffOnly, async (req, res) => {
