@@ -36,7 +36,7 @@ function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-function humanize(value) {
+export function humanize(value) {
   return String(value).replace(/[-_]/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (char) => char.toUpperCase());
 }
 
@@ -48,7 +48,7 @@ function pathAttr(pathValue) {
   return escapeHtml(JSON.stringify(pathValue));
 }
 
-function renderFields(value, currentPath = []) {
+export function renderFields(value, currentPath = []) {
   if (Array.isArray(value)) {
     return `<div class="repeat-list">${value.map((item, index) => `<fieldset class="repeat-item"><legend>${escapeHtml(`${humanize(currentPath.at(-1) || 'Onderdeel')} ${index + 1}`)}</legend>${renderFields(item, [...currentPath, index])}</fieldset>`).join('')}</div>`;
   }
@@ -65,7 +65,7 @@ function renderFields(value, currentPath = []) {
   return '';
 }
 
-async function readStore() {
+export async function readStore() {
   try {
     const parsed = JSON.parse(await readFile(contentPath, 'utf8'));
     if (parsed?.pages) return parsed;
@@ -157,6 +157,7 @@ export function registerSiteContentRoutes(app) {
   app.post('/admin/website/media', requireAdmin, mediaUpload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).send('Bestandstype niet toegestaan');
     const url = `${baseUrl}/site-media/${encodeURIComponent(req.file.filename)}`;
+    if (process.env.ADMIN_DESIGN !== 'classic' && process.env.PORTAL_DESIGN !== 'classic') return res.redirect(`/admin/website?${new URLSearchParams({ key: String(req.body?.key || ''), media: url, name: req.file.originalname || '' })}`);
     res.send(renderPage('Media geüpload', `<section class="card"><div class="eyebrow">MEDIA</div><h1>Upload geslaagd</h1><p class="muted">Kopieer deze URL naar een afbeeldingsveld in Websitebeheer.</p><div class="media-result"><strong>${escapeHtml(req.file.originalname)}</strong><br>${escapeHtml(url)}</div><div class="nav" style="margin-top:18px"><a class="button green" href="/admin/website">Terug naar websitebeheer</a></div></section>`));
   });
 
