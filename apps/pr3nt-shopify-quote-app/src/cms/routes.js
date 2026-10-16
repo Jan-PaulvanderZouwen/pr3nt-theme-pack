@@ -83,7 +83,17 @@ function productFromBody(b) {
 
 const EMPTY_PRODUCT = { name: '', brand: '', sku: '', category_id: '', material: 'PLA', weight: '1 kg', diameter: '1,75 mm', sort: 0, slug: '', price: '', purchase_price: '', summary: '', description: '', highlights: [], colors: [], colors_out: [], in_stock: 1, featured: 0, print_profile: '', print_settings: {}, images: [] };
 
-const SETTING_KEY = { bedrijf: 'site', homepage: 'usecases', faq: 'faq', inspiratie: 'inspiratie', prijzen: 'pricing' };
+const SETTING_KEY = { bedrijf: 'site', menu: 'menu', homepage: 'usecases', faq: 'faq', inspiratie: 'inspiratie', prijzen: 'pricing' };
+
+// Link uit het menu-formulier: eigen domein wordt een pad (/prijzen), "prijzen" krijgt een / ervoor.
+function linkOf(x) {
+  let h = str(x).trim();
+  if (!h) return '';
+  h = h.replace(/^(https?:\/\/)?(www\.)?pr3nt\.nl(?=\/|$)/i, '') || '/';
+  if (/^www\./i.test(h)) h = `https://${h}`;
+  if (!/^(\/|https?:|mailto:|tel:)/i.test(h)) h = `/${h}`;
+  return h.replace(/^http:\/\//i, 'https://');
+}
 
 function settingFromBody(tab, b, current) {
   if (tab === 'bedrijf') {
@@ -93,6 +103,10 @@ function settingFromBody(tab, b, current) {
       showAddress: on(b.showAddress), printer: str(b.printer).trim(), maxUploadMb: num(b.maxUploadMb) ?? current.maxUploadMb,
       social: { ...(current.social || {}), instagram: str(b.instagram).trim(), tiktok: str(b.tiktok).trim(), youtube: str(b.youtube).trim() },
     };
+  }
+  if (tab === 'menu') {
+    const links = (name) => { const hrefs = arr(b[`${name}_href`]); return arr(b[`${name}_label`]).map((label, i) => ({ label: str(label).trim(), href: linkOf(hrefs[i]) })).filter((l) => l.label || l.href); };
+    return { header: links('h'), footerText: str(b.footerText).trim(), footer: [0, 1].map((i) => ({ title: str(b[`f${i}_title`]).trim(), links: links(`f${i}`) })) };
   }
   if (tab === 'homepage') {
     return [0, 1, 2, 3].map((i) => ({ title: str(b[`u${i}_title`]).trim(), text: str(b[`u${i}_text`]).trim(), image: str(b[`u${i}_image`]).trim().replace(/^\/media\//, ''), alt: str(b[`u${i}_alt`]).trim(), href: str(b[`u${i}_href`]).trim() })).filter((c) => c.title);

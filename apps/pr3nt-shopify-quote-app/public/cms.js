@@ -175,7 +175,7 @@
     update();
   });
 
-  // ---------- Herhaalrijen (vragen, inspiratie) ----------
+  // ---------- Herhaalrijen (vragen, inspiratie, menulinks) ----------
   document.addEventListener('click', function (event) {
     var add = event.target.closest('[data-repeat-add]');
     if (add) {
@@ -188,6 +188,13 @@
       var first = $('input, textarea', copy);
       if (first) first.focus();
       touch(add.closest('form'));
+      return;
+    }
+    var up = event.target.closest('[data-repeat-up]');
+    if (up) {
+      var item = up.closest('[data-repeat-row]');
+      var prev = item && item.previousElementSibling;
+      if (prev) { item.parentNode.insertBefore(item, prev); up.focus(); touch(item.closest('form')); }
       return;
     }
     var remove = event.target.closest('[data-repeat-remove]');
