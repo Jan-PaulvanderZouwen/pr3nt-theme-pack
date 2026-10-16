@@ -1537,6 +1537,7 @@ body.is-login { background: var(--paper); }
 .repeat { display: grid; gap: 8px; }
 .repeat-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto; gap: 8px; align-items: start; }
 .repeat-row textarea { min-height: 42px; }
+.repeat-row.cms-link-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto; align-items: center; }
 .cms-insp { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); }
 .cms-insp textarea { grid-column: 1 / 5; }
 .cms-insp [data-repeat-remove] { grid-column: 5; grid-row: 1; }
@@ -1600,8 +1601,9 @@ body.is-login { background: var(--paper); }
 .cms-settings { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); align-items: start; }
 .cms-settings > form, .cms-settings > section { display: grid; gap: var(--gap); }
 .cms-cards-edit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.cms-cards-edit fieldset { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 10px; margin: 0; }
-.cms-cards-edit legend { font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 0 6px; }
+.cms-menu-cols { display: grid; gap: 12px; }
+.cms-cards-edit fieldset, .cms-menu-cols fieldset { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 10px; margin: 0; }
+.cms-cards-edit legend, .cms-menu-cols legend { font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 0 6px; }
 
 
 @media (max-width: 1100px) {
@@ -1612,6 +1614,8 @@ body.is-login { background: var(--paper); }
 }
 @media (max-width: 700px) {
   .repeat-row, .cms-insp, .cms-cards-edit { grid-template-columns: minmax(0, 1fr); }
+  .repeat-row.cms-link-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .cms-link-row input:nth-child(2) { grid-column: 1; grid-row: 2; }
   .cms-insp textarea, .cms-insp [data-repeat-remove] { grid-column: auto; grid-row: auto; }
   .pblock-head small { display: none; }
   .cms-daybars { gap: 2px; height: 150px; }
