@@ -25,6 +25,7 @@ import { registerFilamentRoutes } from './filament.js';
 import { registerPortalViewRoutes } from './portalview.js';
 import { registerAdminViewRoutes } from './adminview.js';
 import { registerWorkViewRoutes } from './workview.js';
+import { registerCmsRoutes } from './cms/routes.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,8 +76,9 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors({ origin: config.allowedOrigin, methods: ['POST', 'GET', 'OPTIONS'] }));
 app.use(cookieParser());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Ruim genoeg voor lange artikelen en pagina's uit het website-CMS
+app.use(express.urlencoded({ extended: true, limit: '5mb', parameterLimit: 20000 }));
+app.use(express.json({ limit: '5mb' }));
 
 function clean(value, max = 2000) {
   return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
@@ -325,6 +327,8 @@ if (process.env.PORTAL_DESIGN !== 'classic') registerPortalViewRoutes(app);
 
 // Nieuw beheer (orders, productie, planning, filament, instellingen, cijfers, website). Alleen de pagina's (GET) en het inloggen;
 // opslaan loopt nog via de bestaande routes hieronder. Terug naar het oude beheer: zet ADMIN_DESIGN=classic in .env en herstart.
+// Website-CMS voor pr3nt.nl op /admin/website (altijd aan, ook in het oude beheer)
+registerCmsRoutes(app);
 if (process.env.ADMIN_DESIGN !== 'classic' && process.env.PORTAL_DESIGN !== 'classic') {
   registerAdminViewRoutes(app);
   registerWorkViewRoutes(app);

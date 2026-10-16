@@ -122,15 +122,32 @@ npm start
 
 Gebruik daarna bijvoorbeeld PM2 en Nginx reverse proxy.
 
-## Websitebeheer vanuit app.pr3nt.nl
+## Website-CMS (pr3nt.nl beheren)
 
-Na de update is het websitebeheer beschikbaar via:
+Alles van pr3nt.nl beheer je op:
 
 ```text
 https://app.pr3nt.nl/admin/website
 ```
 
-Gebruik dezelfde `ADMIN_KEY` als voor het bestaande aanvraagdashboard. Vanuit dit scherm beheer je pagina-teksten, SEO-velden en afbeeldingskoppelingen. Afbeeldingen kunnen via **Media uploaden** worden toegevoegd; de URL kan daarna in een afbeeldingsveld worden gebruikt. De website haalt gepubliceerde inhoud uit `/api/site-content` en valt automatisch terug op de ingebouwde content als de app tijdelijk niet bereikbaar is.
+In het menu onder **Website**: overzicht, pagina's (met blokken, concept en publiceren), kennisbank, webshop (producten, categorieën, shopinstellingen), bestellingen, foto's, SEO (scan, Google-voorbeeld, doorverwijzingen, kapotte links), klanten, berichten, producenten en instellingen. Bij elke opslag wordt de vorige versie bewaard, zodat je altijd kunt terugzetten.
+
+De website (repo `Website`, draait in Docker op poort 3200) bewaart alle inhoud. Dit CMS praat er server-naar-server mee via `/api/cms`, beveiligd met een gedeelde sleutel. Zet in **beide** `.env`-bestanden dezelfde sleutel:
+
+```bash
+openssl rand -hex 32
+```
+
+```text
+# .env van app.pr3nt.nl
+CMS_TOKEN=<de sleutel>
+WEBSITE_URL=http://127.0.0.1:3200
+WEBSITE_PUBLIC_URL=https://pr3nt.nl
+
+# /opt/pr3nt/.env van de website
+CMS_TOKEN=<dezelfde sleutel>
+CMS_URL=https://app.pr3nt.nl/admin/website
+```
 
 Na een pull op de VPS:
 
