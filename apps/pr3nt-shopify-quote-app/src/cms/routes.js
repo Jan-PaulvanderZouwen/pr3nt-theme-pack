@@ -24,6 +24,9 @@ const FLASH = {
   herprijsd: 'Verkoopprijzen opnieuw berekend.',
   mail: 'Mail verstuurd.',
   testmail: 'Testmail verstuurd. Kijk in je inbox.',
+  verstuurd: 'De mail wordt nu verstuurd. Je kunt deze pagina gerust sluiten.',
+  gestopt: 'Versturen gestopt.',
+  doorgaan: 'Versturen gaat verder.',
 };
 const flashOf = (req) => FLASH[req.query.ok] || '';
 const go = (res, path, ok) => res.redirect(303, url(`${path}${ok ? `${path.includes('?') ? '&' : '?'}ok=${ok}` : ''}`));
@@ -149,6 +152,64 @@ export function registerCmsRoutes(app) {
     const hours = sent.map((q) => (new Date(q.quoteSentAt) - new Date(q.createdAt)) / 36e5).filter((h) => h >= 0).sort((a, b) => a - b);
     const quotes = { sent: sent.length, paid: live.filter((q) => inPeriod(q.paidAt)).length, medianHours: hours.length ? hours[Math.floor(hours.length / 2)] : null };
     res.send(v.statsView({ user: user(req), stats, quotes, days }));
+  });
+
+  // ----- Nieuwsbrief -----
+  const mailingData = () => get('mailing');
+  const campaignBody = (b) => ({ subject: str(b.subject), preheader: str(b.preheader), body: str(b.body), button_label: str(b.button_label), button_url: linkOf(b.button_url) });
+  const campaignPage = async (req, res, id, extra = {}) => {
+    const [data, list] = await Promise.all([id ? get(`mailing/campaigns/${id}`) : Promise.resolve({ campaign: null, failedList: [] }), mailingData()]);
+    const testTo = str(req.query.aan) || req.internalUser?.email || (await get('settings/site').catch(() => ({ value: {} }))).value.email || '';
+    res.send(v.campaignView({ user: user(req), campaign: extra.campaign ?? data.campaign, failedList: data.failedList, counts: { ...list.counts, perMinute: list.perMinute }, mail: list.mail, testTo, flash: flashOf(req), ...extra }));
+  };
+  r('get', '/nieuwsbrief', 'cms-mail', async (req, res) => res.send(v.mailingView({ user: user(req), data: await mailingData(), flash: flashOf(req) })));
+  r('get', '/nieuwsbrief/nieuw', 'cms-mail', (req, res) => campaignPage(req, res, null));
+  r('post', '/nieuwsbrief/nieuw', 'cms-mail', async (req, res) => {
+    try { const { campaign } = await post('mailing/campaigns', campaignBody(req.body)); go(res, `/nieuwsbrief/${campaign.id}`, 'opgeslagen'); } catch (error) {
+      await campaignPage(req, res, null, { campaign: { ...campaignBody(req.body), status: 'concept' }, error: error.message });
+    }
+  });
+  r('get', '/nieuwsbrief/:id(\\d+)', 'cms-mail', (req, res) => campaignPage(req, res, req.params.id));
+  r('post', '/nieuwsbrief/:id(\\d+)', 'cms-mail', async (req, res) => {
+    const id = req.params.id;
+    const action = str(req.body.action);
+    try {
+      if (action === 'opslaan') { await put(`mailing/campaigns/${id}`, campaignBody(req.body)); return go(res, `/nieuwsbrief/${id}`, 'opgeslagen'); }
+      if (action === 'test') { const to = str(req.body.to).trim(); await post(`mailing/campaigns/${id}/test`, { to }); return go(res, `/nieuwsbrief/${id}?aan=${enc(to)}`, 'testmail'); }
+      if (action === 'versturen') { await post(`mailing/campaigns/${id}/versturen`); return go(res, `/nieuwsbrief/${id}`, 'verstuurd'); }
+      if (action === 'stoppen') { await post(`mailing/campaigns/${id}/stoppen`); return go(res, `/nieuwsbrief/${id}`, 'gestopt'); }
+      if (action === 'doorgaan' || action === 'opnieuw') { await post(`mailing/campaigns/${id}/doorgaan`, { retry: action === 'opnieuw' }); return go(res, `/nieuwsbrief/${id}`, 'doorgaan'); }
+      if (action === 'kopie') { const { campaign } = await post(`mailing/campaigns/${id}/kopie`); return go(res, `/nieuwsbrief/${campaign.id}`, 'gekopieerd'); }
+      if (action === 'verwijderen') { await del(`mailing/campaigns/${id}`); return go(res, '/nieuwsbrief', 'verwijderd'); }
+      go(res, `/nieuwsbrief/${id}`);
+    } catch (error) {
+      const keep = action === 'opslaan' ? { campaign: { ...(await get(`mailing/campaigns/${id}`)).campaign, ...campaignBody(req.body) } } : {};
+      await campaignPage(req, res, id, { ...keep, error: error.message });
+    }
+  });
+  const subscribersPage = async (req, res, extra = {}) => {
+    const q = { q: str(req.query.q), status: str(req.query.status) };
+    const [found, data] = await Promise.all([get(`mailing/subscribers?q=${enc(q.q)}&status=${enc(q.status)}&limit=200`), mailingData()]);
+    res.send(v.subscribersView({ user: user(req), list: found.subscribers, total: found.total, counts: data.counts, sources: data.sources, query: q, flash: flashOf(req), ...extra }));
+  };
+  r('get', '/nieuwsbrief/ontvangers', 'cms-mail', (req, res) => subscribersPage(req, res));
+  r('get', '/nieuwsbrief/ontvangers.csv', 'cms-mail', async (req, res) => {
+    const { subscribers } = await get('mailing/subscribers?limit=100000');
+    const cell = (x) => `"${String(x ?? '').replace(/"/g, '""').replace(/^[=+\-@]/, "'$&")}"`;
+    const csv = ['email;naam;bron;status;aangemeld_op;afgemeld_op', ...subscribers.map((s) => [s.email, s.name, s.source, s.status, s.created_at, s.unsubscribed_at || ''].map(cell).join(';'))].join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="nieuwsbrief-ontvangers.csv"');
+    res.send(`\ufeff${csv}`);
+  });
+  r('post', '/nieuwsbrief/ontvangers', 'cms-mail', async (req, res) => {
+    const b = req.body;
+    const action = str(b.action);
+    try {
+      if (action === 'toevoegen') { await post('mailing/subscribers', { email: str(b.email).trim(), name: str(b.name).trim(), source: 'handmatig' }); return go(res, '/nieuwsbrief/ontvangers', 'toegevoegd'); }
+      if (action === 'afmelden' || action === 'aanmelden') { await put(`mailing/subscribers/${enc(str(b.id))}`, { status: action === 'afmelden' ? 'afgemeld' : 'actief' }); return go(res, '/nieuwsbrief/ontvangers', 'bijgewerkt'); }
+      if (action === 'verwijderen') { await del(`mailing/subscribers/${enc(str(b.id))}`); return go(res, '/nieuwsbrief/ontvangers', 'verwijderd'); }
+      go(res, '/nieuwsbrief/ontvangers');
+    } catch (error) { await subscribersPage(req, res, { error: error.message }); }
   });
 
   // Overzicht

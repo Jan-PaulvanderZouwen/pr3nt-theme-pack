@@ -26,6 +26,7 @@ import { registerPortalViewRoutes } from './portalview.js';
 import { registerAdminViewRoutes } from './adminview.js';
 import { registerWorkViewRoutes } from './workview.js';
 import { registerCmsRoutes } from './cms/routes.js';
+import { post as cmsPost } from './cms/client.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -417,6 +418,8 @@ app.post('/api/quote', upload.any(), async (req, res) => {
     } else quote.metaobjectId = '';
     await saveQuoteLocally(quote);
     await sendEmails(quote);
+    // Vinkje "tips en aanbiedingen" in het offerteformulier: op de mailinglijst van pr3nt.nl
+    if (clean(req.body.nieuwsbrief, 5) === '1') cmsPost('mailing/subscribers', { email: quote.email, name: quote.name, source: 'offerte' }).catch((error) => console.warn('[nieuwsbrief]', error.message));
     res.json({ ok: true, quoteId, redirect: config.successUrl, portalUrl: `${config.baseUrl}/portal/${quote.portalToken}` });
   } catch (error) {
     console.error(error);
