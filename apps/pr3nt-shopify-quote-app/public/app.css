@@ -1440,6 +1440,7 @@ body.is-login { background: var(--paper); }
 .cms-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cms-actions { text-align: right; white-space: nowrap; }
 .cms-actions .btn { min-height: 32px; }
+.cms-actions form { display: inline; }
 .flush-body .panel-body { padding: 0; }
 .flush-body .panel-body > p { padding: 14px 18px 0; margin: 0; }
 .cms-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }

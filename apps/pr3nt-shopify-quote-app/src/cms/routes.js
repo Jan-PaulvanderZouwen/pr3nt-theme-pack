@@ -12,7 +12,7 @@ const FLASH = {
   opgeslagen: 'Opgeslagen.',
   concept: 'Concept opgeslagen. Bekijk het voorbeeld voordat je publiceert.',
   live: 'Opgeslagen en live op pr3nt.nl.',
-  offline: 'Pagina is offline gehaald.',
+  offline: 'Pagina is offline gehaald. Bij een vaste pagina staat nu weer de oorspronkelijke versie online.',
   verwijderd: 'Verwijderd.',
   gekopieerd: 'Kopie gemaakt. Je bewerkt nu de kopie.',
   teruggezet: 'Versie teruggezet.',
@@ -127,7 +127,15 @@ export function registerCmsRoutes(app) {
   r('get', '', 'cms', async (req, res) => res.send(v.overviewView({ user: user(req), data: await get('overview'), flash: flashOf(req) })));
 
   // ----- Pagina's -----
-  r('get', '/paginas', 'cms-pages', async (req, res) => res.send(v.pagesView({ user: user(req), pages: (await get('pages')).pages, flash: flashOf(req) })));
+  r('get', '/paginas', 'cms-pages', async (req, res) => {
+    const { pages, fixed } = await get('pages');
+    res.send(v.pagesView({ user: user(req), pages, fixed, flash: flashOf(req) }));
+  });
+  // Vaste pagina met de blokkenbouwer bewerken (eerste keer: bestaande secties worden blokken)
+  r('post', '/paginas/vast', 'cms-pages', async (req, res) => {
+    const { page } = await post('pages/fixed', { path: str(req.body.path) });
+    go(res, `/paginas/${page.id}`);
+  });
 
   r('get', '/paginas/nieuw', 'cms-pages', async (req, res) => {
     res.send(v.pageEditView({ user: user(req), page: { data: { title: '', slug: '', intro: '', breadcrumbs: true, blocks: [{ type: 'hero', title: '', text: '' }, { type: 'text', markdown: '' }] }, seo: null }, meta: await meta() }));
@@ -144,8 +152,8 @@ export function registerCmsRoutes(app) {
   });
 
   r('get', '/paginas/:id(\\d+)', 'cms-pages', async (req, res) => {
-    const [{ page, revisions }, m] = await Promise.all([get(`pages/${req.params.id}`), meta()]);
-    res.send(v.pageEditView({ user: user(req), page, meta: m, revisions, flash: flashOf(req) }));
+    const [{ page, revisions, sections }, m] = await Promise.all([get(`pages/${req.params.id}`), meta()]);
+    res.send(v.pageEditView({ user: user(req), page, meta: m, revisions, sections, flash: flashOf(req) }));
   });
   r('post', '/paginas/:id(\\d+)', 'cms-pages', async (req, res) => {
     const id = req.params.id;
@@ -153,14 +161,21 @@ export function registerCmsRoutes(app) {
     if (action === 'dupliceren') { const { page } = await post(`pages/${id}/duplicate`); return go(res, `/paginas/${page.id}`, 'gekopieerd'); }
     if (action === 'offline') { await post(`pages/${id}/unpublish`); return go(res, `/paginas/${id}`, 'offline'); }
     if (action === 'verwijderen') { await del(`pages/${id}`); return go(res, '/paginas', 'verwijderd'); }
+    if (action === 'opnieuw') {
+      // Blokkenversie van een vaste pagina weggooien en opnieuw beginnen vanaf de huidige secties
+      const { page } = await get(`pages/${id}`);
+      await del(`pages/${id}`);
+      const { page: fresh } = await post('pages/fixed', { path: page.fixed });
+      return go(res, `/paginas/${fresh.id}`, 'bijgewerkt');
+    }
     const data = pageFromBody(req.body);
     const publish = action === 'publiceren';
     try {
       await put(`pages/${id}`, { ...data, publish, seo: seoOf(req.body) });
       go(res, `/paginas/${id}`, publish ? 'live' : 'concept');
     } catch (error) {
-      const [{ page, revisions }, m] = await Promise.all([get(`pages/${id}`), meta()]);
-      res.send(v.pageEditView({ user: user(req), page: { ...page, data, seo: seoOf(req.body) }, meta: m, revisions, error: error.message }));
+      const [{ page, revisions, sections }, m] = await Promise.all([get(`pages/${id}`), meta()]);
+      res.send(v.pageEditView({ user: user(req), page: { ...page, data: { ...page.data, ...data }, seo: seoOf(req.body) }, meta: m, revisions, sections, error: error.message }));
     }
   });
 

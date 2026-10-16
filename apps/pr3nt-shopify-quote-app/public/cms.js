@@ -290,6 +290,7 @@
     cta: { label: 'Oproep', help: 'Opvallend vlak met een knop.', fields: [['title', 'Titel', 'text', true], ['text', 'Tekst', 'textarea'], ['buttonLabel', 'Knoptekst'], ['buttonHref', 'Knop gaat naar', 'link']] },
     quoteForm: { label: 'Offerteformulier', help: 'Het bestelformulier, direct op de pagina.', fields: [['title', 'Kopje'], ['text', 'Tekst', 'textarea']] },
     products: { label: 'Producten', help: 'Producten uit de webshop.', fields: [['title', 'Kopje'], ['category', 'Categorie', 'select', false, catOptions], ['limit', 'Aantal', 'number']] },
+    original: { label: 'Vaste sectie', help: 'Een onderdeel dat al op deze pagina stond. Verplaats het, of haal het weg en zet er een eigen blok voor in de plaats.', fields: [] },
     articles: { label: 'Artikelen', help: 'Artikelen uit de kennisbank.', fields: [['title', 'Kopje'], ['category', 'Categorie', 'select', false, artOptions], ['limit', 'Aantal', 'number']] },
   };
   var DEFAULTS = { hero: { title: '', text: '' }, text: { markdown: '' }, image: { image: '', alt: '' }, imageText: { markdown: '', image: '', alt: '' }, cards: { items: [{ title: '', text: '' }] }, faq: { items: [{ q: '', a: '' }] }, cta: { title: '', buttonLabel: 'Offerte aanvragen', buttonHref: '/bestellen' }, quoteForm: { title: 'Vraag direct een offerte aan' }, products: { limit: 4 }, articles: { limit: 3 } };
@@ -331,6 +332,7 @@
   }
 
   function summary(block) {
+    if (block.type === 'original') return (META.sections || [])[block.part] || 'Sectie ' + (Number(block.part) + 1);
     var text = block.title || block.markdown || block.caption || block.alt || (block.items && block.items[0] && (block.items[0].title || block.items[0].q)) || '';
     return String(text).replace(/[#*_\[\]()>-]/g, '').trim().slice(0, 70);
   }
@@ -395,13 +397,28 @@
       });
       holder.appendChild(card);
     });
+    if (typeof drawOriginalChips === 'function') drawOriginalChips();
     updateSeo();
   }
 
   document.addEventListener('mouseup', function () { $$('.pblock[draggable="true"]', holder).forEach(function (c) { c.draggable = false; }); });
 
   var addBar = $('[data-block-add]');
+  var originalBar = el('div', { class: 'chips', hidden: true });
+  addBar.parentNode.appendChild(originalBar);
+  // Vaste pagina: weggehaalde vaste secties kun je terugzetten
+  function drawOriginalChips() {
+    if (!META.fixed) return;
+    originalBar.innerHTML = '';
+    var used = blocks.filter(function (b) { return b.type === 'original'; }).map(function (b) { return Number(b.part); });
+    (META.sections || []).forEach(function (label, part) {
+      if (used.indexOf(part) >= 0) return;
+      originalBar.appendChild(el('button', { type: 'button', class: 'chip', text: '+ Vaste sectie: ' + label, onclick: function () { blocks.push({ type: 'original', part: part }); save(); render(); } }));
+    });
+    originalBar.hidden = !originalBar.children.length;
+  }
   Object.keys(TYPES).forEach(function (key) {
+    if (key === 'original') return;
     addBar.appendChild(el('button', { type: 'button', class: 'chip', text: '+ ' + TYPES[key].label, title: TYPES[key].help, onclick: function () {
       blocks.push(Object.assign({ type: key }, JSON.parse(JSON.stringify(DEFAULTS[key] || {}))));
       save();

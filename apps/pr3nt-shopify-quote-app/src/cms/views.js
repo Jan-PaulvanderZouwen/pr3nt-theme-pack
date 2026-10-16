@@ -54,48 +54,50 @@ export function overviewView({ user, data, flash }) {
 
 // ---------- Pagina's ----------
 
-const FIXED = [
-  ['/', 'Homepage'], ['/bestellen', 'Offerte aanvragen'], ['/prijzen', 'Prijzen'], ['/materialen', 'Materialen'], ['/3d-printen', '3D printen laten doen'],
-  ['/voor-bedrijven', 'Voor bedrijven'], ['/filament', 'Filament (webshop)'], ['/kennisbank', 'Kennisbank'], ['/inspiratie', 'Inspiratie'],
-  ['/producent-worden', 'Producent worden'], ['/faq', 'Veelgestelde vragen'], ['/contact', 'Contact'], ['/privacy', 'Privacy'], ['/voorwaarden', 'Voorwaarden'],
-];
-
-export function pagesView({ user, pages, flash }) {
+export function pagesView({ user, pages, fixed = [], flash }) {
   const rows = pages.map((p) => `<tr><td><a class="cms-strong" href="${url(`/paginas/${p.id}`)}">${e(p.data.title)}</a></td><td class="mono small">/${e(p.slug)}</td><td>${statusPill(p.status)}</td><td class="muted small">${e(agoText(p.updated_at))}</td><td class="cms-actions">${p.published ? `<a class="btn btn-quiet" href="${e(p.url)}" target="_blank" rel="noopener">Bekijk ↗</a>` : ''}<a class="btn btn-quiet" href="${url(`/paginas/${p.id}`)}">Bewerken</a></td></tr>`);
-  const fixed = FIXED.map(([path, label]) => `<tr><td>${e(label)}</td><td class="mono small">${e(path)}</td><td class="cms-actions"><a class="btn btn-quiet" href="${e(site() + path)}" target="_blank" rel="noopener">Bekijk ↗</a><a class="btn btn-quiet" href="${url(`/seo/pagina?path=${encodeURIComponent(path)}`)}">SEO</a></td></tr>`);
+  const fixedStatus = (f) => (!f.page ? pill('Origineel') : f.page.status === 'concept' ? pill('Blokken in concept', 'wait') : statusPill(f.page.status));
+  const editBtn = (f) => (f.page
+    ? `<a class="btn btn-quiet" href="${url(`/paginas/${f.page.id}`)}">Bewerken</a>`
+    : `<form method="post" action="${url('/paginas/vast')}">${hidden('path', f.path)}<button class="btn btn-quiet" type="submit">Bewerken</button></form>`);
+  const fixedRows = fixed.map((f) => `<tr><td>${f.page ? `<a class="cms-strong" href="${url(`/paginas/${f.page.id}`)}">${e(f.label)}</a>` : e(f.label)}</td><td class="mono small">${e(f.path)}</td><td>${fixedStatus(f)}</td><td class="cms-actions"><a class="btn btn-quiet" href="${e(f.url)}" target="_blank" rel="noopener">Bekijk ↗</a>${editBtn(f)}<a class="btn btn-quiet" href="${url(`/seo/pagina?path=${encodeURIComponent(f.path)}`)}">SEO</a></td></tr>`);
   const head = pageHead({ eyebrow: 'Website', title: 'Pagina’s', text: 'Maak eigen pagina’s met blokken: tekst, foto’s, vragen, het offerteformulier of producten uit de shop.', actions: `<a class="btn btn-primary" href="${url('/paginas/nieuw')}">Nieuwe pagina</a>` });
   const body = head + panel('Eigen pagina’s', table(['Titel', 'Adres', 'Status', 'Bijgewerkt', ''], rows, { empty: 'Nog geen eigen pagina’s. Maak je eerste pagina, bijvoorbeeld “Over ons”.' }), { cls: 'flush-body' })
-    + panel('Vaste pagina’s', `<p class="muted small">Deze pagina’s zijn onderdeel van de website. Je past hun teksten in Google aan via SEO, en hun foto’s via Foto’s.</p>${table(['Pagina', 'Adres', ''], fixed)}`);
+    + panel('Vaste pagina’s', `<p class="muted small">Met Bewerken bouw je een vaste pagina op met blokken. De bestaande onderdelen worden dan losse blokken die je kunt verplaatsen of weghalen, en je voegt er eigen blokken tussen. Zolang je niet publiceert, blijft de huidige pagina online.</p>${table(['Pagina', 'Adres', 'Status', ''], fixedRows)}`);
   return cmsPage({ title: 'Pagina’s', user, active: 'cms-pages', body, flash });
 }
 
-export function pageEditView({ user, page, meta, revisions = [], error = '', flash = '' }) {
+export function pageEditView({ user, page, meta, revisions = [], sections = [], error = '', flash = '' }) {
   const isNew = !page.id;
+  const fixed = page.fixed || '';
   const d = page.data;
   const status = isNew ? '' : statusPill(page.status);
   const head = pageHead({
     eyebrow: `<a href="${url('/paginas')}">Pagina’s</a>`, title: isNew ? 'Nieuwe pagina' : e(d.title),
-    text: isNew ? 'Begin met een titel en voeg daarna blokken toe.' : `${status} <span class="mono small">${e(site())}/${e(page.slug)}</span>`,
+    text: isNew ? 'Begin met een titel en voeg daarna blokken toe.' : `${status} <span class="mono small">${e(fixed ? site() + fixed : `${site()}/${page.slug}`)}</span>`,
     actions: isNew ? '' : `${page.published ? ext(page.url) : ''}<a class="btn" href="${e(page.preview)}" target="_blank" rel="noopener">Voorbeeld ↗</a>`,
   });
-  const main = panel('', `<div class="form-grid">
+  const intro = fixed ? panel('', `<p class="small"><strong>Vaste pagina.</strong> De blokken “Vaste sectie” zijn de onderdelen die de pagina nu al heeft. Verplaats ze, haal ze weg of zet er eigen blokken tussen. Wil je een tekst in een vaste sectie zelf aanpassen? Vervang die sectie dan door een eigen blok.</p>${hidden('title', d.title)}${hidden('slug', '')}`) : panel('', `<div class="form-grid">
       ${input({ label: 'Titel', name: 'title', value: d.title, required: true, wide: true, 'data-slug-source': true })}
       <label class="field span-2"><span>Webadres</span><div class="cms-slug"><span>${e(site().replace(/^https?:\/\//, ''))}/</span><input name="slug" value="${e(d.slug)}" data-slug ${isNew ? 'data-slug-auto' : ''} placeholder="over-ons"></div></label>
       ${textarea({ label: 'Introtekst', name: 'intro', value: d.intro, hint: 'onder de titel; ook de omschrijving voor Google als je die niet invult', rows: 2 })}
-    </div>`) + `<section class="panel"><div class="panel-head"><h2>Blokken</h2><span class="muted small">Sleep of gebruik de pijltjes om de volgorde te wijzigen</span></div><div class="panel-body"><div class="pblocks" data-blocks></div>
+    </div>`);
+  const main = intro + `<section class="panel"><div class="panel-head"><h2>Blokken</h2><span class="muted small">Sleep of gebruik de pijltjes om de volgorde te wijzigen</span></div><div class="panel-body"><div class="pblocks" data-blocks></div>
       <div class="block-add"><span class="label">Blok toevoegen</span><div class="chips" data-block-add></div></div></div></section>`;
-  const actions = isNew ? '' : `<div class="btn-row">
+  const actions = isNew ? '' : fixed ? `<div class="btn-row">
+      ${page.published ? '<button class="btn btn-quiet" type="submit" name="action" value="offline" formnovalidate data-confirm-click="De oorspronkelijke pagina weer online zetten? Je blokken blijven bewaard als concept.">Oorspronkelijke pagina terugzetten</button>' : ''}
+      <button class="btn btn-quiet cms-danger" type="submit" name="action" value="opnieuw" formnovalidate data-confirm-click="Je blokken weggooien en opnieuw beginnen met de huidige onderdelen van de pagina?">Opnieuw beginnen</button></div>` : `<div class="btn-row">
       <button class="btn btn-quiet" type="submit" name="action" value="dupliceren" formnovalidate>Dupliceren</button>
       ${page.published ? '<button class="btn btn-quiet" type="submit" name="action" value="offline" formnovalidate data-confirm-click="Pagina offline halen? Bezoekers krijgen dan een 404.">Offline halen</button>' : ''}
       <button class="btn btn-quiet cms-danger" type="submit" name="action" value="verwijderen" formnovalidate data-confirm-click="Pagina definitief verwijderen?">Verwijderen</button></div>`;
-  const side = panel('Publiceren', `<p class="small muted">${isNew ? 'Sla op als concept om eerst een voorbeeld te bekijken.' : page.status === 'gewijzigd' ? 'Er staan wijzigingen klaar die nog niet live zijn.' : page.published ? `Live sinds ${e(dateText(page.published_at, true))}.` : 'Nog niet zichtbaar voor bezoekers.'}</p>${toggle({ label: 'Kruimelpad tonen', name: 'breadcrumbs', checked: d.breadcrumbs !== false })}${actions}`)
-    + seoPanel({ seo: page.seo, path: `/${d.slug || ''}`, fallbackTitle: d.title, fallbackDescription: d.intro })
+  const side = panel('Publiceren', `<p class="small muted">${isNew ? 'Sla op als concept om eerst een voorbeeld te bekijken.' : page.status === 'gewijzigd' ? 'Er staan wijzigingen klaar die nog niet live zijn.' : page.published ? `Live sinds ${e(dateText(page.published_at, true))}.` : (fixed ? 'Nu staat de oorspronkelijke pagina online. Bekijk eerst het voorbeeld en publiceer dan.' : 'Nog niet zichtbaar voor bezoekers.')}</p>${fixed ? hidden('breadcrumbs', '1') : toggle({ label: 'Kruimelpad tonen', name: 'breadcrumbs', checked: d.breadcrumbs !== false })}${actions}`)
+    + seoPanel({ seo: page.seo, path: fixed || `/${d.slug || ''}`, fallbackTitle: d.title, fallbackDescription: d.intro })
     + (isNew ? '' : revisionsPanel(revisions, { inForm: true }));
   const form = `<form method="post" class="cms-editor" data-dirty-form id="page-form" data-page-editor>
     ${hidden('blocks', JSON.stringify(d.blocks || []))}
     <div class="cms-editor-main">${main}</div><aside class="cms-editor-side">${side}</aside>
     ${savebar(`<button class="btn" type="submit" name="action" value="concept">Opslaan als concept</button><button class="btn btn-primary" type="submit" name="action" value="publiceren">${page.published ? 'Opslaan en publiceren' : 'Publiceren'}</button>`, isNew ? 'Nog niet opgeslagen' : 'Alles is opgeslagen')}
-  </form>${mediaDatalist(meta.media)}${dataScript('cms-meta', { categories: meta.productCategories, articleCategories: meta.articleCategories, media: meta.media, site: site() })}`;
+  </form>${mediaDatalist(meta.media)}${dataScript('cms-meta', { categories: meta.productCategories, articleCategories: meta.articleCategories, media: meta.media, site: site(), fixed, sections })}`;
   return cmsPage({ title: isNew ? 'Nieuwe pagina' : d.title, user, active: 'cms-pages', body: head + form, error, flash });
 }
 
