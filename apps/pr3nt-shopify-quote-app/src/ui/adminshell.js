@@ -187,12 +187,25 @@ function navItems(user, counts = {}) {
     ['agenda', '/admin/work/agenda', 'Planning'],
     ['filament', '/admin/filament', 'Filament', counts.filament],
   ].filter(([key]) => isAdmin(user) || key !== 'orders');
+  // Website-CMS: alles van pr3nt.nl (zie src/cms/)
+  const site = isAdmin(user) ? [
+    ['cms', '/admin/website', 'Overzicht'],
+    ['cms-pages', '/admin/website/paginas', 'Pagina’s'],
+    ['cms-articles', '/admin/website/kennisbank', 'Kennisbank'],
+    ['cms-shop', '/admin/website/producten', 'Webshop'],
+    ['cms-orders', '/admin/website/bestellingen', 'Bestellingen'],
+    ['cms-media', '/admin/website/media', 'Foto’s'],
+    ['cms-seo', '/admin/website/seo', 'SEO'],
+    ['cms-customers', '/admin/website/klanten', 'Klanten'],
+    ['cms-messages', '/admin/website/berichten', 'Berichten'],
+    ['cms-producers', '/admin/website/producenten', 'Producenten'],
+    ['cms-settings', '/admin/website/instellingen', 'Instellingen'],
+  ] : [];
   const manage = isAdmin(user) ? [
-    ['website', '/admin/website', 'Website'],
     ['stats', '/admin/work/stats', 'Cijfers'],
     ['options', '/admin/work/options', 'Instellingen'],
   ] : [];
-  return { work, manage };
+  return { work, site, manage };
 }
 
 function navLink([key, href, label, count], active) {
@@ -212,10 +225,10 @@ function printersNow(printers = []) {
 }
 
 function sidebar(user, active, context = {}) {
-  const { work, manage } = navItems(user, context.counts || {});
+  const { work, site, manage } = navItems(user, context.counts || {});
   const named = displayName(user);
   const name = named || (isAdmin(user) ? 'Beheerder' : 'Productie');
-  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav>${printersNow(context.printers)}<div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
+  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${site.length ? `<span class="label">Website</span>${site.map((item) => navLink(item, active)).join('')}` : ''}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav>${printersNow(context.printers)}<div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
 }
 
 export function renderAdmin({ title, user, active, body, context = {}, scripts = '' }) {

@@ -1,4 +1,4 @@
-// Werkplaats: productiebord, planning, filament, instellingen, cijfers en website in de pr3nt-huisstijl.
+// Werkplaats: productiebord, planning, filament, instellingen en cijfers in de pr3nt-huisstijl. De website beheer je in src/cms/.
 // Opslaan gaat via de bestaande POST-routes in myparcel.js, filament.js en sitecontent.js.
 import { randomUUID } from 'node:crypto';
 import { e } from './ui/layout.js';
@@ -12,7 +12,7 @@ import {
 import { isAdmin } from './myparcel.js';
 import { updateMissingProductionPrices } from './productionpricing.js';
 import { stockRows, workerLabel } from './filament.js';
-import { readStore, renderFields, humanize } from './sitecontent.js';
+import { humanize } from './sitecontent.js';
 import { quoteTotalInclVat, money } from './vat.js';
 
 const baseUrl = String(process.env.APP_BASE_URL || 'https://app.pr3nt.nl').replace(/\/$/, '');
@@ -361,24 +361,6 @@ function statsPage({ context, user }) {
   return renderAdmin({ title: 'Cijfers', user, active: 'stats', context, body: head + body });
 }
 
-// ---------- Website ----------
-
-function websitePage({ store, key, user, context, saved, published, media, mediaName }) {
-  const keys = Object.keys(store.pages);
-  const selected = store.pages[key] ? key : keys[0];
-  const entry = store.pages[selected] || {};
-  const value = entry.draft ?? entry.published ?? {};
-  const isDraft = JSON.stringify(entry.draft ?? null) !== JSON.stringify(entry.published ?? null);
-  const pills = `<nav class="tabs" aria-label="Pagina">${keys.map((page) => `<a href="/admin/website?key=${encodeURIComponent(page)}"${page === selected ? ' aria-selected="true"' : ''}>${e(store.pages[page].published?.label || humanize(page))}</a>`).join('')}</nav>`;
-  const flash = saved ? notice(published ? 'Opgeslagen en live op pr3nt.nl.' : 'Concept opgeslagen. Nog niet live.') : media ? notice('Afbeelding geüpload. Kopieer de link hieronder.') : '';
-  const mediaResult = media ? `<div class="media-result"><img src="${e(media)}" alt=""><div><strong>${e(mediaName || 'Afbeelding')}</strong><div class="code"><span>${e(media)}</span><button class="btn btn-quiet" type="button" data-copy="${e(media)}">Kopiëren</button></div></div></div>` : '';
-  const head = pageHead({ eyebrow: 'Beheer', title: 'Website', text: 'Teksten, SEO en afbeeldingen van pr3nt.nl. Pas alleen aan wat nodig is.', actions: '<a class="btn" href="https://pr3nt.nl" target="_blank" rel="noopener">pr3nt.nl openen ↗</a>' });
-  const form = `<section class="panel cms"><div class="panel-head">${pills}${isDraft ? '<span class="pill wait">Concept niet live</span>' : `<span class="muted small">Bijgewerkt ${e(ago(entry.updatedAt))}</span>`}</div><form id="content-form" class="panel-body" novalidate method="post" action="/admin/website/${encodeURIComponent(selected)}" data-dirty-form><input type="hidden" name="content" id="content-json"><input type="hidden" name="revision" value="${e(entry.revision || 0)}">${renderFields(value)}<div class="savebar" data-savebar><label class="toggle"><input type="checkbox" name="publish" value="1" checked><span>Direct live zetten</span></label><span class="savebar-text" data-save-text>Alles is opgeslagen</span><button class="btn btn-primary" type="submit">Opslaan</button></div></form></section>`;
-  const upload = `<section class="panel"><div class="panel-head"><h2>Afbeelding uploaden</h2></div><form class="panel-body form" method="post" action="/admin/website/media" enctype="multipart/form-data"><input type="hidden" name="key" value="${e(selected)}">${mediaResult}<label class="drop"><input type="file" name="file" accept=".jpg,.jpeg,.png,.webp,.avif,.gif,.svg" required><span class="drop-text"><strong>Sleep een afbeelding hierheen</strong> of klik om te kiezen<small>JPG, PNG, WEBP, SVG · max 10 MB</small></span><span class="drop-files" aria-live="polite"></span></label><div><button class="btn btn-dark" type="submit">Uploaden</button></div><p class="muted small">Na het uploaden krijg je een link die je in een afbeeldingsveld plakt.</p></form></section>`;
-  const script = `<script>(function(){var template=${JSON.stringify(value).replace(/</g, '\\u003c')};var form=document.getElementById('content-form');if(!form)return;form.addEventListener('submit',function(){var out=JSON.parse(JSON.stringify(template));document.querySelectorAll('[data-site-field]').forEach(function(field){var path=JSON.parse(field.dataset.sitePath);var target=out;path.forEach(function(part,index){if(index===path.length-1)target[part]=field.value;else target=target[part];});});document.getElementById('content-json').value=JSON.stringify(out);});})();</script>`;
-  return renderAdmin({ title: 'Website', user, active: 'website', context, body: flash + head + form + upload, scripts: script });
-}
-
 // ---------- Routes ----------
 
 export function registerWorkViewRoutes(app) {
@@ -413,12 +395,6 @@ export function registerWorkViewRoutes(app) {
   app.get('/admin/work/stats', admin, async (req, res) => {
     const context = await adminContext(req.internalUser);
     res.send(statsPage({ context, user: req.internalUser }));
-  });
-
-  app.get('/admin/website', adminOnly({ allowOpen: true }), async (req, res) => {
-    const [store, context] = await Promise.all([readStore(), adminContext(req.internalUser)]);
-    const media = /^https?:\/\//.test(String(req.query.media || '')) ? String(req.query.media) : '';
-    res.send(websitePage({ store, key: String(req.query.key || ''), user: req.internalUser, context, saved: req.query.saved === '1', published: req.query.published !== '0', media, mediaName: String(req.query.name || '').slice(0, 120) }));
   });
 }
 
