@@ -191,6 +191,7 @@ function navItems(user, counts = {}) {
   const site = isAdmin(user) ? [
     ['cms', '/admin/website', 'Overzicht'],
     ['cms-stats', '/admin/website/statistieken', 'Statistieken'],
+    ['cms-mail', '/admin/website/nieuwsbrief', 'Nieuwsbrief'],
     ['cms-pages', '/admin/website/paginas', 'Pagina’s'],
     ['cms-articles', '/admin/website/kennisbank', 'Kennisbank'],
     ['cms-shop', '/admin/website/producten', 'Webshop'],

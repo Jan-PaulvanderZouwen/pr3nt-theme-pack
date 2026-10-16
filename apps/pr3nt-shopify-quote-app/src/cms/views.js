@@ -471,3 +471,78 @@ export function statsView({ user, stats, quotes, days }) {
     `<p class="muted small">Bron “Direct” = adres ingetypt, bladwijzer of een app die geen herkomst doorgeeft. Zet <code>?utm_source=naam</code> achter een link (bijv. <code>pr3nt.nl/?utm_source=marktplaats</code>) om je eigen kanalen apart te zien.</p>`);
   return cmsPage({ title: 'Statistieken', user, active: 'cms-stats', body });
 }
+
+// ---------- Nieuwsbrief ----------
+
+const campaignStatus = { concept: ['Concept', 'wait'], bezig: ['Wordt verstuurd', 'act'], gestopt: ['Gestopt', 'wait'], verzonden: ['Verstuurd', 'ok'] };
+const campaignPill = (c) => pill(...(campaignStatus[c.status] || [c.status]));
+const mailTabs = (active) => tabs([['mails', url('/nieuwsbrief'), 'Mails'], ['ontvangers', url('/nieuwsbrief/ontvangers'), 'Ontvangers']], active);
+const noMail = (mail) => (mail ? '' : panel('E-mail is nog niet ingesteld', '<p class="muted small">De website kan nog geen mail versturen. Zet <code>SMTP_URL</code> in <code>/opt/pr3nt/.env</code> en deploy de website. Daarna kun je testmails en nieuwsbrieven versturen.</p>'));
+
+export function mailingView({ user, data, flash, error }) {
+  const c = data.counts;
+  const sentCount = data.campaigns.filter((x) => x.status === 'verzonden').length;
+  const kpi = (label, value, sub, i) => `<div class="kpi" style="--i:${i}"><span class="label">${e(label)}</span><strong class="num">${value}</strong><small>${e(sub)}</small></div>`;
+  const kpis = `<section class="kpis cms-kpis-4">${[
+    kpi('Op de lijst', nl(c.actief), 'ontvangen de nieuwsbrief', 0),
+    kpi('Nieuw', nl(c.nieuw30), 'de afgelopen 30 dagen', 1),
+    kpi('Afgemeld', nl(c.afgemeld), c.actief + c.afgemeld ? `${pctText(c.afgemeld, c.actief + c.afgemeld)} van iedereen` : 'nog niemand', 2),
+    kpi('Verstuurde mails', nl(sentCount), sentCount ? 'nieuwsbrieven' : 'nog geen nieuwsbrief', 3),
+  ].join('')}</section>`;
+  const rows = data.campaigns.map((x) => `<tr><td><a class="cms-strong" href="${url(`/nieuwsbrief/${x.id}`)}">${e(x.subject)}</a></td><td>${campaignPill(x)}</td><td class="num">${x.status === 'concept' ? '–' : `${nl(x.sent)} / ${nl(x.total)}`}</td><td class="num">${x.status === 'concept' ? '–' : nl(x.unsubscribed)}</td><td class="small muted">${e(dateText(x.started_at || x.created_at))}</td></tr>`);
+  const tips = panel('Zo haal je er het meeste uit', `<ul class="cms-tips">
+    <li>Stuur ongeveer één keer per maand, met één duidelijk onderwerp.</li>
+    <li>Laat een print zien die je onlangs hebt gemaakt, of een tip uit de kennisbank.</li>
+    <li>Begin met <code>Hoi {voornaam},</code> dan staat de voornaam van de ontvanger erin.</li>
+    <li>Stuur alleen nieuws over je eigen prints en filament. Onderaan elke mail staat vanzelf een afmeldlink.</li>
+  </ul><p class="muted small">Links naar pr3nt.nl krijgen vanzelf een code, zodat je bij Statistieken ziet hoeveel bezoekers en aanvragen een nieuwsbrief oplevert (bron “Nieuwsbrief”).</p>`);
+  const head = pageHead({ eyebrow: 'Website', title: 'Nieuwsbrief', text: 'Wie een offerte aanvraagt of in de webshop bestelt, komt op de lijst, tenzij hij het vinkje uitzet. Hier schrijf en verstuur je de mails.', actions: `<a class="btn btn-primary" href="${url('/nieuwsbrief/nieuw')}">Nieuwe mail</a>` });
+  const body = head + mailTabs('mails') + noMail(data.mail) + kpis +
+    `<div class="cms-detail"><div>${panel('Mails', table(['Onderwerp', 'Status', 'Verstuurd', 'Afgemeld', 'Datum'], rows, { empty: 'Nog geen mails. Maak je eerste nieuwsbrief met “Nieuwe mail”.' }), { cls: 'flush-body' })}</div><div>${tips}</div></div>`;
+  return cmsPage({ title: 'Nieuwsbrief', user, active: 'cms-mail', body, flash, error });
+}
+
+export function campaignView({ user, campaign: c, counts, mail, testTo, failedList = [], flash, error }) {
+  const isNew = !c?.id;
+  const draft = isNew || c.status === 'concept';
+  const v = c || { subject: '', preheader: '', body: '', button_label: '', button_url: '' };
+  const preview = c?.preview ? panel('Voorbeeld', `<iframe class="cms-mail-preview" sandbox title="Voorbeeld van de mail" srcdoc="${e(c.preview)}"></iframe><p class="muted small">Zo ziet de mail eruit. {voornaam} wordt de voornaam van de ontvanger.</p>`) : '';
+  const head = pageHead({ eyebrow: `<a href="${url('/nieuwsbrief')}">Nieuwsbrief</a>`, title: isNew ? 'Nieuwe mail' : e(v.subject), text: isNew ? 'Schrijf je mail, sla op en stuur eerst een testmail naar jezelf.' : `${campaignPill(c)} · aangemaakt ${e(dateText(c.created_at))}` });
+  if (draft) {
+    const form = `<form method="post" data-dirty-form id="campaign-form">${hidden('action', 'opslaan')}${panel('Mail', `<div class="form-grid">
+      ${input({ label: 'Onderwerp', name: 'subject', value: v.subject, wide: true, required: true, maxlength: 150, placeholder: 'Bijv. Nieuw: prints in PETG Zilver' })}
+      ${input({ label: 'Voorvertoning (optioneel)', name: 'preheader', value: v.preheader, wide: true, maxlength: 200, hint: 'Het grijze regeltje naast het onderwerp in de inbox' })}
+      ${textarea({ label: 'Tekst', name: 'body', value: v.body, rows: 16, hint: 'Gewone tekst met een witregel tussen alinea’s. ## Kopje, **vet**, [linktekst](/kennisbank), ![foto](/media/foto.jpg) en {voornaam} werken ook.' })}
+      ${input({ label: 'Knop (optioneel)', name: 'button_label', value: v.button_label, maxlength: 60, placeholder: 'Bijv. Vraag een offerte aan' })}${input({ label: 'Link van de knop', name: 'button_url', value: v.button_url, placeholder: '/bestellen', class: 'mono' })}</div>`)}
+      ${savebar('<button class="btn btn-primary" type="submit">Opslaan</button>')}</form>`;
+    const side = isNew ? panel('Hoe werkt het?', '<ol class="cms-steps"><li>Schrijf en sla op.</li><li>Stuur een testmail naar jezelf en bekijk hem op je telefoon.</li><li>Verstuur naar iedereen op de lijst.</li></ol>') :
+      `${preview}${panel('Testmail', `<form method="post" class="cms-inline">${hidden('action', 'test')}<input type="email" name="to" value="${e(testTo || '')}" placeholder="jouw@email.nl" required aria-label="E-mailadres voor de test"><button class="btn" type="submit">Testmail sturen</button></form><p class="muted small">Sla eerst op als je iets hebt veranderd.</p>`)}
+       ${panel('Versturen', `<p>Naar <strong>${nl(counts.actief)}</strong> ${counts.actief === 1 ? 'persoon' : 'mensen'} op de lijst. De server verstuurt ze rustig achter elkaar (${nl(counts.perMinute)} per minuut), dan blijft je mailbox betrouwbaar.</p><form method="post" data-confirm="Deze mail nu naar ${nl(counts.actief)} ${counts.actief === 1 ? 'persoon' : 'mensen'} versturen? Dit kan niet ongedaan worden gemaakt.">${hidden('action', 'versturen')}<button class="btn btn-primary" type="submit"${counts.actief && mail ? '' : ' disabled'}>Versturen</button></form>
+       <form method="post" data-confirm="Dit concept verwijderen?" style="margin-top:10px">${hidden('action', 'verwijderen')}<button class="btn btn-quiet cms-danger" type="submit">Concept verwijderen</button></form>`)}`;
+    return cmsPage({ title: isNew ? 'Nieuwe mail' : v.subject, user, active: 'cms-mail', body: `${head}${noMail(mail)}<div class="cms-detail"><div>${form}</div><div class="stack">${side}</div></div>`, flash, error });
+  }
+  const done = c.sent + c.failed;
+  const progress = `<div class="cms-mail-progress"><i style="--w:${c.total ? (done / c.total) * 100 : 0}%"></i></div>
+    <dl class="cms-mail-stats"><div><dt>Verstuurd</dt><dd class="num">${nl(c.sent)} <small>van ${nl(c.total)}</small></dd></div><div><dt>Mislukt</dt><dd class="num">${nl(c.failed)}</dd></div><div><dt>Afgemeld via deze mail</dt><dd class="num">${nl(c.unsubscribed)}</dd></div></dl>
+    <p class="muted small">${c.status === 'bezig' ? `Wordt verstuurd, ${nl(counts.perMinute)} per minuut. Deze pagina ververst vanzelf.` : c.status === 'gestopt' ? 'Gestopt. Wie nog niets kreeg, krijgt de mail als je doorgaat.' : `Klaar op ${e(dateText(c.finished_at, true))}.`}</p>`;
+  const actions = [
+    c.status === 'bezig' ? `<form method="post">${hidden('action', 'stoppen')}<button class="btn" type="submit">Stoppen</button></form>` : '',
+    c.status === 'gestopt' ? `<form method="post">${hidden('action', 'doorgaan')}<button class="btn btn-primary" type="submit">Doorgaan met versturen</button></form>` : '',
+    c.failed && c.status !== 'bezig' ? `<form method="post">${hidden('action', 'opnieuw')}<button class="btn" type="submit">Mislukte opnieuw proberen</button></form>` : '',
+    `<form method="post">${hidden('action', 'kopie')}<button class="btn" type="submit">Kopie maken</button></form>`,
+  ].join('');
+  const failed = failedList.length ? panel('Niet aangekomen', `<ul class="cms-list">${failedList.map((f) => `<li><span><strong>${e(f.email)}</strong><small>${e(f.error)}</small></span></li>`).join('')}</ul>`) : '';
+  const body = `${head}<div class="cms-detail"${c.status === 'bezig' ? ' data-autorefresh' : ''}><div class="stack">${panel('Verzending', progress + `<div class="btn-row">${actions}</div>`)}${failed}</div><div class="stack">${preview}</div></div>`;
+  return cmsPage({ title: v.subject, user, active: 'cms-mail', body, flash, error });
+}
+
+export function subscribersView({ user, list, total, counts, query, sources, flash, error }) {
+  const statusPill = (s) => (s.status === 'actief' ? pill('Aangemeld', 'ok') : pill('Afgemeld', 'wait'));
+  const rows = list.map((s) => `<tr><td><strong>${e(s.email)}</strong>${s.name ? `<div class="muted small">${e(s.name)}</div>` : ''}</td><td class="small">${e(sources[s.source] || s.source)}</td><td class="small muted">${e(dateText(s.created_at))}</td><td>${statusPill(s)}</td>
+    <td><div class="btn-row"><form method="post">${hidden('id', s.id)}${hidden('action', s.status === 'actief' ? 'afmelden' : 'aanmelden')}<button class="btn btn-quiet" type="submit">${s.status === 'actief' ? 'Afmelden' : 'Aanmelden'}</button></form><form method="post" data-confirm="${e(s.email)} helemaal verwijderen? Doe dit alleen als iemand vraagt om zijn gegevens te wissen; na verwijderen kan hij bij een volgende bestelling weer op de lijst komen.">${hidden('id', s.id)}${hidden('action', 'verwijderen')}<button class="btn btn-quiet cms-danger" type="submit" title="Verwijderen">✕</button></form></div></td></tr>`);
+  const filters = `<form class="cms-filters" method="get"><input type="search" name="q" value="${e(query.q || '')}" placeholder="Zoek op e-mail of naam" data-search-input>${select({ label: 'Status', name: 'status', value: query.status || '', options: [['', `Iedereen (${nl(counts.actief + counts.afgemeld)})`], ['actief', `Aangemeld (${nl(counts.actief)})`], ['afgemeld', `Afgemeld (${nl(counts.afgemeld)})`]], onchange: 'this.form.submit()' })}</form>`;
+  const add = panel('Iemand toevoegen', `<form method="post" class="cms-inline">${hidden('action', 'toevoegen')}<input type="email" name="email" placeholder="E-mailadres" required aria-label="E-mailadres"><input name="name" placeholder="Naam (optioneel)" aria-label="Naam"><button class="btn" type="submit">Toevoegen</button></form><p class="muted small">Alleen mensen die hebben gezegd dat ze je nieuwsbrief willen. Klanten krijgen bij het bestellen zelf de keuze.</p>`);
+  const more = total > list.length ? `<p class="muted small">Je ziet de nieuwste ${nl(list.length)} van ${nl(total)}. Zoek om iemand anders te vinden.</p>` : '';
+  const head = pageHead({ eyebrow: 'Website', title: 'Nieuwsbrief', text: 'Iedereen die op de mailinglijst staat of zich heeft afgemeld.', actions: `<a class="btn" href="${url('/nieuwsbrief/ontvangers.csv')}">Exporteren (CSV)</a>` });
+  return cmsPage({ title: 'Ontvangers', user, active: 'cms-mail', body: head + mailTabs('ontvangers') + filters + panel('', table(['Ontvanger', 'Bron', 'Sinds', 'Status', ''], rows, { empty: 'Nog niemand op de lijst.' }), { cls: 'flush-body' }) + more + add, flash, error });
+}

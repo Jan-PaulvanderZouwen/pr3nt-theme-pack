@@ -175,6 +175,9 @@
     update();
   });
 
+  // ---------- Nieuwsbrief: voortgang verversen tijdens het versturen ----------
+  if ($('[data-autorefresh]')) setTimeout(function () { location.reload(); }, 5000);
+
   // ---------- Herhaalrijen (vragen, inspiratie, menulinks) ----------
   document.addEventListener('click', function (event) {
     var add = event.target.closest('[data-repeat-add]');
