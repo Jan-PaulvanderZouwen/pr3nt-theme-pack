@@ -402,3 +402,67 @@ export function settingsView({ user, tab, value, revisions, meta, flash, error }
   const side = revisions?.length ? `<div class="cms-settings-revs">${revisionsPanel(revisions)}</div>` : '';
   return cmsPage({ title: 'Instellingen', user, active: 'cms-settings', body: head + settingTabs(tab) + `<div class="cms-settings">${body}${side}</div>`, flash, error });
 }
+
+// ---------- Statistieken ----------
+
+const nl = (n) => Number(n || 0).toLocaleString('nl-NL');
+const pctText = (a, b) => (b ? `${(Math.round((a / b) * 1000) / 10).toLocaleString('nl-NL')}%` : '–');
+const change = (now, before) => {
+  if (!before) return 'geen cijfers van de periode ervoor';
+  const d = Math.round(((now - before) / before) * 100);
+  return `${d >= 0 ? '+' : ''}${d}% t.o.v. de periode ervoor`;
+};
+const dayLabel = (day) => new Date(`${day}T12:00:00Z`).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/** Dagen samenvoegen tot weken of maanden als de periode lang is. */
+function buckets(daily) {
+  const size = daily.length <= 31 ? 1 : daily.length <= 120 ? 7 : 30;
+  const out = [];
+  for (let i = 0; i < daily.length; i += size) {
+    const part = daily.slice(i, i + size);
+    out.push({ label: size === 1 ? dayLabel(part[0].day) : `${dayLabel(part[0].day)} – ${dayLabel(part.at(-1).day)}`, short: size === 30 ? new Date(`${part[0].day}T12:00:00Z`).toLocaleDateString('nl-NL', { month: 'short', timeZone: 'UTC' }) : dayLabel(part[0].day), visitors: part.reduce((t, d) => t + d.visitors, 0), requests: part.reduce((t, d) => t + d.requests, 0) });
+  }
+  return { size, out };
+}
+
+function funnelList(steps) {
+  const first = steps[0]?.count || 0;
+  return `<ol class="cms-funnel">${steps.map((s, i) => {
+    const prev = i ? steps[i - 1].count : 0;
+    const lost = i && prev > s.count ? prev - s.count : 0;
+    return `<li style="--w:${first ? Math.max(2, (s.count / first) * 100) : 0}%;--i:${i}"><div class="cms-funnel-top"><span>${e(s.label)}</span><strong class="num">${nl(s.count)}</strong></div><i></i><small class="muted">${!i ? 'startpunt' : prev ? `${pctText(s.count, prev)} van de stap ervoor${lost ? ` · ${nl(lost)} afgehaakt` : ''}` : ''}</small></li>`;
+  }).join('')}</ol>`;
+}
+
+export function statsView({ user, stats, quotes, days }) {
+  const t = stats.totals;
+  const p = stats.previous;
+  const { size, out } = buckets(stats.daily);
+  const max = Math.max(1, ...out.map((b) => b.visitors));
+  const every = Math.ceil(out.length / 10);
+  const chart = `<div class="cms-daybars" style="--n:${out.length}" role="img" aria-label="Bezoekers per ${size === 1 ? 'dag' : size === 7 ? 'week' : 'maand'}">${out.map((b, i) => `<div class="cms-daybar" title="${e(b.label)}: ${nl(b.visitors)} bezoekers, ${nl(b.requests)} ${b.requests === 1 ? 'aanvraag' : 'aanvragen'}"><i style="--h:${(b.visitors / max) * 100}%;--i:${i}"${b.requests ? ' class="has-req"' : ''}>${b.requests ? `<b>${b.requests}</b>` : ''}</i><span>${i % every === 0 ? e(b.short) : ''}</span></div>`).join('')}</div>
+    <p class="legend"><span class="key-a">Bezoekers per ${size === 1 ? 'dag' : size === 7 ? 'week' : 'maand'}</span><span class="key-b">Groen met getal = aanvragen</span></p>`;
+  const kpi = (label, value, sub, i) => `<div class="kpi" style="--i:${i}"><span class="label">${e(label)}</span><strong class="num">${value}</strong><small>${e(sub)}</small></div>`;
+  const kpis = `<section class="kpis">${[
+    kpi('Bezoekers', nl(t.visitors), change(t.visitors, p.visitors), 0),
+    kpi('Aanvragen via de site', nl(t.requests), change(t.requests, p.requests), 1),
+    kpi('Bezoekers die aanvragen', pctText(t.requests, t.visitors), 'conversie van de site', 2),
+    kpi('Offertes betaald', nl(quotes.paid), quotes.sent ? `${pctText(quotes.paid, quotes.sent)} van ${nl(quotes.sent)} verstuurde offertes` : 'nog geen offertes verstuurd', 3),
+    kpi('Tijd tot offerte', quotes.medianHours == null ? '–' : quotes.medianHours < 1 ? '&lt; 1 uur' : quotes.medianHours < 48 ? `${Math.round(quotes.medianHours)} uur` : `${Math.round(quotes.medianHours / 24)} dagen`, 'mediaan, van aanvraag tot offerte', 4),
+  ].join('')}</section>`;
+  const sourceRows = stats.sources.map((s) => `<tr><td>${e(s.source)}</td><td class="num">${nl(s.visitors)}</td><td class="num">${nl(s.requests)}</td><td class="num">${pctText(s.requests, s.visitors)}</td></tr>`);
+  const pageRows = stats.pages.map((x) => `<tr><td><a href="${e(site() + x.path)}" target="_blank" rel="noopener" class="mono small">${e(x.path)}</a></td><td class="num">${nl(x.visitors)}</td><td class="num">${nl(x.views)}</td></tr>`);
+  const entryRows = stats.entries.map((x) => `<tr><td class="mono small">${e(x.path)}</td><td class="num">${nl(x.visitors)}</td></tr>`);
+  const devTotal = stats.devices.reduce((s, d) => s + d.visitors, 0);
+  const devices = stats.devices.length ? `<ul class="hbars">${stats.devices.map((d, i) => `<li style="--w:${devTotal ? (d.visitors / devTotal) * 100 : 0}%;--i:${i}"><span>${e(d.device)}</span><i></i><strong class="num">${pctText(d.visitors, devTotal)}</strong></li>`).join('')}</ul>` : '<p class="muted small">Nog geen bezoekers.</p>';
+  const periods = tabs([[7, url('/statistieken?dagen=7'), '7 dagen'], [30, url('/statistieken?dagen=30'), '30 dagen'], [90, url('/statistieken?dagen=90'), '90 dagen'], [365, url('/statistieken?dagen=365'), 'Jaar']], days);
+  const since = stats.first && stats.first > stats.from ? `<p class="muted small">De metingen lopen sinds ${e(dayLabel(stats.first))}; daarvoor zijn er geen cijfers.</p>` : '';
+  const empty = !t.visitors && !stats.first;
+  const head = pageHead({ eyebrow: 'Website', title: 'Statistieken', text: 'Hoeveel mensen pr3nt.nl bezoeken, waar ze vandaan komen en hoe ver ze komen in het offerteformulier. Zonder cookies en zonder IP-adressen, dus ook zonder cookiebanner.' });
+  const body = head + periods + since + (empty ? panel('Nog geen bezoekers gemeten', '<p class="muted">De meting start zodra de nieuwe versie van pr3nt.nl live staat. Kom over een dag terug voor de eerste cijfers.</p>') : kpis +
+    `<div class="grid-2">${panel('Bezoekers en aanvragen', chart)}${panel('Offerteformulier', funnelList(stats.funnel) + '<p class="muted small">Elke stap telt bezoekers die er die dag kwamen. Een grote daling tussen twee stappen laat zien waar je het formulier kunt verbeteren.</p>')}</div>` +
+    `<div class="grid-2">${panel('Waar komen bezoekers vandaan?', table(['Bron', 'Bezoekers', 'Aanvragen', 'Conversie'], sourceRows, { empty: 'Nog geen bezoekers.' }), { cls: 'flush-body' })}${panel('Webshop', funnelList(stats.shop))}</div>` +
+    `<div class="grid-2">${panel('Meest bekeken pagina’s', table(['Pagina', 'Bezoekers', 'Weergaven'], pageRows, { empty: 'Nog geen bezoekers.' }), { cls: 'flush-body' })}<div class="stack">${panel('Binnengekomen op', table(['Eerste pagina', 'Bezoekers'], entryRows, { empty: 'Nog geen bezoekers.' }), { cls: 'flush-body' })}${panel('Apparaat', devices)}</div></div>` +
+    `<p class="muted small">Bron “Direct” = adres ingetypt, bladwijzer of een app die geen herkomst doorgeeft. Zet <code>?utm_source=naam</code> achter een link (bijv. <code>pr3nt.nl/?utm_source=marktplaats</code>) om je eigen kanalen apart te zien.</p>`);
+  return cmsPage({ title: 'Statistieken', user, active: 'cms-stats', body });
+}
