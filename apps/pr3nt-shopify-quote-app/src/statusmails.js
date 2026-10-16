@@ -64,7 +64,7 @@ function findQuote(quotes, id) {
 }
 
 function findQuoteByToken(quotes, token) {
-  return quotes.find((quote) => !quote.archivedAt && (quote.portalToken === token || quote.id === token));
+  return quotes.find((quote) => !quote.archivedAt && (quote.portalToken ? quote.portalToken === token : quote.id === token));
 }
 
 function portalUrl(quote) {

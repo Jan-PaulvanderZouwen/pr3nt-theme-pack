@@ -94,7 +94,7 @@ export function registerPortalCheckoutCopyRoutes(app) {
       Promise.resolve().then(async () => {
         if (typeof body !== 'string') return originalSend(body);
         const token = decodeURIComponent(req.path.split('/').filter(Boolean).pop() || '');
-        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken === token || item.id === token));
+        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === token : item.id === token));
         if (!quote) return originalSend(body);
         let html = body.replace(/<style id="pr3nt-accept-pay-copy-css">[\s\S]*?<\/script>/g, '');
         html = html.replace('</body>', `${script(quote)}</body>`);

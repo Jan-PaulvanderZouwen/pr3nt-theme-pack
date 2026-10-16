@@ -76,12 +76,36 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors({ origin: config.allowedOrigin, methods: ['POST', 'GET', 'OPTIONS'] }));
 app.use(cookieParser());
+
+// Rem op spam en het raden van wachtwoorden: per IP een maximum aantal pogingen per tijdvak (in geheugen).
+// 'trust proxy' = 1, dus req.ip is het adres dat nginx doorgeeft, niet wat de bezoeker zelf meestuurt.
+const attempts = new Map();
+function limit(name, max, windowMs, message) {
+  return (req, res, next) => {
+    const key = `${name}:${req.ip}`;
+    const now = Date.now();
+    const list = (attempts.get(key) || []).filter((t) => now - t < windowMs);
+    list.push(now);
+    attempts.set(key, list);
+    if (attempts.size > 5000) attempts.clear();
+    if (list.length <= max) return next();
+    res.set('Retry-After', String(Math.ceil(windowMs / 1000)));
+    if (req.path.startsWith('/api/')) return res.status(429).json({ ok: false, error: message });
+    return res.status(429).send(`<!doctype html><meta charset="utf-8"><title>Even wachten</title><p style="font-family:sans-serif;padding:40px">${message}</p>`);
+  };
+}
+app.post('/admin/login', limit('login', 10, 15 * 60_000, 'Te veel inlogpogingen. Probeer het over een kwartier opnieuw.'));
+app.post('/api/quote', limit('quote', 20, 60 * 60_000, 'Je hebt veel aanvragen achter elkaar verstuurd. Probeer het later opnieuw of mail ons.'));
 // Ruim genoeg voor lange artikelen en pagina's uit het website-CMS
 app.use(express.urlencoded({ extended: true, limit: '5mb', parameterLimit: 20000 }));
 app.use(express.json({ limit: '5mb' }));
 
 function clean(value, max = 2000) {
   return String(value || '').replace(/[<>]/g, '').trim().slice(0, max);
+}
+
+function escapeHtml(value = '') {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
 function normalizeKey(value = '') {
@@ -198,13 +222,13 @@ function shippingSummary(shipping = {}) {
 
 function filesSummary(files = []) {
   if (!files.length) return '-';
-  if (files.length === 1) return files[0].originalName;
-  return `${files.length} bestanden: ${files.map(file => file.originalName).join(', ')}`;
+  if (files.length === 1) return escapeHtml(files[0].originalName);
+  return `${files.length} bestanden: ${files.map(file => escapeHtml(file.originalName)).join(', ')}`;
 }
 
 function filesLinksHtml(files = []) {
   if (!files.length) return '-';
-  return `<ul style="margin:0;padding-left:18px">${files.map(file => `<li><a href="${file.url}">${file.originalName}</a></li>`).join('')}</ul>`;
+  return `<ul style="margin:0;padding-left:18px">${files.map(file => `<li><a href="${escapeHtml(file.url)}">${escapeHtml(file.originalName)}</a></li>`).join('')}</ul>`;
 }
 
 function normalizeUploadedFiles(req) {
@@ -378,7 +402,7 @@ app.post('/api/quote', upload.any(), async (req, res) => {
       const safeOriginalName = uploadedFile.originalname.replace(/[^a-zA-Z0-9._-]/g, '-');
       const finalFileName = `${quoteId}-${safeOriginalName}`;
       await rename(uploadedFile.path, path.join(config.uploadDir, finalFileName));
-      files.push({ originalName: uploadedFile.originalname, safeOriginalName, storedName: finalFileName, extension: ext, url: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` });
+      files.push({ originalName: clean(uploadedFile.originalname, 200), safeOriginalName, storedName: finalFileName, extension: ext, url: `${config.baseUrl}/files/${quoteId}/${encodeURIComponent(safeOriginalName)}` });
     }
 
     const firstFile = files[0] || {};

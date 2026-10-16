@@ -7,9 +7,9 @@ const zone = 'Europe/Amsterdam';
 
 // ---------- Inloggen ----------
 
-// Zonder ADMIN_KEY stond het oude orderbeheer open (lokaal testen). Dat gedrag blijft alleen voor die pagina's.
+// Zonder ADMIN_KEY stond het oude orderbeheer open (lokaal testen). Dat mag alleen lokaal, nooit op de server.
 function fallbackAdmin(allowOpen) {
-  return allowOpen && !process.env.ADMIN_KEY ? { username: 'admin', role: 'admin', name: 'Admin' } : null;
+  return allowOpen && !process.env.ADMIN_KEY && process.env.NODE_ENV !== 'production' ? { username: 'admin', role: 'admin', name: 'Admin' } : null;
 }
 
 function refreshAdminCookie(res, user) {
