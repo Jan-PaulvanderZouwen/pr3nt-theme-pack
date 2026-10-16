@@ -190,6 +190,7 @@ function navItems(user, counts = {}) {
   // Website-CMS: alles van pr3nt.nl (zie src/cms/)
   const site = isAdmin(user) ? [
     ['cms', '/admin/website', 'Overzicht'],
+    ['cms-stats', '/admin/website/statistieken', 'Statistieken'],
     ['cms-pages', '/admin/website/paginas', 'Pagina’s'],
     ['cms-articles', '/admin/website/kennisbank', 'Kennisbank'],
     ['cms-shop', '/admin/website/producten', 'Webshop'],

@@ -4,6 +4,7 @@ import { adminOnly } from '../ui/adminshell.js';
 import { get, post, put, del, raw } from './client.js';
 import { BASE, url, cmsError } from './ui.js';
 import * as v from './views.js';
+import { readQuotes } from '../admin.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 30 } });
 
@@ -122,6 +123,19 @@ export function registerCmsRoutes(app) {
   const admin = adminOnly();
   const r = (method, path, active, ...handlers) => app[method](`${BASE}${path}`, admin, ...handlers.slice(0, -1), wrap(active, handlers.at(-1)));
   const user = (req) => req.internalUser;
+
+  // Statistieken: bezoekers van pr3nt.nl (zonder cookies) naast de offertes uit app.pr3nt.nl
+  r('get', '/statistieken', 'cms-stats', async (req, res) => {
+    const days = [7, 30, 90, 365].includes(Number(req.query.dagen)) ? Number(req.query.dagen) : 30;
+    const [stats, all] = await Promise.all([get(`stats?dagen=${days}`), readQuotes()]);
+    const from = new Date(`${stats.from}T00:00:00+02:00`).getTime();
+    const inPeriod = (v) => v && new Date(v).getTime() >= from;
+    const live = all.filter((q) => !q.archivedAt);
+    const sent = live.filter((q) => inPeriod(q.quoteSentAt));
+    const hours = sent.map((q) => (new Date(q.quoteSentAt) - new Date(q.createdAt)) / 36e5).filter((h) => h >= 0).sort((a, b) => a - b);
+    const quotes = { sent: sent.length, paid: live.filter((q) => inPeriod(q.paidAt)).length, medianHours: hours.length ? hours[Math.floor(hours.length / 2)] : null };
+    res.send(v.statsView({ user: user(req), stats, quotes, days }));
+  });
 
   // Overzicht
   r('get', '', 'cms', async (req, res) => res.send(v.overviewView({ user: user(req), data: await get('overview'), flash: flashOf(req) })));

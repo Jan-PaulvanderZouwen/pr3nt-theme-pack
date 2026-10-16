@@ -62,7 +62,7 @@ export function panel(title, body, { actions = '', cls = '', id = '' } = {}) {
 
 export function table(head, rows, { empty = 'Nog niets hier.', cls = '' } = {}) {
   if (!rows.length) return emptyState(empty);
-  return `<div class="cms-table-wrap"><table class="cms-table ${cls}"><thead><tr>${head.map((h) => `<th${/^(Prijs|Bedrag|Inkoop|Marge|Score|Hits|Orders|Totaal)/.test(h) ? ' class="num"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  return `<div class="cms-table-wrap"><table class="cms-table ${cls}"><thead><tr>${head.map((h) => `<th${/^(Prijs|Bedrag|Inkoop|Marge|Score|Hits|Orders|Totaal|Bezoekers|Aanvragen|Conversie|Weergaven)/.test(h) ? ' class="num"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 
 export function tabs(items, active) {
