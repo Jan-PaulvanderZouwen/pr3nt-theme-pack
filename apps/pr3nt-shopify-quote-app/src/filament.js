@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
+import { sessionSecret } from './sessionsecret.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +18,6 @@ function clean(value = '', max = 300) { return String(value || '').replace(/[<>]
 function grams(value) { const number = Number(String(value || '0').replace(',', '.')); return Number.isFinite(number) ? Math.max(0, number) : 0; }
 function fmtGrams(value) { return `${Math.round(grams(value)).toLocaleString('nl-NL')} g`; }
 function safeEquals(a = '', b = '') { const left = Buffer.from(String(a)); const right = Buffer.from(String(b)); if (!left.length || left.length !== right.length) return false; return timingSafeEqual(left, right); }
-function sessionSecret() { return process.env.INTERNAL_SESSION_SECRET || process.env.ADMIN_KEY || process.env.PRINT_WORKER_KEY || 'pr3nt-local-session-secret'; }
 function sign(payload) { return createHmac('sha256', sessionSecret()).update(payload).digest('base64url'); }
 function readSessionCookie(req) { const value = req.cookies?.[sessionCookie] || ''; const [payload, signature] = String(value).split('.'); if (!payload || !signature || !safeEquals(signature, sign(payload))) return null; try { return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); } catch { return null; } }
 function hasAdminKey(req) { const adminKey = process.env.ADMIN_KEY || ''; const key = req.query?.key || req.cookies?.pr3nt_admin_key || req.get?.('x-admin-key') || ''; return Boolean(adminKey && safeEquals(key, adminKey)); }

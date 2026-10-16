@@ -18,7 +18,7 @@ async function readQuotes() {
 }
 
 function findQuote(quotes, token) {
-  return quotes.find((quote) => !quote.archivedAt && (quote.portalToken === token || quote.id === token));
+  return quotes.find((quote) => !quote.archivedAt && (quote.portalToken ? quote.portalToken === token : quote.id === token));
 }
 
 function quoteFiles(quote) {
@@ -79,7 +79,7 @@ function script(files) {
   return `<script id="pr3nt-file-carousel-js" type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    const files=${JSON.stringify(safeFiles)};
+    const files=${JSON.stringify(safeFiles).replace(/</g, '\\u003c')};
     let activeRenderer=null;
     let activeAnimation=null;
     function esc(value){return String(value||'').replace(/[&<>\"]/g,function(match){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[match];});}

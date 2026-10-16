@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual, randomUUID, createHmac, randomBytes, scryptSync } from 'node:crypto';
+import { sessionSecret } from './sessionsecret.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,7 +27,6 @@ async function writeQuotes(quotes) { await writeJson(quotesFilePath, quotes); }
 
 function passwordHash(password) { const salt = randomBytes(16).toString('hex'); const hash = scryptSync(String(password || ''), salt, 64).toString('hex'); return `${salt}:${hash}`; }
 function verifyPassword(password, storedHash = '') { if (!storedHash || !storedHash.includes(':')) return false; const [salt, hash] = storedHash.split(':'); const check = scryptSync(String(password || ''), salt, 64).toString('hex'); return safeEquals(check, hash); }
-function sessionSecret() { return process.env.INTERNAL_SESSION_SECRET || process.env.ADMIN_KEY || process.env.PRINT_WORKER_KEY || 'pr3nt-local-session-secret'; }
 function sign(payload) { return createHmac('sha256', sessionSecret()).update(payload).digest('base64url'); }
 function makeSession(user) { const payload = Buffer.from(JSON.stringify({ username: user.username, role: user.role, name: user.name || user.username, iat: Date.now() })).toString('base64url'); return `${payload}.${sign(payload)}`; }
 function readSessionCookie(req) { const value = req.cookies?.[sessionCookie] || ''; const [payload, signature] = String(value).split('.'); if (!payload || !signature || !safeEquals(signature, sign(payload))) return null; try { return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); } catch { return null; } }

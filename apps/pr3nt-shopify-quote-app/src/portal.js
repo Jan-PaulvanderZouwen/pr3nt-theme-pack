@@ -239,21 +239,21 @@ function renderAccount(quote, allQuotes, saved = '') {
 export function registerPortalRoutes(app) {
   app.get('/portal/:token', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send(renderPage('Niet gevonden', '<section class="card"><h1>Aanvraag niet gevonden</h1><p class="muted">Controleer de portaal-link.</p></section>'));
     res.send(renderPortal(quote, quotes, req.query.saved || ''));
   });
 
   app.get('/portal/:token/account', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send(renderPage('Niet gevonden', '<section class="card"><h1>Account niet gevonden</h1><p class="muted">Controleer de portaal-link.</p></section>'));
     res.send(renderAccount(quote, quotes, req.query.saved || ''));
   });
 
   app.post('/portal/:token/account', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Account niet gevonden');
     const oldEmail = String(quote.email || '').toLowerCase();
     const updates = {
@@ -286,7 +286,7 @@ export function registerPortalRoutes(app) {
 
   app.post('/portal/:token/message', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
     const message = clean(req.body.message, 2000);
     if (message) {
@@ -301,7 +301,7 @@ export function registerPortalRoutes(app) {
 
   app.post('/portal/:token/accept', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
     quote.acceptedAt = new Date().toISOString();
     quote.status = 'accepted';
@@ -314,7 +314,7 @@ export function registerPortalRoutes(app) {
 
   app.post('/portal/:token/upload', upload.array('file', Number(process.env.MAX_FILES || 8)), async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
     const files = req.files || [];
     quote.files = Array.isArray(quote.files) ? quote.files : [];
@@ -326,7 +326,7 @@ export function registerPortalRoutes(app) {
       const storedSafeName = `${Date.now()}-${safeName}`;
       const storedName = `${quote.id}-${storedSafeName}`;
       await rename(file.path, path.join(uploadDir, storedName));
-      quote.files.push({ originalName: file.originalname, storedName, url: `${baseUrl}/files/${quote.id}/${encodeURIComponent(storedSafeName)}`, uploadedBy: 'klant', description, material, color, createdAt: new Date().toISOString() });
+      quote.files.push({ originalName: clean(file.originalname, 200), storedName, url: `${baseUrl}/files/${quote.id}/${encodeURIComponent(storedSafeName)}`, uploadedBy: 'klant', description, material, color, createdAt: new Date().toISOString() });
     }
     quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
     const text = `${files.length} extra bestand(en) geüpload.${description ? ` Toelichting: ${description}` : ''}${material ? ` Materiaal: ${material}.` : ''}${color ? ` Kleur: ${color}.` : ''}`;

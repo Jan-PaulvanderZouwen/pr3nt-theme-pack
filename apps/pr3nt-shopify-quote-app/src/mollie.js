@@ -341,7 +341,7 @@ export function registerMollieRoutes(app) {
     res.send = (body) => {
       Promise.resolve().then(async () => {
         if (typeof body !== 'string') return originalSend(body);
-        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
         return originalSend(quote ? decoratePortalHtml(body, quote) : body);
       }).catch(() => originalSend(body));
       return res;
@@ -351,7 +351,7 @@ export function registerMollieRoutes(app) {
 
   app.get('/portal/:token/invoice', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Factuur niet gevonden.');
     if (!quote.paidAt && quote.status !== 'paid') return res.status(403).send('Factuur is beschikbaar nadat de betaling is ontvangen.');
 

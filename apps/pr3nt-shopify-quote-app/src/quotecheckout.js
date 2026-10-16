@@ -24,7 +24,7 @@ async function writeQuotes(quotes) {
 export function registerQuoteCheckoutRoutes(app) {
   app.post('/portal/:token/accept', async (req, res) => {
     const quotes = await readQuotes();
-    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken === req.params.token || item.id === req.params.token));
+    const quote = quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === req.params.token : item.id === req.params.token));
     if (!quote) return res.status(404).send('Aanvraag niet gevonden');
 
     const now = new Date().toISOString();

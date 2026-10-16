@@ -1,9 +1,10 @@
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { carriers, carrierOf } from './carriers.js';
+import { sessionUser, isAdmin } from './myparcel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -184,12 +185,15 @@ async function notifyCustomerQuoteSent(quote) {
 
 export function requireAdmin(req, res, next) {
   const adminKey = process.env.ADMIN_KEY || '';
-  if (!adminKey) return next();
-  const key = req.query.key || req.get('x-admin-key') || req.cookies?.pr3nt_admin_key;
-  if (key === adminKey) {
+  const key = String(req.query.key || req.get('x-admin-key') || req.cookies?.pr3nt_admin_key || '');
+  if (adminKey && key.length === adminKey.length && timingSafeEqual(Buffer.from(key), Buffer.from(adminKey))) {
     res.cookie?.('pr3nt_admin_key', adminKey, { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 1000 * 60 * 60 * 12 });
     return next();
   }
+  if (isAdmin(sessionUser(req))) return next();
+  // Zonder ADMIN_KEY staat het beheer alleen open bij lokaal testen, nooit op de server
+  if (!adminKey && process.env.NODE_ENV !== 'production') return next();
+  if (!adminKey) return res.redirect(`/admin/login?next=${encodeURIComponent(req.originalUrl || '/admin')}`);
   res.status(401).send(renderPage('Inloggen', `<section class="card login-card"><h1>pr3nt Dashboard</h1><p>Vul je admin sleutel in om aanvragen te beheren.</p><form method="get" action="/admin" class="stack"><input name="key" type="password" required><button class="button green" type="submit">Inloggen</button></form></section>`));
 }
 

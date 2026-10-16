@@ -104,7 +104,7 @@ async function notifyAdmin(quote, title, message) {
 }
 
 function findQuote(quotes, token) {
-  return quotes.find((item) => !item.archivedAt && (item.portalToken === token || item.id === token));
+  return quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === token : item.id === token));
 }
 
 function deliveryEstimate(quote) {
@@ -329,7 +329,7 @@ export function registerSelfServiceRoutes(app) {
       const storedSafeName = `${Date.now()}-${safeName}`;
       const storedName = `${quote.id}-${storedSafeName}`;
       await rename(file.path, path.join(uploadDir, storedName));
-      uploaded.push({ originalName: file.originalname, storedName, url: `${baseUrl}/files/${quote.id}/${encodeURIComponent(storedSafeName)}`, uploadedBy: 'klant', description, material, color, materialAdvice, replaceExisting: true, createdAt: new Date().toISOString() });
+      uploaded.push({ originalName: clean(file.originalname, 200), storedName, url: `${baseUrl}/files/${quote.id}/${encodeURIComponent(storedSafeName)}`, uploadedBy: 'klant', description, material, color, materialAdvice, replaceExisting: true, createdAt: new Date().toISOString() });
     }
     quote.files = [...uploaded, ...quote.files];
     quote.messages = Array.isArray(quote.messages) ? quote.messages : [];

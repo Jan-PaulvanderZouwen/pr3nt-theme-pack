@@ -63,7 +63,7 @@ export function registerPortalVatRoutes(app) {
       Promise.resolve().then(async () => {
         if (typeof body !== 'string') return originalSend(body);
         const token = decodeURIComponent(req.params.token || '');
-        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken === token || item.id === token));
+        const quote = (await readQuotes()).find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === token : item.id === token));
         if (!quote || quoteSubtotalExVat(quote) <= 0) return originalSend(body);
         const html = body.replace(/<script id="pr3nt-vat-js">[\s\S]*?<\/script>/g, '').replace('</body>', `${script(quote)}</body>`);
         return originalSend(html);
