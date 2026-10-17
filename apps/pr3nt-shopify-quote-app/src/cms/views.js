@@ -537,7 +537,8 @@ export function campaignView({ user, campaign: c, counts, mail, testTo, failedLi
 }
 
 export function subscribersView({ user, list, total, counts, query, sources, flash, error }) {
-  const statusPill = (s) => (s.status === 'actief' ? pill('Aangemeld', 'ok') : pill('Afgemeld', 'wait'));
+  const REASON = { bounce: 'Afgemeld: mail kwam niet aan', klacht: 'Afgemeld: als spam gemeld' };
+  const statusPill = (s) => (s.status === 'actief' ? pill('Aangemeld', 'ok') : pill(REASON[s.reason] || 'Afgemeld', 'wait'));
   const rows = list.map((s) => `<tr><td><strong>${e(s.email)}</strong>${s.name ? `<div class="muted small">${e(s.name)}</div>` : ''}</td><td class="small">${e(sources[s.source] || s.source)}</td><td class="small muted">${e(dateText(s.created_at))}</td><td>${statusPill(s)}</td>
     <td><div class="btn-row"><form method="post">${hidden('id', s.id)}${hidden('action', s.status === 'actief' ? 'afmelden' : 'aanmelden')}<button class="btn btn-quiet" type="submit">${s.status === 'actief' ? 'Afmelden' : 'Aanmelden'}</button></form><form method="post" data-confirm="${e(s.email)} helemaal verwijderen? Doe dit alleen als iemand vraagt om zijn gegevens te wissen; na verwijderen kan hij bij een volgende bestelling weer op de lijst komen.">${hidden('id', s.id)}${hidden('action', 'verwijderen')}<button class="btn btn-quiet cms-danger" type="submit" title="Verwijderen">✕</button></form></div></td></tr>`);
   const filters = `<form class="cms-filters" method="get"><input type="search" name="q" value="${e(query.q || '')}" placeholder="Zoek op e-mail of naam" data-search-input>${select({ label: 'Status', name: 'status', value: query.status || '', options: [['', `Iedereen (${nl(counts.actief + counts.afgemeld)})`], ['actief', `Aangemeld (${nl(counts.actief)})`], ['afgemeld', `Afgemeld (${nl(counts.afgemeld)})`]], onchange: 'this.form.submit()' })}</form>`;
