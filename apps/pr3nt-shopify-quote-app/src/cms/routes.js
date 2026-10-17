@@ -5,6 +5,7 @@ import { get, post, put, del, raw } from './client.js';
 import { BASE, url, cmsError } from './ui.js';
 import * as v from './views.js';
 import { readQuotes } from '../admin.js';
+import { readSyncState, stopReminders, reminderAfter } from '../webshopsync.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 30 } });
 
@@ -27,6 +28,7 @@ const FLASH = {
   verstuurd: 'De mail wordt nu verstuurd. Je kunt deze pagina gerust sluiten.',
   gestopt: 'Versturen gestopt.',
   doorgaan: 'Versturen gaat verder.',
+  herinnering: 'Herinneringen voor deze order gestopt.',
 };
 const flashOf = (req) => FLASH[req.query.ok] || '';
 const go = (res, path, ok) => res.redirect(303, url(`${path}${ok ? `${path.includes('?') ? '&' : '?'}ok=${ok}` : ''}`));
@@ -379,33 +381,28 @@ export function registerCmsRoutes(app) {
     go(res, `/producten/${req.params.id}`, 'geupload');
   });
 
-  // ----- Bestellingen -----
-  r('get', '/bestellingen', 'cms-orders', async (req, res) => {
-    const query = { q: str(req.query.q), soort: str(req.query.soort), status: str(req.query.status), open: str(req.query.open) };
-    const [{ orders }, m] = await Promise.all([get(`orders?${new URLSearchParams(query)}`), meta()]);
-    res.send(v.ordersView({ user: user(req), orders, statuses: m.orderStatuses, query, flash: flashOf(req) }));
+  // ----- Webshoporders -----
+  // Betaalde webshoporders en reserve-aanvragen staan in Orders (zie webshopsync.js). Oude links gaan daarheen.
+  const orderTarget = async (id) => {
+    const quote = (await readQuotes()).find((q) => q.webshopOrderId === id && !q.archivedAt);
+    return quote ? `/admin/quotes/${enc(quote.id)}` : url('/niet-betaald');
+  };
+  r('get', '/bestellingen', 'cms-unpaid', async (_req, res) => res.redirect(303, '/admin'));
+  r('get', '/bestellingen/:id', 'cms-unpaid', async (req, res) => res.redirect(303, await orderTarget(str(req.params.id))));
+  r('get', '/niet-betaald', 'cms-unpaid', async (req, res) => {
+    const [{ orders }, sync] = await Promise.all([get('orders?soort=filament'), readSyncState()]);
+    const startedAt = new Date(sync.startedAt || 0).getTime();
+    const unpaid = orders.filter((o) => !o.paid_at && !/geannuleerd|geweigerd|vervallen/i.test(o.status)).map((o) => {
+      const entry = sync.orders[o.id] || {};
+      const created = new Date(o.created_at).getTime();
+      const sent = (entry.reminders || []).length;
+      return { ...o, remindersSent: sent, reminderTotal: reminderAfter.length, stopped: !!entry.remindersStopped, remindable: !!sync.startedAt && created >= startedAt, nextAt: created + (reminderAfter[sent] || 0) };
+    });
+    res.send(v.unpaidView({ user: user(req), orders: unpaid, sync, flash: flashOf(req) }));
   });
-  r('get', '/bestellingen/:id', 'cms-orders', async (req, res) => res.send(v.orderView({ user: user(req), order: (await get(`orders/${enc(req.params.id)}`)).order, flash: flashOf(req) })));
-  r('get', '/bestellingen/:id/bestand', 'cms-orders', async (req, res) => {
-    const upstream = await raw(`orders/${enc(req.params.id)}/file`);
-    if (!upstream.ok) { const data = await upstream.json().catch(() => ({})); throw Object.assign(new Error(data.error || 'Bestand niet gevonden.'), { status: 404 }); }
-    res.set('Content-Type', 'application/octet-stream');
-    res.set('Content-Disposition', upstream.headers.get('content-disposition') || 'attachment');
-    res.send(Buffer.from(await upstream.arrayBuffer()));
-  });
-  r('post', '/bestellingen/:id', 'cms-orders', async (req, res) => {
-    const id = enc(req.params.id);
-    const b = req.body;
-    try {
-      if (b.action === 'verwijderen') { await del(`orders/${id}`); return go(res, '/bestellingen', 'verwijderd'); }
-      if (b.action === 'status') await post(`orders/${id}/status`, { status: str(b.status), note: str(b.note), notify: on(b.notify) });
-      else if (b.action === 'notitie') await post(`orders/${id}/note`, { note: str(b.note), visible: on(b.visible) });
-      else if (b.action === 'producent') await put(`orders/${id}`, { producer_id: str(b.producer_id), producer_paid: on(b.producer_paid) });
-      else await put(`orders/${id}`, { amount: str(b.amount), track_trace: str(b.track_trace), payment_url: str(b.payment_url), invoice_url: str(b.invoice_url), internal_notes: str(b.internal_notes) });
-      go(res, `/bestellingen/${id}`, 'opgeslagen');
-    } catch (error) {
-      res.send(v.orderView({ user: user(req), order: (await get(`orders/${id}`)).order, error: error.message }));
-    }
+  r('post', '/niet-betaald/:id/stop', 'cms-unpaid', async (req, res) => {
+    await stopReminders(str(req.params.id));
+    go(res, '/niet-betaald', 'herinnering');
   });
 
   // ----- Klanten -----

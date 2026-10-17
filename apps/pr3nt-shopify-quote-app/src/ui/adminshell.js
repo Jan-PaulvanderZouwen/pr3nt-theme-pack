@@ -195,7 +195,7 @@ function navItems(user, counts = {}) {
     ['cms-pages', '/admin/website/paginas', 'Pagina’s'],
     ['cms-articles', '/admin/website/kennisbank', 'Kennisbank'],
     ['cms-shop', '/admin/website/producten', 'Webshop'],
-    ['cms-orders', '/admin/website/bestellingen', 'Bestellingen'],
+    ['cms-unpaid', '/admin/website/niet-betaald', 'Niet betaald'],
     ['cms-media', '/admin/website/media', 'Foto’s'],
     ['cms-seo', '/admin/website/seo', 'SEO'],
     ['cms-customers', '/admin/website/klanten', 'Klanten'],

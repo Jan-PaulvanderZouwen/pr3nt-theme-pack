@@ -113,7 +113,7 @@ function html(quote, title, message, cta = 'Open mijn klantportaal') {
   return `<div style="margin:0;padding:0;background:#f4f6f5;font-family:Arial,sans-serif;color:#101820"><div style="max-width:680px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:24px;overflow:hidden"><div style="padding:28px;background:#101820;color:#fff"><div style="font-size:24px;font-weight:900">pr3nt.nl</div><h1 style="margin:22px 0 8px;font-size:30px;line-height:1.08">${e(title)}</h1><p style="margin:0;color:#d7dde0">Project ${e(quote.id)}</p></div><div style="padding:28px"><p>Hoi ${e(quote.name || '')},</p><p style="line-height:1.6">${e(message)}</p>${summary}${tracking}<p style="margin:24px 0"><a href="${e(url)}" style="display:inline-block;background:#00d084;color:#082115;text-decoration:none;padding:14px 20px;border-radius:999px;font-weight:800">${e(ctaText)}</a></p><p style="font-size:14px;color:#667085;line-height:1.5">Werkt de knop niet? Kopieer deze link:<br><span style="word-break:break-all">${e(url)}</span></p>${portalFallback}<p>Groet,<br><strong>pr3nt.nl</strong></p></div></div></div></div>`;
 }
 
-async function sendCustomerMail(quote, title, message, cta) {
+export async function sendCustomerMail(quote, title, message, cta) {
   if (!quote?.email) return;
   const from = process.env.MAIL_FROM || process.env.SMTP_USER;
   await mailer().sendMail({

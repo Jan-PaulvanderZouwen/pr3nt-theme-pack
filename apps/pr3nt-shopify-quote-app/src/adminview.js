@@ -59,10 +59,11 @@ function sortOrders(list) {
 function orderRow(quote, tab) {
   const total = quoteTotalInclVat(quote);
   const groupList = groupsOf(quote);
-  const search = [quote.name, quote.email, quote.id, quote.material, quote.color, quote.phone].filter(Boolean).join(' ').toLowerCase();
+  const search = [quote.name, quote.email, quote.id, quote.webshopOrderId, quote.material, quote.color, quote.phone, quote.source === 'webshop' ? 'webshop' : ''].filter(Boolean).join(' ').toLowerCase();
   const reply = waitsForReply(quote) ? '<span class="msg-flag">Nieuw bericht</span>' : '';
   const rush = isRush(quote) && !['shipped', 'delivered'].includes(quote.status) ? '<em class="tag-rush">Spoed</em>' : '';
-  return `<a class="order-row${rush ? ' is-rush' : ''}" href="/admin/quotes/${encodeURIComponent(quote.id)}" data-groups="${groupList.join(' ')}" data-search="${e(search)}"${groupList.includes(tab) ? '' : ' hidden'}><span class="order-who"><span class="avatar sm" aria-hidden="true">${e(initials(quote.name))}</span><span><strong>${e(quote.name || 'Onbekend')}</strong><small class="mono">${e(quote.id)}</small></span></span><span class="order-what">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span>${rush}</span><span class="order-status">${statusPill(quote)}${reply}</span><span class="order-amount num">${total > 0 ? euro(total) : '<span class="muted">Nog geen prijs</span>'}</span><span class="order-when">${e(ago(lastActivity(quote)))}</span><span class="order-go" aria-hidden="true">→</span></a>`;
+  const shop = quote.source === 'webshop' ? '<em class="tag-shop">Webshop</em>' : '';
+  return `<a class="order-row${rush ? ' is-rush' : ''}" href="/admin/quotes/${encodeURIComponent(quote.id)}" data-groups="${groupList.join(' ')}" data-search="${e(search)}"${groupList.includes(tab) ? '' : ' hidden'}><span class="order-who"><span class="avatar sm" aria-hidden="true">${e(initials(quote.name))}</span><span><strong>${e(quote.name || 'Onbekend')}</strong><small class="mono">${e(quote.id)}</small></span></span><span class="order-what">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span>${shop}${rush}</span><span class="order-status">${statusPill(quote)}${reply}</span><span class="order-amount num">${total > 0 ? euro(total) : '<span class="muted">Nog geen prijs</span>'}</span><span class="order-when">${e(ago(lastActivity(quote)))}</span><span class="order-go" aria-hidden="true">→</span></a>`;
 }
 
 function todoCards(active) {
@@ -210,7 +211,7 @@ function customerPanel(quote, allQuotes) {
 function requestPanel(quote) {
   const noModel = quote.requestType === 'no_model';
   const rush = isRush(quote);
-  return `<section class="panel" aria-labelledby="request-title"><div class="panel-head"><h2 id="request-title">Aanvraag</h2>${rush ? '<em class="tag-rush">Spoed</em>' : ''}</div><div class="panel-body"><dl class="spec"><dt>Type</dt><dd>${noModel ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig'}</dd><dt>Materiaal</dt><dd>${e(quote.material || '-')}</dd><dt>Kleur</dt><dd>${dot(quote.color)} ${e(quote.color || '-')}</dd>${quote.description ? `<dt>Omschrijving</dt><dd class="text">${e(quote.description)}</dd>` : ''}${quote.note ? `<dt>Opmerking</dt><dd class="text">${e(quote.note)}</dd>` : ''}</dl>${noModel ? '<p class="callout warn"><strong>Geen 3D-bestand</strong>Beoordeel eerst of tekenen of aanpassen nodig is voordat je de printprijs bepaalt.</p>' : ''}<details class="reveal"><summary class="btn btn-quiet">Aanvraag wijzigen</summary><div class="form-grid"><label class="field"><span>Materiaal</span><input name="material" form="quote-form" value="${e(quote.material || '')}" list="materials"></label><label class="field"><span>Kleur</span><input name="color" form="quote-form" value="${e(quote.color || '')}"></label><div class="field span-2"><span>Spoed</span><div class="choice"><label><input type="radio" name="rush" value="Nee" form="quote-form" ${rush ? '' : 'checked'}><span>Nee</span></label><label><input type="radio" name="rush" value="Ja" form="quote-form" ${rush ? 'checked' : ''}><span>Ja, spoed</span></label></div></div><label class="field span-2"><span>Opmerking klant</span><textarea name="note" form="quote-form" data-autosize>${e(quote.note || '')}</textarea></label></div><datalist id="materials"><option value="PLA"><option value="PETG"><option value="ABS"><option value="ASA"><option value="TPU"></datalist></details></div></section>`;
+  return `<section class="panel" aria-labelledby="request-title"><div class="panel-head"><h2 id="request-title">${quote.source === 'webshop' ? 'Bestelling' : 'Aanvraag'}</h2>${rush ? '<em class="tag-rush">Spoed</em>' : ''}</div><div class="panel-body"><dl class="spec"><dt>Type</dt><dd>${quote.source === 'webshop' ? `Webshop · betaald op pr3nt.nl${quote.webshopOrderId ? ` (<span class="mono">${e(quote.webshopOrderId)}</span>)` : ''}` : noModel ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig'}</dd><dt>Materiaal</dt><dd>${e(quote.material || '-')}</dd><dt>Kleur</dt><dd>${dot(quote.color)} ${e(quote.color || '-')}</dd>${quote.description ? `<dt>Omschrijving</dt><dd class="text">${e(quote.description)}</dd>` : ''}${quote.note ? `<dt>Opmerking</dt><dd class="text">${e(quote.note)}</dd>` : ''}</dl>${noModel && quote.source !== 'webshop' ? '<p class="callout warn"><strong>Geen 3D-bestand</strong>Beoordeel eerst of tekenen of aanpassen nodig is voordat je de printprijs bepaalt.</p>' : ''}<details class="reveal"><summary class="btn btn-quiet">Aanvraag wijzigen</summary><div class="form-grid"><label class="field"><span>Materiaal</span><input name="material" form="quote-form" value="${e(quote.material || '')}" list="materials"></label><label class="field"><span>Kleur</span><input name="color" form="quote-form" value="${e(quote.color || '')}"></label><div class="field span-2"><span>Spoed</span><div class="choice"><label><input type="radio" name="rush" value="Nee" form="quote-form" ${rush ? '' : 'checked'}><span>Nee</span></label><label><input type="radio" name="rush" value="Ja" form="quote-form" ${rush ? 'checked' : ''}><span>Ja, spoed</span></label></div></div><label class="field span-2"><span>Opmerking klant</span><textarea name="note" form="quote-form" data-autosize>${e(quote.note || '')}</textarea></label></div><datalist id="materials"><option value="PLA"><option value="PETG"><option value="ABS"><option value="ASA"><option value="TPU"></datalist></details></div></section>`;
 }
 
 function paymentPanel(quote) {
@@ -302,11 +303,12 @@ function savedNotice(quote, saved) {
 
 function detailPage({ quote, quotes, settings, user, context, saved }) {
   const portal = portalUrl(quote);
-  const created = quote.createdAt ? `aangevraagd ${ago(quote.createdAt)}` : '';
+  const shop = quote.source === 'webshop';
+  const created = quote.createdAt ? `${shop ? 'besteld' : 'aangevraagd'} ${ago(quote.createdAt)}` : '';
   const head = pageHead({
     eyebrow: '<a class="back" href="/admin">← Orders</a>',
     title: e(quote.name || 'Order'),
-    text: `<span class="mono">${e(quote.id)}</span>${created ? ` · ${e(created)}` : ''}`,
+    text: `${shop ? '<em class="tag-shop">Webshop</em> ' : ''}<span class="mono">${e(quote.id)}</span>${created ? ` · ${e(created)}` : ''}`,
     actions: `${statusPill(quote)}<a class="btn" href="${e(portal)}" target="_blank" rel="noopener">Klantportaal ↗</a><button class="btn btn-quiet" type="button" data-copy="${e(portal)}">Link kopiëren</button>`,
   });
   const paid = isPaid(quote) ? '1' : '0';

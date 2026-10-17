@@ -149,6 +149,16 @@ CMS_TOKEN=<dezelfde sleutel>
 CMS_URL=https://app.pr3nt.nl/admin/website
 ```
 
+### Webshoporders
+
+Webshoporders komen niet meer in een eigen tabblad, maar in **Orders**, net als de offerte-aanvragen. De app haalt ze elke 2 minuten op bij de website (`src/webshopsync.js`):
+
+- **Betaald**: de order komt in Orders met het label *Webshop* en status *Betaald*, en staat op het productiebord bij *Inplannen*. De klant krijgt een mail met een eigen klantportaal. Zet je de order op Verzonden of Geleverd, dan gaat die status (met track & trace) terug naar de website.
+- **Niet betaald**: de order komt niet in Orders. De klant krijgt na 1 uur, 1 dag en 3 dagen een herinnering met de betaallink. Wie alsnog betaalt, staat bij de volgende ronde in Orders. Overzicht en "Stop herinneringen" onder *Website → Niet betaald*.
+- **Reserve-aanvragen** (offerte-aanvragen die op de website bleven hangen toen de app plat lag) komen als gewone aanvraag in Orders.
+
+Bij de eerste start worden webshoporders die al verzonden of afgerond zijn overgeslagen, en krijgen alleen orders van ná de start een herinnering. Wat al verwerkt is, staat in `data/webshop-sync.json`.
+
 Na een pull op de VPS:
 
 ```bash

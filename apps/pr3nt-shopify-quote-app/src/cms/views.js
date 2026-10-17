@@ -14,8 +14,8 @@ export function overviewView({ user, data, flash }) {
   const c = data.counts;
   const kpi = (label, value, sub = '', href = '', i = 0) => `<a class="kpi cms-kpi" style="--i:${i}" href="${href}"><span class="label">${e(label)}</span><strong>${value}</strong>${sub ? `<small>${sub}</small>` : ''}</a>`;
   const kpis = `<section class="kpis">${[
-    kpi('Open bestellingen', c.openOrders, c.ordersToday ? `${c.ordersToday} vandaag` : 'webshop en reserve-aanvragen', url('/bestellingen?open=1'), 0),
-    kpi('Omzet webshop', euro(c.revenueMonth), 'betaald deze maand', url('/bestellingen'), 1),
+    kpi('Open bestellingen', c.openOrders, c.ordersToday ? `${c.ordersToday} vandaag` : 'webshop en reserve-aanvragen', '/admin', 0),
+    kpi('Omzet webshop', euro(c.revenueMonth), 'betaald deze maand', '/admin', 1),
     kpi('Berichten', c.messages, c.messages ? 'wachten op antwoord' : 'alles beantwoord', url('/berichten'), 2),
     kpi('SEO-score', data.seo ? `${data.seo.score}<small>/100</small>` : '–', data.seo ? `${data.seo.errors} fouten, ${data.seo.warnings} aandachtspunten` : 'nog niet gescand', url('/seo'), 3),
     kpi('Pagina’s in Google', c.urls, `${c.articles} artikelen · ${c.products} producten`, url('/seo'), 4),
@@ -47,7 +47,7 @@ export function overviewView({ user, data, flash }) {
   </div>`;
 
   const head = pageHead({ eyebrow: 'Website', title: 'pr3nt.nl beheren', text: 'Pagina’s, kennisbank, webshop, foto’s en SEO. Wat je hier opslaat, staat direct op de website.', actions: ext(site(), 'pr3nt.nl openen ↗') });
-  const body = `${head}${kpis}${quick}<div class="grid-2">${panel('Te doen', todoHtml)}${panel('Laatste bestellingen', orders, { actions: `<a class="btn btn-quiet" href="${url('/bestellingen')}">Alles</a>` })}</div>
+  const body = `${head}${kpis}${quick}<div class="grid-2">${panel('Te doen', todoHtml)}${panel('Laatste bestellingen', orders, { actions: `<a class="btn btn-quiet" href="/admin">Naar Orders</a>` })}</div>
     <div class="grid-2">${panel('Laatste wijzigingen', changes)}${panel('Koppelingen', `<dl class="spec"><dt>Website</dt><dd>${pill('Verbonden', 'ok')}</dd><dt>E-mail</dt><dd>${data.mail ? pill('Werkt', 'ok') : pill('Niet ingesteld', 'wait')}</dd><dt>Online betalen</dt><dd>${data.mollie ? pill('Mollie aan', 'ok') : pill('Uit: klant krijgt betaalverzoek per mail', 'wait')}</dd></dl>`)}</div>`;
   return cmsPage({ title: 'Website', user, active: 'cms', body, flash });
 }
@@ -222,37 +222,20 @@ export function shopSettingsView({ user, shop, flash, error }) {
   return cmsPage({ title: 'Shopinstellingen', user, active: 'cms-shop', body: head + shopTabs('instellingen') + form, flash, error });
 }
 
-// ---------- Bestellingen ----------
+// ---------- Niet betaald ----------
+// Webshoporders zonder betaling. Betaalde orders staan in Orders; deze klanten krijgen herinneringsmails.
 
-export function ordersView({ user, orders, statuses, query, flash }) {
-  const { q = '', soort = '', status = '', open = '' } = query;
-  const rows = orders.map((o) => `<tr><td><a class="cms-strong mono" href="${url(`/bestellingen/${encodeURIComponent(o.id)}`)}">${e(o.id)}</a></td><td class="small">${e(dateText(o.created_at))}</td><td>${e(o.customer.name)}<div class="muted small">${e(o.customer.email)}</div></td><td class="small">${o.kind === 'filament' ? 'Webshop' : 'Print (reserve)'}</td><td>${pill(o.status, /Geleverd|voltooid|Verzonden/.test(o.status) ? 'ok' : o.status === 'Geannuleerd' ? '' : 'wait')}${o.paid_at ? ' ' + pill('Betaald', 'ok') : ''}</td><td class="num">${euro(o.amount)}</td></tr>`);
-  const all = [...new Set([...statuses.filament, ...statuses.print])];
-  const filters = `<form class="cms-filters" method="get"><input type="search" name="q" value="${e(q)}" placeholder="Ordernummer, naam of e-mail" data-search-input>
-    ${select({ label: 'Soort', name: 'soort', value: soort, options: [['', 'Alles'], ['filament', 'Webshop'], ['print', 'Print (reserve)']], onchange: 'this.form.submit()' })}
-    ${select({ label: 'Status', name: 'status', value: status, options: [['', 'Alle statussen'], ...all], onchange: 'this.form.submit()' })}
-    <label class="toggle"><input type="checkbox" name="open" value="1"${open === '1' ? ' checked' : ''} onchange="this.form.submit()"><span>Alleen open</span></label></form>`;
-  const head = pageHead({ eyebrow: 'Webshop', title: 'Bestellingen', text: 'Filamentbestellingen uit de webshop. Offerte-aanvragen komen bij Orders binnen; alleen als app.pr3nt.nl even onbereikbaar was, staan ze hier als “Print (reserve)”.' });
-  return cmsPage({ title: 'Bestellingen', user, active: 'cms-orders', body: head + filters + panel('', table(['Order', 'Datum', 'Klant', 'Soort', 'Status', 'Bedrag'], rows, { empty: 'Geen bestellingen gevonden.' })), flash });
-}
-
-export function orderView({ user, order: o, flash, error }) {
-  const c = o.customer;
-  const d = o.details || {};
-  const items = o.items?.length ? `<table class="cms-table"><thead><tr><th>Product</th><th>Kleur</th><th class="num">Aantal</th><th class="num">Bedrag</th></tr></thead><tbody>${o.items.map((i) => `<tr><td>${e(i.name)}</td><td>${e(i.color || '')}</td><td class="num">${e(i.quantity)}</td><td class="num">${euro(i.price * i.quantity)}</td></tr>`).join('')}</tbody></table>` : '';
-  const detailRows = Object.entries({ Materiaal: d.material, Kleur: d.color, Omschrijving: d.comment || d.description, Levering: d.delivery === 'afhalen' ? 'Afhalen op afspraak' : d.delivery ? `Verzenden (${euro(d.shipping)})` : '', Spoed: d.rush ? 'Ja' : '' }).filter(([, v]) => v);
-  const next = o.statuses[Math.min(o.statuses.indexOf(o.status) + 1, o.statuses.length - 2)] ?? o.status;
-  const events = o.events?.length ? `<ul class="cms-timeline">${o.events.map((ev) => `<li><strong>${e(ev.status || ev.note || '')}</strong>${ev.status && ev.note ? `<p>${e(ev.note)}</p>` : ''}<small>${e(dateText(ev.created_at, true))}${ev.visible === 0 ? ' · intern' : ''}</small></li>`).join('')}</ul>` : '<p class="muted small">Nog geen geschiedenis.</p>';
-  const head = pageHead({ eyebrow: `<a href="${url('/bestellingen')}">Bestellingen</a>`, title: `<span class="mono">${e(o.id)}</span>`, text: `${pill(o.status, 'wait')} ${o.paid_at ? pill('Betaald', 'ok') : ''} · ${o.kind === 'filament' ? 'Webshop' : 'Print'} · ${e(dateText(o.created_at, true))}`,
-    actions: `${o.file_name ? `<a class="btn" href="${url(`/bestellingen/${encodeURIComponent(o.id)}/bestand`)}">3D-bestand downloaden</a>` : ''}<a class="btn" href="mailto:${e(c.email)}?subject=${encodeURIComponent('Je bestelling ' + o.id)}">Mail klant</a>${o.customerUrl ? ext(o.customerUrl, 'Klantpagina ↗') : ''}` });
-  const left = panel('Bestelling', `${items}${detailRows.length ? `<dl class="spec">${detailRows.map(([k, v]) => `<dt>${e(k)}</dt><dd class="text">${e(v)}</dd>`).join('')}</dl>` : ''}${o.amount != null ? `<p class="cms-total"><span>Totaal</span><strong>${euro(o.amount)}</strong></p>` : ''}`)
-    + panel('Status wijzigen', `<form method="post" class="form">${hidden('action', 'status')}${select({ label: 'Nieuwe status', name: 'status', value: next, options: o.statuses })}${textarea({ label: 'Bericht aan de klant (optioneel)', name: 'note', rows: 2 })}${toggle({ label: 'Klant mailen', name: 'notify', checked: true })}<div><button class="btn btn-dark" type="submit">Status opslaan</button></div></form>`)
-    + panel('Bedrag, links en verzending', `<form method="post" class="form-grid">${hidden('action', 'gegevens')}${input({ label: 'Bedrag (€ incl. btw)', name: 'amount', value: o.amount ?? '', inputmode: 'decimal' })}${input({ label: 'Track & trace', name: 'track_trace', value: o.track_trace ?? '' })}${input({ label: 'Betaallink', name: 'payment_url', value: o.payment_url ?? '', placeholder: 'https://', wide: true })}${input({ label: 'Factuurlink', name: 'invoice_url', value: o.invoice_url ?? '', placeholder: 'https://', wide: true })}${textarea({ label: 'Interne notities (ziet de klant niet)', name: 'internal_notes', value: o.internal_notes, rows: 3 })}<div class="span-2"><button class="btn btn-primary" type="submit">Opslaan</button></div></form>`)
-    + (o.kind === 'print' ? panel('Producent', `<form method="post" class="form">${hidden('action', 'producent')}${select({ label: 'Wie print deze order?', name: 'producer_id', value: o.producer_id ?? '', options: [['', 'Pr3nt zelf / nog niet toegewezen'], ...o.producers.map((p) => [p.id, p.name || p.email])] })}${toggle({ label: 'Producent is uitbetaald', name: 'producer_paid', checked: !!o.producer_paid_at })}<div><button class="btn" type="submit">Opslaan</button></div></form>`) : '');
-  const right = panel('Klant', `<dl class="spec"><dt>Naam</dt><dd>${e(c.name)}</dd><dt>E-mail</dt><dd><a href="mailto:${e(c.email)}">${e(c.email)}</a></dd>${c.phone ? `<dt>Telefoon</dt><dd>${e(c.phone)}</dd>` : ''}<dt>Adres</dt><dd class="text">${e([[c.street, c.houseNumber].filter(Boolean).join(' '), [c.postalCode, c.city].filter(Boolean).join(' '), c.country].filter(Boolean).join('\n'))}</dd></dl>${o.user_id ? `<a class="btn btn-quiet" href="${url(`/klanten/${o.user_id}`)}">Klantgegevens →</a>` : ''}`)
-    + panel('Geschiedenis', `${events}<form method="post" class="form">${hidden('action', 'notitie')}${textarea({ label: 'Notitie toevoegen', name: 'note', rows: 2 })}${toggle({ label: 'Zichtbaar voor klant', name: 'visible' })}<div><button class="btn" type="submit">Toevoegen</button></div></form>`)
-    + panel('Verwijderen', `<form method="post" class="form" data-confirm="Order ${e(o.id)} definitief verwijderen?">${hidden('action', 'verwijderen')}<p class="muted small">Alleen voor testorders. Dit kan niet ongedaan worden.</p><div><button class="btn btn-quiet cms-danger" type="submit">Order verwijderen</button></div></form>`, { cls: 'cms-danger-zone' });
-  return cmsPage({ title: `Order ${o.id}`, user, active: 'cms-orders', body: `${head}<div class="cms-detail"><div class="stack">${left}</div><div class="stack">${right}</div></div>`, flash, error });
+export function unpaidView({ user, orders, sync, flash }) {
+  const next = (o) => {
+    if (o.stopped) return 'Gestopt';
+    if (o.remindersSent >= o.reminderTotal) return 'Alle herinneringen verstuurd';
+    if (!o.remindable) return 'Geen herinnering (van vóór de koppeling)';
+    return `Herinnering ${o.remindersSent + 1} ${o.nextAt <= Date.now() ? 'gaat zo de deur uit' : `op ${dateText(new Date(o.nextAt).toISOString(), true)}`}`;
+  };
+  const rows = orders.map((o) => `<tr><td class="mono">${e(o.id)}</td><td class="small">${e(dateText(o.created_at, true))}</td><td>${e(o.customer.name)}<div class="muted small">${e(o.customer.email)}</div></td><td class="small">${pill(`${o.remindersSent} van ${o.reminderTotal}`, o.remindersSent ? 'act' : '')}<div class="muted small">${e(next(o))}</div></td><td class="num">${euro(o.amount)}</td><td class="cms-actions"><a class="btn btn-quiet" href="mailto:${e(o.customer.email)}?subject=${encodeURIComponent('Je bestelling ' + o.id)}">Mail</a>${o.stopped || o.remindersSent >= o.reminderTotal || !o.remindable ? '' : `<form method="post" action="${url(`/niet-betaald/${encodeURIComponent(o.id)}/stop`)}"><button class="btn btn-quiet" type="submit">Stop herinneringen</button></form>`}</td></tr>`);
+  const status = sync.lastError ? `<p class="callout warn"><strong>Ophalen bij pr3nt.nl lukte niet</strong>${e(sync.lastError)}</p>` : '';
+  const head = pageHead({ eyebrow: 'Webshop', title: 'Niet betaald', text: 'Webshoporders waarvan de betaling niet is afgerond. Deze klanten krijgen vanzelf een herinnering met de betaallink: na 1 uur, 1 dag en 3 dagen. Betaalt iemand alsnog, dan staat de order binnen een paar minuten in Orders met status Betaald.' });
+  return cmsPage({ title: 'Niet betaald', user, active: 'cms-unpaid', body: head + status + panel('', table(['Order', 'Besteld', 'Klant', 'Herinneringen', 'Bedrag', ''], rows, { empty: 'Iedereen heeft betaald. Mooi zo.' })), flash });
 }
 
 // ---------- Klanten, berichten, producenten ----------

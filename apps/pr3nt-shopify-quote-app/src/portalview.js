@@ -44,6 +44,15 @@ function tokenOf(quote) {
   return encodeURIComponent(quote.portalToken || quote.id);
 }
 
+// Webshoporders zijn al betaald: die beginnen bij Betaald en kennen geen offertestappen.
+const webshopSteps = ['paid', 'print_queue', 'ready_to_ship', 'shipped', 'delivered'];
+const isWebshop = (quote) => quote.source === 'webshop';
+
+function stepsOf(quote) {
+  if (!isWebshop(quote)) return statuses;
+  return statuses.filter(([value]) => webshopSteps.includes(value)).map(([value, label]) => [value, value === 'paid' ? 'Besteld en betaald' : label]);
+}
+
 function statusIndex(status) {
   const index = statuses.findIndex(([value]) => value === status);
   return index < 0 ? 0 : index;
@@ -104,6 +113,7 @@ function stateOf(quote) {
 function heading(quote, state) {
   if (state.waiting) return ['We wachten op je reactie', 'We hebben je iets gevraagd voordat we verder kunnen. Lees het laatste bericht en laat het ons weten.'];
   if (state.canPay) return ['Betaling staat nog open', 'Je hebt de offerte geaccepteerd. Rond de betaling af, dan plannen we je print in.'];
+  if (isWebshop(quote) && state.status === 'paid') return ['Bestelling ontvangen', quote.scheduledEndAt ? 'Bedankt voor je bestelling. Je print is ingepland, hieronder zie je wanneer hij klaar is.' : 'Bedankt voor je bestelling en betaling. We plannen je print in en laten het weten zodra hij op de printer ligt.'];
   if (state.accepted && !state.paid) return ['Akkoord ontvangen', 'We zetten de betaallink voor je klaar. We starten met printen zodra de betaling binnen is.'];
   const map = {
     received: ['Aanvraag ontvangen', 'We bekijken je bestand. Binnen 1 werkdag krijg je een prijsopgaaf, inclusief verzending.'],
@@ -166,13 +176,15 @@ function actionPanel(quote, state) {
 
 function statusSection(quote, state) {
   const [title, text] = heading(quote, state);
-  const step = state.index + 1;
+  const list = stepsOf(quote);
+  const current = Math.max(0, list.findIndex(([value]) => value === state.status));
+  const step = current + 1;
   const active = state.status !== 'delivered';
-  const layers = statuses.map(([, label], index) => `<span class="${index < state.index ? 'done' : index === state.index ? `now${active ? ' active' : ''}` : ''}" style="--i:${index}" data-label="${index + 1}. ${e(label)}"></span>`).join('');
-  const steps = statuses.map(([, label], index) => `<li class="${index < state.index ? 'done' : index === state.index ? 'now' : ''}"><span class="mono">${String(index + 1).padStart(2, '0')}</span>${e(label)}${index === state.index ? '<em>nu</em>' : ''}</li>`).join('');
+  const layers = list.map(([, label], index) => `<span class="${index < current ? 'done' : index === current ? `now${active ? ' active' : ''}` : ''}" style="--i:${index}" data-label="${index + 1}. ${e(label)}"></span>`).join('');
+  const steps = list.map(([, label], index) => `<li class="${index < current ? 'done' : index === current ? 'now' : ''}"><span class="mono">${String(index + 1).padStart(2, '0')}</span>${e(label)}${index === current ? '<em>nu</em>' : ''}</li>`).join('');
   const ready = expectedReady(quote, state);
   const facts = [quote.material, quote.color, String(quote.rush || '').toLowerCase().startsWith('j') ? 'Spoed' : ''].filter(Boolean).map((fact) => `<span>${e(fact)}</span>`).join('');
-  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${statuses.length} · ${e(statuses[state.index][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${statuses.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div><details class="steps"><summary>Alle stappen bekijken</summary><ol>${steps}</ol></details>${ready ? `<div class="eta"><span class="label">Verwacht klaar</span><strong>${e(ready)}</strong></div>` : ''}${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
+  return `<section class="status" aria-labelledby="status-title"><div class="status-text"><div class="btn-row"><span class="label">Stap ${step} van ${list.length} · ${e(list[current][1])}</span>${statusPill(state)}</div><h1 id="status-title">${e(title)}</h1><p>${e(text)}</p><div class="layers" role="img" aria-label="Voortgang: stap ${step} van ${list.length}">${layers}</div><div class="layers-legend" aria-hidden="true"><span>Ontvangen</span><span>Printen</span><span>Geleverd</span></div><details class="steps"><summary>Alle stappen bekijken</summary><ol>${steps}</ol></details>${ready ? `<div class="eta"><span class="label">Verwacht klaar</span><strong>${e(ready)}</strong></div>` : ''}${facts ? `<div class="facts">${facts}</div>` : ''}</div>${actionPanel(quote, state)}</section>`;
 }
 
 function quotePanel(quote, state) {
@@ -188,15 +200,15 @@ function quotePanel(quote, state) {
     }).join('');
     body = `<div style="overflow-x:auto"><table class="lines"><thead><tr><th>Omschrijving</th><th class="r">Aantal</th><th class="r hide-sm">Prijs</th><th class="r">Bedrag</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="2">Subtotaal excl. btw</td><td class="hide-sm"></td><td class="r">€ ${fmt(quoteSubtotalExVat(quote))}</td></tr><tr><td colspan="2">Btw ${vatLabel()}%</td><td class="hide-sm"></td><td class="r">€ ${fmt(quoteVatAmount(quote))}</td></tr><tr class="total"><td colspan="2">Totaal incl. btw</td><td class="hide-sm"></td><td class="r">€ ${fmt(state.total)}</td></tr></tfoot></table></div>${state.canAccept ? '<div class="callout"><strong>Printen start na betaling</strong>Na je akkoord ga je door naar de betaling via Mollie.</div>' : ''}`;
   }
-  const meta = quote.quoteSentAt ? `<span class="muted small">Verstuurd ${e(formatDate(quote.quoteSentAt))}</span>` : '';
-  return `<section class="panel" aria-labelledby="offerte-title"><div class="panel-head"><h2 id="offerte-title">Offerte</h2>${meta}</div><div class="panel-body">${body}</div></section>`;
+  const meta = isWebshop(quote) ? `<span class="muted small">Besteld ${e(formatDate(quote.createdAt))}</span>` : quote.quoteSentAt ? `<span class="muted small">Verstuurd ${e(formatDate(quote.quoteSentAt))}</span>` : '';
+  return `<section class="panel" aria-labelledby="offerte-title"><div class="panel-head"><h2 id="offerte-title">${isWebshop(quote) ? 'Bestelling' : 'Offerte'}</h2>${meta}</div><div class="panel-body">${body}</div></section>`;
 }
 
 function detailsPanel(quote) {
   const rows = [
-    ['Aanvraag', `<span class="mono">${e(quote.id)}</span>`],
-    ['Ingediend', e(formatDate(quote.createdAt))],
-    ['Type', quote.requestType === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig'],
+    [isWebshop(quote) ? 'Bestelling' : 'Aanvraag', `<span class="mono">${e(quote.webshopOrderId || quote.id)}</span>`],
+    [isWebshop(quote) ? 'Besteld' : 'Ingediend', e(formatDate(quote.createdAt))],
+    ['Type', isWebshop(quote) ? 'Webshop' : quote.requestType === 'no_model' ? 'Nog geen 3D-bestand' : '3D-bestand aanwezig'],
     ['Materiaal', e(quote.material || '-')],
     ['Kleur', e(quote.color || '-')],
     ['Spoed', e(quote.rush || 'Nee')],
@@ -263,7 +275,7 @@ function moreActionsPanel(quote, state) {
   if (state.paid) items.push(`<li><div><strong>Factuur</strong><span>Met btw-specificatie, te printen of op te slaan als pdf.</span></div><a class="btn" href="/portal/${token}/invoice" target="_blank" rel="noopener">Bekijken</a></li>`);
   const invoices = Array.isArray(quote.invoices) ? quote.invoices.filter((invoice) => invoice && invoice.url) : [];
   invoices.forEach((invoice) => items.push(`<li><div><strong>${e(invoice.number || 'Factuur')}</strong><span>${e(formatDate(invoice.createdAt))} · pdf</span></div><a class="btn" href="${e(invoice.url)}">Downloaden</a></li>`));
-  if (state.status !== 'delivered') items.push(`<li><div><strong>Nog een keer printen</strong><span>Start een nieuwe aanvraag met dezelfde bestanden.</span></div><form method="post" action="/portal/${token}/reorder"><button class="btn" type="submit">Opnieuw bestellen</button></form></li>`);
+  if (state.status !== 'delivered' && !isWebshop(quote)) items.push(`<li><div><strong>Nog een keer printen</strong><span>Start een nieuwe aanvraag met dezelfde bestanden.</span></div><form method="post" action="/portal/${token}/reorder"><button class="btn" type="submit">Opnieuw bestellen</button></form></li>`);
   return `<section class="panel" aria-labelledby="more-title"><div class="panel-head"><h2 id="more-title">Overig</h2></div><div class="panel-body"><ul class="actions-list">${items.join('')}</ul></div></section>`;
 }
 
@@ -282,7 +294,7 @@ function topbar(quote, allQuotes, active) {
   const projects = accountProjects(quote, allQuotes);
   const project = projects.length > 1
     ? `<label class="switcher"><span class="muted">Project</span><select aria-label="Kies project" onchange="if(this.value) location.href=this.value">${projects.map((item) => `<option value="/portal/${tokenOf(item)}" ${item.id === quote.id ? 'selected' : ''}>${e(item.id)} · ${e(item.material || 'Print')} ${e(item.color || '')}</option>`).join('')}</select></label>`
-    : `<a href="/portal/${token}" ${active === 'project' ? 'aria-current="page"' : ''}>Project <span class="mono">${e(quote.id)}</span></a>`;
+    : `<a href="/portal/${token}" ${active === 'project' ? 'aria-current="page"' : ''}>${isWebshop(quote) ? 'Bestelling' : 'Project'} <span class="mono">${e(quote.webshopOrderId && isWebshop(quote) ? quote.webshopOrderId : quote.id)}</span></a>`;
   return `<header class="topbar">${logo(`/portal/${token}`)}<nav class="topnav" aria-label="Portaal">${project}${projects.length > 1 ? `<a href="/portal/${token}" ${active === 'project' ? 'aria-current="page"' : ''}>Overzicht</a>` : ''}<a href="/portal/${token}/account" ${active === 'account' ? 'aria-current="page"' : ''}>Account</a></nav></header>`;
 }
 
@@ -426,7 +438,7 @@ const pageScript = `<script src="/assets/portal.js?v=${assetVersion}" defer></sc
 
 export function renderPortalPage(quote, allQuotes, saved = '') {
   const state = stateOf(quote);
-  const body = `${notice(saved)}${statusSection(quote, state)}<div class="portal-layout"><div class="stack">${quotePanel(quote, state)}${filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack">${detailsPanel(quote)}${messagesPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
+  const body = `${notice(saved)}${statusSection(quote, state)}<div class="portal-layout"><div class="stack">${quotePanel(quote, state)}${isWebshop(quote) && !quoteFiles(quote).length ? '' : filesPanel(quote, state)}${reviewPanel(quote)}</div><div class="stack">${detailsPanel(quote)}${messagesPanel(quote)}${shippingPanel(quote, state)}${moreActionsPanel(quote, state)}</div></div>${footer()}`;
   return renderShell({ title: `Project ${quote.id}`, topbar: topbar(quote, allQuotes, 'project'), body, scripts: pageScript + viewerScript(quote) });
 }
 
