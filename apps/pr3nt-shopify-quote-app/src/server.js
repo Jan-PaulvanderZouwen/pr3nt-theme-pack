@@ -28,6 +28,7 @@ import { registerWorkViewRoutes } from './workview.js';
 import { registerCmsRoutes } from './cms/routes.js';
 import { post as cmsPost } from './cms/client.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
+import { startWebshopSync } from './webshopsync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -433,3 +434,6 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(config.port, () => console.log(`pr3nt quote app running on port ${config.port}`));
+
+// Betaalde webshoporders van pr3nt.nl naar Orders, herinneringen voor onbetaalde (zie webshopsync.js)
+startWebshopSync();
