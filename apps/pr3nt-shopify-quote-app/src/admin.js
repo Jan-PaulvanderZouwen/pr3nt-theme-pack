@@ -321,6 +321,13 @@ export function registerAdminRoutes(app) {
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       quote.messages.push({ from: 'pr3nt', text: newMessage, createdAt: new Date().toISOString() });
     }
+    if (typeof req.body.producer === 'string') {
+      const producer = clean(req.body.producer, 80).toLowerCase();
+      if (producer !== String(quote.producer || '')) {
+        if (producer) { quote.producer = producer; quote.producerAcceptedAt = new Date().toISOString(); delete quote.producerFee; if (quote.status === 'paid') quote.status = 'print_queue'; }
+        else { delete quote.producer; delete quote.producerAcceptedAt; delete quote.producerFee; if (quote.status === 'print_queue') quote.status = 'paid'; }
+      }
+    }
     fillTrackingFromMyParcel(quote);
     applyAutomaticStatus(quote);
     if (quote.status === 'quote_sent') await notifyCustomerQuoteSent(quote);

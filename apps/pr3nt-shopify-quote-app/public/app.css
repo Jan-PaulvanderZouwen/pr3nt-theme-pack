@@ -1247,6 +1247,8 @@ body.is-admin { background: var(--paper); }
 .member .avatar { align-self: center; }
 .member.is-new { grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--green-soft); margin-top: 4px; }
 .member .btn { min-height: 42px; }
+.member .member-company { grid-column: 2 / span 4; }
+.member.is-new .member-company { grid-column: 1 / -1; }
 
 /* Cijfers */
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
@@ -1344,6 +1346,7 @@ body.is-login { background: var(--paper); }
   .board { grid-template-columns: repeat(4, minmax(250px, 1fr)); }
   .member { grid-template-columns: auto repeat(2, minmax(0, 1fr)); }
   .member .btn { grid-column: 2 / -1; justify-self: start; min-height: 32px; }
+  .member .member-company { grid-column: 2 / -1; }
   .member.is-new { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1395,6 +1398,7 @@ body.is-login { background: var(--paper); }
   .member, .member.is-new { grid-template-columns: 1fr 1fr; }
   .member .avatar { display: none; }
   .member .btn { grid-column: 1 / -1; }
+  .member .member-company { grid-column: 1 / -1; }
   .week a strong { font-size: 15px; }
   .savebar { bottom: 8px; }
   .savebar .kbd-hint { display: none; }

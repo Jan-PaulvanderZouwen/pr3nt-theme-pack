@@ -3,13 +3,16 @@
 import { randomUUID } from 'node:crypto';
 import { e } from './ui/layout.js';
 import {
-  staffOnly, adminOnly, renderAdmin, pageHead, notice, emptyState, dot, swatch, euro, ago, plural, clockText, timeOnly, hoursText, initials, displayName,
+  staffOnly, teamOnly, adminOnly, renderAdmin, pageHead, notice, emptyState, dot, swatch, euro, ago, plural, clockText, timeOnly, hoursText, initials, displayName,
   nowWallClock, wallClock, dayLabel, shortDay, addDays, dateFromKey,
 } from './ui/adminshell.js';
 import {
   adminContext, productionOrders, printHours, printerOf, nextFreeSlot, needsPlanning, isRush, lowStockGrams, statusText, wallMs,
 } from './ui/orders.js';
-import { isAdmin } from './myparcel.js';
+import { isAdmin, isProducer, readSettings, chargedShipping, isPickup, fillTrackingFromMyParcel } from './myparcel.js';
+import { readQuotes, writeQuotes } from './admin.js';
+import { sendCustomerMail } from './statusmails.js';
+import { phaseOf, inProduction, canSee, isMine, producerFee, blockedReason, contactRule, producerConversation } from './producers.js';
 import { updateMissingProductionPrices } from './productionpricing.js';
 import { stockRows, workerLabel } from './filament.js';
 import { humanize } from './sitecontent.js';
@@ -30,209 +33,108 @@ function grams(value) {
   return Math.abs(number) >= 1000 ? `${(number / 1000).toLocaleString('nl-NL', { maximumFractionDigits: 1 })} kg` : `${Math.round(number).toLocaleString('nl-NL')} g`;
 }
 
-// ---------- Productiebord ----------
+// ---------- Productie: gewoon regels ----------
+// Drie blokken onder elkaar: nieuwe orders (accepteren), in productie (klaar melden) en klaar voor verzending (label + verzonden).
+// Externe producenten zien alleen nieuwe orders en hun eigen orders. De klant ziet nooit wie er print.
 
-const columns = [
-  ['plan', 'Inplannen', 'Betaald, nog geen printer'],
-  ['planned', 'Ingepland', 'Staat klaar voor de printer'],
-  ['printing', 'Printen', 'Ligt op de printer'],
-  ['ship', 'Klaar voor verzending', 'Inpakken en versturen'],
+const phases = [
+  ['new', 'Nieuwe orders', 'Betaald, nog geen producent'],
+  ['making', 'In productie', 'Wordt geprint'],
+  ['ship', 'Klaar voor verzending', 'Label erop en wegbrengen'],
 ];
 
-function columnOf(quote) {
-  if (quote.status === 'ready_to_ship') return 'ship';
-  if (quote.status === 'print_queue') return 'printing';
-  return quote.scheduledStartAt ? 'planned' : 'plan';
+function producerName(username, settings) {
+  if (!username) return '';
+  const account = (settings.users || []).find((item) => item.username === username);
+  return account?.name || username;
 }
 
-function printerSelect(settings, selected = '') {
-  return `<select name="assignedPrinter">${settings.printers.map((printer) => `<option value="${e(printer.id)}" ${selected === printer.id || selected === printer.name ? 'selected' : ''}>${e(printer.name)}</option>`).join('')}</select>`;
+function orderTitle(quote, user) {
+  const first = String(quote.name || '').trim().split(/\s+/)[0] || 'Klant';
+  return isProducer(user) ? `Order voor ${first}` : (quote.name || 'Order');
 }
 
-function planFields(quote, settings, { start = '', printer = '' } = {}) {
-  const hours = printHours(quote);
-  return `<div class="plan-grid"><label class="field"><span>Printer</span>${printerSelect(settings, printer || quote.assignedPrinter || '')}</label><label class="field"><span>Start</span><input type="datetime-local" name="scheduledStartAt" value="${e(String(start || quote.scheduledStartAt || '').slice(0, 16))}"></label><label class="field"><span>Printuren</span><input name="estimatedPrintHours" inputmode="decimal" value="${e(String(quote.estimatedPrintHours || hours).replace('.', ','))}"></label></div>`;
-}
-
-function keepFields(quote) {
-  return `<input type="hidden" name="assignedPrinter" value="${e(quote.assignedPrinter || '')}"><input type="hidden" name="scheduledStartAt" value="${e(String(quote.scheduledStartAt || '').slice(0, 16))}"><input type="hidden" name="estimatedPrintHours" value="${e(String(quote.estimatedPrintHours || printHours(quote)))}">`;
-}
-
-function progressOf(quote) {
-  const start = wallMs(quote.scheduledStartAt);
-  const end = wallMs(quote.scheduledEndAt);
-  const now = wallMs(nowWallClock().stamp);
-  if (!start || !end || end <= start || now < start) return null;
-  const pct = Math.min(100, Math.round(((now - start) / (end - start)) * 100));
-  return { pct, left: Math.max(0, (end - now) / 60000) };
-}
-
-// Wat een kaart nodig heeft om naar een andere kolom gesleept te worden (zie public/admin.js).
-// Zonder planning: 'Ingepland' pakt de eerste vrije plek, 'Printen' start nu op de printer die het eerst vrij is.
-function dragData(quote, quotes, settings, column) {
-  const hours = printHours(quote);
-  const planned = String(quote.scheduledStartAt || '').slice(0, 16);
-  const slot = planned ? null : nextFreeSlot(quotes, settings, hours);
-  const free = planned ? null : nextFreeSlot(quotes, settings, hours, { fromNow: true });
-  const attrs = {
-    'data-drag': quote.id,
-    'data-action': `/admin/work/quotes/${encodeURIComponent(quote.id)}`,
-    'data-lane': column,
-    'data-printer': quote.assignedPrinter || '',
-    'data-start': planned,
-    'data-hours': String(quote.estimatedPrintHours || hours),
-    'data-slot-printer': slot?.printer?.id || '',
-    'data-slot-start': slot?.start || '',
-    'data-now-printer': free?.printer?.id || '',
-    'data-now-start': free ? nowWallClock().stamp.slice(0, 16) : '',
-  };
-  return Object.entries(attrs).map(([key, value]) => `${key}="${e(value)}"`).join(' ');
-}
-
-function boardCard(quote, quotes, settings, user, moved) {
-  const column = columnOf(quote);
+function orderLink(quote, user) {
   const id = encodeURIComponent(quote.id);
-  const action = `/admin/work/quotes/${id}`;
-  const printer = printerOf(quote, settings);
-  const amount = quote.productionAmount || quote.productionOfferAmount || quote.productionPrice || '';
-  const files = (Array.isArray(quote.files) ? quote.files : []).filter((file) => file?.url);
-  const fileLinks = files.slice(0, 2).map((file) => `<a href="${e(file.url)}" download title="${e(file.originalName || 'Bestand')}">${e(file.originalName || 'Bestand')}</a>`).join('') + (files.length > 2 ? `<span class="muted">+${files.length - 2}</span>` : '');
-  const name = isAdmin(user) ? `<a href="/admin/quotes/${id}">${e(quote.name || 'Order')}</a>` : e(quote.name || 'Order');
-  const when = quote.scheduledStartAt ? `<p class="card-plan">${e(printer?.name || 'Printer')} · ${e(clockText(quote.scheduledStartAt))}–${e(timeOnly(quote.scheduledEndAt))}</p>` : '';
-  const progress = column === 'printing' ? progressOf(quote) : null;
-  const bar = progress ? `<div class="card-progress" style="--p:${progress.pct}%"><i></i><span>${progress.pct >= 100 ? 'Zou klaar moeten zijn' : `Nog ${durationText(progress.left)}`}</span></div>` : '';
-  let actions = '';
-  if (column === 'plan') {
-    const slot = nextFreeSlot(quotes, settings, printHours(quote));
-    const free = nextFreeSlot(quotes, settings, printHours(quote), { fromNow: true });
-    const freeNow = free.isNow ? free : null;
-    const startNow = freeNow ? `<form method="post" action="${action}"><input type="hidden" name="status" value="print_queue"><input type="hidden" name="assignedPrinter" value="${e(freeNow.printer.id)}"><input type="hidden" name="scheduledStartAt" value="${e(freeNow.start)}"><input type="hidden" name="estimatedPrintHours" value="${e(String(quote.estimatedPrintHours || printHours(quote)))}"><button class="btn" type="submit">Nu starten op ${e(freeNow.printer.name)}</button></form>` : '';
-    actions = `<details class="card-more"><summary class="btn btn-dark">Inplannen</summary><form class="form" method="post" action="${action}"><input type="hidden" name="status" value="paid">${planFields(quote, settings, { start: slot.start, printer: slot.printer?.id })}<p class="muted small">Voorgesteld: eerste plek waar deze ${e(hoursText(printHours(quote)))} in past, op ${e(slot.printer?.name || 'printer')} ${e(clockText(slot.start))}.</p><button class="btn btn-primary" type="submit">Inplannen</button></form></details>${startNow}`;
-  } else {
-    const next = { planned: ['print_queue', 'Start printen'], printing: ['ready_to_ship', 'Klaar ✓'], ship: ['shipped', 'Verzonden'] }[column];
-    const label = column === 'ship' && quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
-    actions = `<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${column === 'ship' ? 'btn-dark' : 'btn-primary'}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>${label}${column !== 'ship' ? `<details class="card-more"><summary class="btn btn-quiet">Planning</summary><form class="form" method="post" action="${action}"><input type="hidden" name="status" value="${e(quote.status)}">${planFields(quote, settings)}<button class="btn" type="submit">Opslaan</button></form></details>` : ''}`;
-  }
-  return `<article class="job${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}" ${dragData(quote, quotes, settings, column)}><div class="job-head"><strong>${name}</strong>${isRush(quote) ? '<em class="tag-rush">Spoed</em>' : ''}</div><p class="job-meta">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span></p><p class="job-facts"><span>${e(hoursText(printHours(quote)))}</span>${amount ? `<span>${e(euro(amount))}</span>` : ''}<span class="mono">${e(quote.id)}</span></p>${when}${bar}${fileLinks ? `<div class="job-files">${fileLinks}</div>` : ''}<div class="job-actions">${actions}</div></article>`;
+  return isAdmin(user) ? `/admin/quotes/${id}` : `/admin/work/orders/${id}`;
 }
 
-// Lijstweergave: dezelfde orders per fase onder elkaar, met één knop voor de volgende stap.
-function listAction(quote, quotes, settings, column) {
-  const action = `/admin/work/quotes/${encodeURIComponent(quote.id)}`;
-  const hours = String(quote.estimatedPrintHours || printHours(quote));
-  if (column === 'plan') {
-    const slot = nextFreeSlot(quotes, settings, printHours(quote));
-    return `<form method="post" action="${action}"><input type="hidden" name="status" value="paid"><input type="hidden" name="assignedPrinter" value="${e(slot.printer?.id || '')}"><input type="hidden" name="scheduledStartAt" value="${e(slot.start)}"><input type="hidden" name="estimatedPrintHours" value="${e(hours)}"><button class="btn btn-dark" type="submit" title="Eerste vrije plek waar deze print in past">Inplannen ${e(clockText(slot.start))}</button></form>`;
-  }
-  const next = { planned: ['print_queue', 'Start printen', 'btn-primary'], printing: ['ready_to_ship', 'Klaar ✓', 'btn-primary'], ship: ['shipped', 'Verzonden', 'btn-dark'] }[column];
-  const label = column === 'ship' && quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
-  return `${label}<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${next[2]}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>`;
+function feeText(quote) {
+  const fee = producerFee(quote);
+  if (!fee.total) return '';
+  return fee.ship ? `${euro(fee.total)} <small>(${euro(fee.print)} printen + ${euro(fee.ship)} verzenden)</small>` : `${euro(fee.total)} <small>(printen)</small>`;
 }
 
-function listRow(quote, quotes, settings, user, moved) {
-  const column = columnOf(quote);
-  const id = encodeURIComponent(quote.id);
-  const printer = printerOf(quote, settings);
-  const name = isAdmin(user) ? `<a href="/admin/quotes/${id}">${e(quote.name || 'Order')}</a>` : e(quote.name || 'Order');
-  const progress = column === 'printing' ? progressOf(quote) : null;
-  const when = quote.scheduledStartAt
-    ? `<strong>${e(printer?.name || 'Printer')}</strong><small>${e(clockText(quote.scheduledStartAt))}–${e(timeOnly(quote.scheduledEndAt))}</small>`
-    : '<strong class="muted">Nog geen plek</strong><small>Betaald</small>';
-  const bar = progress ? `<span class="row-progress" style="--p:${progress.pct}%" title="${progress.pct}%"><i></i></span>` : '';
-  return `<article class="job-row${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}"><div class="row-main"><strong>${name}${isRush(quote) ? ' <em class="tag-rush">Spoed</em>' : ''}</strong><small>${dot(quote.color)}${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')} · <span class="mono">${e(quote.id)}</span></small></div><div class="row-when">${when}${bar}</div><div class="row-hours num">${e(hoursText(printHours(quote)))}</div><div class="row-action">${listAction(quote, quotes, settings, column)}</div></article>`;
+function rowAction(quote, user) {
+  const action = `/admin/work/orders/${encodeURIComponent(quote.id)}`;
+  const phase = phaseOf(quote);
+  if (phase === 'new') return `<form method="post" action="${action}/accept"><button class="btn btn-dark" type="submit">Accepteren</button></form>`;
+  if (!isMine(user, quote)) return '';
+  if (phase === 'making') return `<form method="post" action="${action}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Klaar ✓</button></form>`;
+  const label = quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
+  return `${label}<form method="post" action="${action}/status"><button class="btn btn-dark" type="submit" name="status" value="shipped">Verzonden</button></form>`;
 }
 
-function workList(orders, quotes, settings, user, moved) {
-  return `<div class="work-list">${columns.map(([key, label, hint]) => {
-    const rows = orders.filter((quote) => columnOf(quote) === key);
-    if (!rows.length) return '';
-    return `<section class="work-group group-${key}"><header><h2>${label}</h2><span class="lane-count num">${rows.length}</span><small>${hint}</small></header>${rows.map((quote) => listRow(quote, quotes, settings, user, quote.id === moved)).join('')}</section>`;
-  }).join('')}</div>`;
+function productionRow(quote, user, settings, moved) {
+  const who = isProducer(user)
+    ? (phaseOf(quote) === 'new' ? `<strong>${feeText(quote) || 'Vergoeding volgt'}</strong><small>Voor jou</small>` : `<strong>${feeText(quote)}</strong><small>Geaccepteerd ${e(ago(quote.producerAcceptedAt))}</small>`)
+    : (() => { const fee = producerFee(quote).total; const pay = fee ? `<small>Vergoeding ${euro(fee)}</small>` : ''; return quote.producer ? `<strong>${e(producerName(quote.producer, settings))}</strong>${pay}` : `<strong class="muted">Nog niemand</strong>${pay}`; })();
+  const meta = [quote.material, quote.color].filter(Boolean).join(' · ') || 'Print';
+  return `<article class="job-row${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}"><div class="row-main"><strong><a href="${orderLink(quote, user)}">${e(orderTitle(quote, user))}</a>${isRush(quote) ? ' <em class="tag-rush">Spoed</em>' : ''}</strong><small>${dot(quote.color)}${e(meta)} · <span class="mono">${e(quote.id)}</span></small></div><div class="row-when">${who}</div><div class="row-hours num">${e(hoursText(printHours(quote)))}</div><div class="row-action">${rowAction(quote, user)}</div></article>`;
 }
 
-function viewToggle(view) {
-  const item = (key, label, icon) => `<a href="/admin/work?view=${key}" ${view === key ? 'aria-current="page"' : ''}>${icon}<span>${label}</span></a>`;
-  const boardIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1"/><rect x="6.25" y="2" width="3.5" height="8" rx="1"/><rect x="11" y="2" width="3.5" height="10" rx="1"/></svg>';
-  const listIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="2.5" rx="1"/><rect x="1.5" y="6.75" width="13" height="2.5" rx="1"/><rect x="1.5" y="11" width="13" height="2.5" rx="1"/></svg>';
-  return `<nav class="view-toggle" aria-label="Weergave">${item('bord', 'Bord', boardIcon)}${item('lijst', 'Lijst', listIcon)}</nav>`;
-}
-
-function workPage({ context, user, moved, view = 'bord' }) {
+function workPage({ context, user, moved, flash: flashText = '' }) {
   const { quotes, settings } = context;
-  const orders = productionOrders(quotes).sort((a, b) => (isRush(b) - isRush(a)) || String(a.scheduledStartAt || 'z').localeCompare(String(b.scheduledStartAt || 'z')) || String(a.paidAt || a.createdAt).localeCompare(String(b.paidAt || b.createdAt)));
-  const slot = nextFreeSlot(quotes, settings, 1);
-  const plannedHours = orders.filter((quote) => quote.scheduledStartAt && quote.status !== 'ready_to_ship').reduce((sum, quote) => sum + printHours(quote), 0);
-  const cols = columns.map(([key, label, hint], index) => {
-    const cards = orders.filter((quote) => columnOf(quote) === key);
-    return `<section class="lane lane-${key}" style="--i:${index}" data-lane="${key}" aria-labelledby="lane-${key}"><header class="lane-head"><h2 id="lane-${key}">${label}</h2><span class="lane-count num">${cards.length}</span><small>${hint}</small></header><div class="lane-body">${cards.map((quote) => boardCard(quote, quotes, settings, user, quote.id === moved)).join('') || '<p class="lane-empty">Leeg</p>'}</div></section>`;
+  const orders = quotes.filter((quote) => inProduction(quote) && canSee(user, quote))
+    .sort((a, b) => (isRush(b) - isRush(a)) || String(a.paidAt || a.createdAt).localeCompare(String(b.paidAt || b.createdAt)));
+  const groups = phases.map(([key, label, hint]) => {
+    const rows = orders.filter((quote) => phaseOf(quote) === key);
+    if (!rows.length) return '';
+    return `<section class="work-group group-${key}"><header><h2>${label}</h2><span class="lane-count num">${rows.length}</span><small>${hint}</small></header>${rows.map((quote) => productionRow(quote, user, settings, quote.id === moved)).join('')}</section>`;
   }).join('');
-  const text = orders.length
-    ? `${plural(orders.length, 'order', 'orders')} in de werkplaats, ${hoursText(plannedHours)} ingepland. ${slot.isNow ? `${slot.printer?.name || 'Een printer'} is nu vrij.` : `Eerstvolgende vrije printer: ${slot.printer?.name || 'printer'}, ${clockText(slot.start)}.`}`
-    : 'De werkplaats is leeg. Zodra er een order betaald is, verschijnt hij hier.';
+  const fresh = orders.filter((quote) => phaseOf(quote) === 'new').length;
+  const text = isProducer(user)
+    ? (fresh ? `${plural(fresh, 'nieuwe order wacht', 'nieuwe orders wachten')} op een producent. Wie het eerst accepteert, krijgt hem.` : 'Er zijn nu geen nieuwe orders. Je krijgt ze hier te zien zodra er een betaald is.')
+    : (orders.length ? `${plural(orders.length, 'order', 'orders')} in productie${fresh ? `, waarvan ${fresh} nog zonder producent` : ''}.` : 'Niks in productie. Zodra er een order betaald is, verschijnt hij hier.');
   const movedQuote = moved ? quotes.find((quote) => quote.id === moved) : null;
-  const flash = movedQuote ? (movedQuote.status === 'shipped' ? notice(`Verzonden! ${movedQuote.name || 'De klant'} krijgt een mail.`, 'party') : notice(`${movedQuote.name || 'Order'} staat nu bij ${statusText(movedQuote).toLowerCase()}.`)) : '';
-  const toShip = orders.filter((quote) => columnOf(quote) === 'ship' && quote.myParcelShipmentId);
+  const flash = flashText ? notice(flashText, 'warn') : movedQuote ? (movedQuote.status === 'shipped' ? notice('Verzonden! De klant krijgt een mail met de track & trace.', 'party') : notice(`${orderTitle(movedQuote, user)} staat nu bij ${statusText(movedQuote).toLowerCase()}.`)) : '';
+  const toShip = orders.filter((quote) => phaseOf(quote) === 'ship' && quote.myParcelShipmentId && isMine(user, quote));
   const allLabels = toShip.length > 1 ? `<a class="btn btn-dark" href="/admin/labels?ids=${encodeURIComponent(toShip.map((quote) => quote.id).join(','))}" target="_blank" rel="noopener">${toShip.length} labels printen</a>` : '';
-  const head = pageHead({ eyebrow: 'Werkplaats', title: 'Productie', text: e(text), actions: `${orders.length ? viewToggle(view) : ''}${allLabels}<a class="btn" href="/admin/work/agenda">Planning bekijken</a>` });
-  const content = view === 'lijst' ? workList(orders, quotes, settings, user, moved) : `<div class="board" data-board>${cols}</div>`;
-  const body = orders.length ? content : `<section class="panel">${emptyState('Niks op de planning', 'Tijd om de printbedden schoon te maken.')}</section>`;
+  const head = pageHead({ eyebrow: isProducer(user) ? 'Producent' : 'Werkplaats', title: 'Productie', text: e(text), actions: allLabels });
+  const body = orders.length ? `<div class="work-list">${groups}</div>` : `<section class="panel">${emptyState(isProducer(user) ? 'Even niks te doen' : 'Niks in productie', 'Tijd om de printbedden schoon te maken.')}</section>`;
   return renderAdmin({ title: 'Productie', user, active: 'work', context, body: `<div data-work-live>${flash}${head}${body}</div>` });
 }
 
-// ---------- Planning ----------
+// ---------- Order voor producent of medewerker ----------
 
-const hourHeight = 36;
-
-function weekStrip(selected, quotes, settings) {
-  const date = dateFromKey(selected);
-  const monday = addDays(selected, -((date.getUTCDay() + 6) % 7));
-  const capacity = 24 * Math.max(1, settings.printers.length);
-  const orders = productionOrders(quotes).filter((quote) => wallClock(quote.scheduledStartAt) && wallClock(quote.scheduledEndAt));
-  const today = nowWallClock().date;
-  return `<nav class="week" aria-label="Week">${Array.from({ length: 7 }, (_, index) => {
-    const key = addDays(monday, index);
-    const dayStart = wallMs(`${key}T00:00`);
-    const dayEnd = dayStart + 86400000;
-    const minutes = orders.reduce((sum, quote) => sum + Math.max(0, Math.min(dayEnd, wallMs(quote.scheduledEndAt)) - Math.max(dayStart, wallMs(quote.scheduledStartAt))) / 60000, 0);
-    const pct = Math.min(100, Math.round((minutes / 60 / capacity) * 100));
-    return `<a href="/admin/work/agenda?date=${key}"${key === selected ? ' aria-current="date"' : ''}${key === today ? ' class="is-today"' : ''}><span>${shortDay(key)}</span><strong class="num">${dateFromKey(key).getUTCDate()}</strong><i style="--h:${pct}%" title="${Math.round(minutes / 60)} printuur"></i></a>`;
-  }).join('')}</nav>`;
-}
-
-function agendaPage({ context, user, selected }) {
-  const { quotes, settings } = context;
-  const dayStart = wallMs(`${selected}T00:00`);
-  const dayEnd = dayStart + 86400000;
-  const now = nowWallClock();
-  const isToday = now.date === selected;
-  const orders = productionOrders(quotes).filter((quote) => wallClock(quote.scheduledStartAt));
-  const hours = Array.from({ length: 24 }, (_, hour) => `<span style="top:${hour * hourHeight}px">${String(hour).padStart(2, '0')}:00</span>`).join('');
-  const lanes = settings.printers.map((printer, index) => {
-    const blocks = orders.filter((quote) => (printerOf(quote, settings) || settings.printers[0])?.id === printer.id).map((quote) => {
-      const start = wallMs(quote.scheduledStartAt);
-      const end = wallMs(quote.scheduledEndAt) || start + printHours(quote) * 3600000;
-      if (end <= dayStart || start >= dayEnd) return '';
-      const from = Math.max(start, dayStart);
-      const to = Math.min(end, dayEnd);
-      const top = ((from - dayStart) / 3600000) * hourHeight;
-      const height = Math.max(30, ((to - from) / 3600000) * hourHeight - 2);
-      const live = isToday && wallMs(now.stamp) >= start && wallMs(now.stamp) < end && quote.status !== 'ready_to_ship';
-      const href = isAdmin(user) ? `/admin/quotes/${encodeURIComponent(quote.id)}` : `/admin/work#q-${encodeURIComponent(quote.id)}`;
-      const state = quote.status === 'ready_to_ship' ? ' is-done' : live ? ' is-live' : '';
-      return `<a class="block${state}" href="${href}" style="top:${top}px;height:${height}px;--c:${swatch(quote.color)}"><strong>${e(quote.name || 'Order')}</strong><span>${e(timeOnly(quote.scheduledStartAt))}–${e(timeOnly(quote.scheduledEndAt))} · ${e(hoursText(printHours(quote)))}</span><span>${e([quote.material, quote.color].filter(Boolean).join(' · '))}</span></a>`;
-    }).join('');
-    return `<section class="day-lane" style="--i:${index}"><header>${e(printer.name)}</header><div class="day-track" style="height:${24 * hourHeight}px">${blocks}</div></section>`;
-  }).join('');
-  const nowLine = isToday ? `<div class="now-line" style="top:${(now.minutes / 60) * hourHeight}px" data-now-line><span>${String(now.hh).padStart(2, '0')}:${String(now.mm).padStart(2, '0')}</span></div>` : '';
-  const firstBlock = orders.map((quote) => wallMs(quote.scheduledStartAt)).filter((ms) => ms >= dayStart && ms < dayEnd).sort()[0];
-  const scrollTo = isToday ? Math.max(0, now.hh - 2) : firstBlock ? Math.max(0, Math.floor((firstBlock - dayStart) / 3600000) - 1) : 7;
-  const toPlan = productionOrders(quotes).filter(needsPlanning);
-  const pending = toPlan.length ? `<section class="panel"><div class="panel-head"><h2>Nog in te plannen</h2><a class="btn btn-quiet" href="/admin/work">Naar productie →</a></div><div class="panel-body chips">${toPlan.map((quote) => `<a class="chip" href="/admin/work#q-${encodeURIComponent(quote.id)}">${dot(quote.color)}${e(quote.name || quote.id)}<small>${e(hoursText(printHours(quote)))}</small></a>`).join('')}</div></section>` : '';
-  const nav = `<a class="btn btn-quiet" href="/admin/work/agenda?date=${addDays(selected, -1)}" aria-label="Vorige dag">‹</a>${isToday ? '' : `<a class="btn" href="/admin/work/agenda">Vandaag</a>`}<a class="btn btn-quiet" href="/admin/work/agenda?date=${addDays(selected, 1)}" aria-label="Volgende dag">›</a><form method="get" action="/admin/work/agenda" class="date-pick"><input type="date" name="date" value="${e(selected)}" aria-label="Kies datum" data-autosubmit></form>`;
-  const head = pageHead({ eyebrow: 'Planning', title: e(dayLabel(selected, { long: true })), text: isToday ? 'De groene lijn is nu. Klik op een blok om de order te openen.' : 'Klik op een blok om de order te openen.', actions: nav });
-  const calendar = `<section class="panel day"><div class="day-scroll" data-scroll-hour="${scrollTo}" data-hour-height="${hourHeight}"><div class="day-grid" style="--lanes:${settings.printers.length}"><div class="day-hours" style="height:${24 * hourHeight}px">${hours}</div>${lanes}${nowLine}</div></div></section>`;
-  const ics = isAdmin(user) ? '<p class="muted small page-foot">Planning in je eigen agenda? De koppeling staat bij <a href="/admin/work/options#agenda">Instellingen</a>.</p>' : '';
-  return renderAdmin({ title: 'Planning', user, active: 'agenda', context, body: head + weekStrip(selected, quotes, settings) + calendar + pending + ics });
+function orderPage({ quote, context, user, flash = '', draft = '' }) {
+  const { settings } = context;
+  const phase = phaseOf(quote);
+  const mine = isMine(user, quote) && phase !== 'new';
+  const fee = producerFee(quote);
+  const action = `/admin/work/orders/${encodeURIComponent(quote.id)}`;
+  const first = String(quote.name || '').trim().split(/\s+/)[0] || 'de klant';
+  const lines = (Array.isArray(quote.quoteLines) ? quote.quoteLines : []).filter((line) => !/verzend|verwerking|korting|toeslag/i.test(`${line.label || ''}`));
+  const spec = `<dl class="spec"><dt>Materiaal</dt><dd>${e(quote.material || '-')}</dd><dt>Kleur</dt><dd>${dot(quote.color)} ${e(quote.color || '-')}</dd><dt>Printtijd</dt><dd>${e(hoursText(printHours(quote)))}</dd>${isRush(quote) ? '<dt>Spoed</dt><dd><em class="tag-rush">Ja, graag snel</em></dd>' : ''}${quote.description ? `<dt>Toelichting</dt><dd>${e(quote.description)}</dd>` : ''}${lines.length ? `<dt>Regels</dt><dd>${lines.map((line) => `${e(line.qty || 1)} × ${e(line.label || '')}${line.description ? ` <span class="muted small">${e(line.description)}</span>` : ''}`).join('<br>')}</dd>` : ''}</dl>`;
+  const files = (Array.isArray(quote.files) ? quote.files : []).filter((file) => file?.url);
+  const fileList = files.length
+    ? (mine ? `<ul class="files">${files.map((file) => `<li class="file"><span class="file-ext">${e(String(file.originalName || file.url).split('.').pop().slice(0, 4).toUpperCase())}</span><div class="file-main"><strong>${e(file.originalName || 'Bestand')}</strong></div><div class="file-actions"><a class="btn btn-quiet" href="${e(file.url)}" download>Download</a></div></li>`).join('')}</ul>` : `<p class="muted small">${plural(files.length, 'bestand', 'bestanden')}. Downloaden kan na accepteren.</p>`)
+    : '<p class="muted small">Geen bestanden bij deze order.</p>';
+  const feePanel = `<section class="panel"><div class="panel-head"><h2>Vergoeding</h2><strong class="num">${fee.total ? euro(fee.total) : '-'}</strong></div><div class="panel-body"><dl class="spec"><dt>Printen</dt><dd>${euro(fee.print)}</dd>${fee.ship ? `<dt>Verzenden</dt><dd>${euro(fee.ship)} <span class="muted small">inpakken en wegbrengen; het label betaalt Pr3nt</span></dd>` : '<dt>Verzenden</dt><dd class="muted">Niet nodig (afhalen of geen verzendkosten)</dd>'}</dl>${quote.producer && !isProducer(user) ? `<p class="muted small">Producent: ${e(producerName(quote.producer, settings))}</p>` : ''}</div></section>`;
+  let next = '';
+  if (phase === 'new') next = `<form method="post" action="${action}/accept"><button class="btn btn-dark" type="submit">Order accepteren</button></form><p class="muted small">Na accepteren is de order van jou en zien andere producenten hem niet meer.</p>`;
+  else if (mine && phase === 'making') next = `<form method="post" action="${action}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Print is klaar ✓</button></form>`;
+  else if (mine && phase === 'ship') next = `<div class="btn-row">${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<form method="post" action="${action}/status"><button class="btn btn-dark" type="submit" name="status" value="shipped">Verzonden</button></form></div>${quote.myParcelShipmentId ? '<p class="muted small">Print het label, plak het op het pakket en breng het naar een PostNL-punt. Bij Verzonden krijgt de klant de track & trace.</p>' : (chargedShipping(quote) && !isPickup(quote) ? '<p class="muted small">Het label wordt zo vanzelf klaargezet.</p>' : '<p class="muted small">Geen label nodig: deze klant haalt op of betaalde geen verzending. Overleg met Pr3nt hoe de print bij de klant komt.</p>')}`;
+  const nextPanel = next ? `<section class="next" aria-label="Volgende stap"><span class="label">Volgende stap</span><div class="next-main"><div><h2>${e(statusText(quote))}</h2></div><div>${next}</div></div></section>` : '';
+  const thread = producerConversation(quote, user).map((message) => {
+    const me = message.from !== 'klant';
+    const by = message.from === 'klant' ? first : message.producer ? (isProducer(user) && message.producer === user.username ? 'jij, als Pr3nt' : `${producerName(message.producer, settings)}, als Pr3nt`) : 'Pr3nt';
+    return `<div class="msg${me ? ' me' : ''}">${e(message.text)}<small>${e(by)} · ${e(ago(message.createdAt))}</small></div>`;
+  }).join('') || `<p class="empty">Nog geen berichten. Heb je een vraag voor ${e(first)}? Stel hem hier.</p>`;
+  const chat = mine ? `<section class="panel" id="gesprek"><div class="panel-head"><h2>Contact met ${e(first)}</h2></div><div class="panel-body"><p class="callout"><strong>Je bent Pr3nt</strong>${e(contactRule)}</p><div class="thread">${thread}</div><form method="post" action="${action}/message" class="form"><label class="field"><span>Bericht aan ${e(first)} <small>(komt in het klantportaal, afzender Pr3nt)</small></span><textarea name="text" required maxlength="2000" data-autosize>${e(draft)}</textarea></label><div class="btn-row"><button class="btn btn-dark" type="submit">Versturen</button></div></form></div></section>` : '';
+  const head = pageHead({ eyebrow: `<a href="/admin/work">Productie</a>`, title: e(orderTitle(quote, user)), text: `<span class="mono">${e(quote.id)}</span> · ${e(statusText(quote))}` });
+  const body = `${flash ? notice(flash, /niet|mag/i.test(flash) ? 'warn' : '') : ''}${head}${nextPanel}<div class="grid-2"><div class="stack"><section class="panel"><div class="panel-head"><h2>Wat moet er geprint worden</h2></div><div class="panel-body">${spec}</div></section><section class="panel"><div class="panel-head"><h2>Bestanden</h2></div><div class="panel-body">${fileList}</div></section></div><div class="stack">${feePanel}${chat}</div></div>`;
+  return renderAdmin({ title: orderTitle(quote, user), user, active: 'work', context, body });
 }
 
 // ---------- Filament ----------
@@ -293,17 +195,15 @@ function filamentPage({ context, user, saved }) {
 
 function settingsPage({ context, user, saved }) {
   const { settings } = context;
-  const token = settings.calendarToken || randomUUID();
-  const feed = `${baseUrl}/admin/work/calendar.ics?token=${encodeURIComponent(token)}`;
   const printers = Array.from({ length: settings.printerCount }, (_, index) => `<label class="field printer-name"><span>Printer ${index + 1}</span><input name="printerName" value="${e(settings.printers[index]?.name || `Printer ${index + 1}`)}"></label>`).join('');
   const userRow = (account, isNew = false) => {
     const username = String(account.username || '').toLowerCase();
     const name = account.name || username;
-    return `<div class="member${isNew ? ' is-new' : ''}">${isNew ? '' : `<span class="avatar" aria-hidden="true">${e(initials(name))}</span>`}<label class="field"><span>Naam</span><input name="userDisplayName" value="${e(isNew ? '' : name)}" placeholder="Bijv. Sanne"></label><label class="field"><span>Gebruikersnaam</span><input name="userName" value="${e(username)}" autocomplete="off" ${isNew ? 'placeholder="sanne"' : ''}></label><label class="field"><span>Rol</span><select name="userRole"><option value="worker" ${account.role !== 'admin' ? 'selected' : ''}>Medewerker</option><option value="admin" ${account.role === 'admin' ? 'selected' : ''}>Admin</option></select></label><label class="field"><span>${isNew ? 'Wachtwoord' : 'Nieuw wachtwoord'}</span><input name="userPassword" type="password" autocomplete="new-password" placeholder="${isNew ? 'Verplicht' : 'Leeg laten = houden'}"><input type="hidden" name="userPasswordHash" value="${e(account.passwordHash || '')}"></label>${isNew ? '' : `<button class="btn btn-quiet danger-link" type="submit" name="deleteUser" value="${e(username)}" data-confirm-click="${e(name)} verwijderen? Die kan daarna niet meer inloggen.">Verwijderen</button>`}</div>`;
+    return `<div class="member${isNew ? ' is-new' : ''}">${isNew ? '' : `<span class="avatar" aria-hidden="true">${e(initials(name))}</span>`}<label class="field"><span>Naam</span><input name="userDisplayName" value="${e(isNew ? '' : name)}" placeholder="Bijv. Sanne"></label><label class="field"><span>Gebruikersnaam</span><input name="userName" value="${e(username)}" autocomplete="off" ${isNew ? 'placeholder="sanne"' : ''}></label><label class="field"><span>Rol</span><select name="userRole"><option value="worker" ${account.role === 'worker' || !account.role ? 'selected' : ''}>Medewerker</option><option value="producer" ${account.role === 'producer' ? 'selected' : ''}>Producent (extern)</option><option value="admin" ${account.role === 'admin' ? 'selected' : ''}>Admin</option></select></label><label class="field"><span>${isNew ? 'Wachtwoord' : 'Nieuw wachtwoord'}</span><input name="userPassword" type="password" autocomplete="new-password" placeholder="${isNew ? 'Verplicht' : 'Leeg laten = houden'}"><input type="hidden" name="userPasswordHash" value="${e(account.passwordHash || '')}"></label><label class="field member-company"><span>Bedrijfsnaam <small>(alleen voor producenten: berichten met deze naam worden tegengehouden)</small></span><input name="userCompany" value="${e(account.company || '')}" placeholder="Bijv. Printwerk Jansen"></label>${isNew ? '' : `<button class="btn btn-quiet danger-link" type="submit" name="deleteUser" value="${e(username)}" data-confirm-click="${e(name)} verwijderen? Die kan daarna niet meer inloggen.">Verwijderen</button>`}</div>`;
   };
   const team = settings.users.map((account) => userRow(account)).join('');
-  const head = pageHead({ eyebrow: 'Beheer', title: 'Instellingen', text: 'Printers, je team en de agenda-koppeling. Alles op één plek, met één keer opslaan.' });
-  const body = `<form method="post" action="/admin/work/options" class="settings" data-dirty-form id="settings-form"><section class="panel" id="printers"><div class="panel-head"><h2>Printers</h2><label class="count-field"><span class="muted small">Aantal</span><input type="number" name="printerCount" min="1" max="20" value="${e(settings.printerCount)}" data-printer-count></label></div><div class="panel-body"><p class="muted small">Namen zie je terug in de planning, de zijbalk en de agenda.</p><div class="printer-names" data-printer-names>${printers}</div></div></section><section class="panel" id="team"><div class="panel-head"><h2>Team</h2><span class="muted small">${plural(settings.users.length, 'account', 'accounts')} naast de hoofdbeheerder</span></div><div class="panel-body"><div class="team">${team || '<p class="empty">Nog geen extra accounts. Voeg hieronder een collega toe.</p>'}</div><details class="reveal"><summary class="btn">+ Teamlid toevoegen</summary>${userRow({ role: 'worker' }, true)}</details><p class="muted small">Medewerkers zien productie, planning en filament. Admins zien ook orders, cijfers en instellingen.</p></div></section><section class="panel" id="agenda"><div class="panel-head"><h2>Agenda-koppeling</h2></div><div class="panel-body"><p class="muted small">Zet deze link in Google Agenda, Outlook of Apple Agenda (abonneren via URL). Alle ingeplande prints verschijnen dan vanzelf in je eigen agenda.</p><div class="code"><span>${e(feed)}</span><button class="btn btn-quiet" type="button" data-copy="${e(feed)}">Kopiëren</button></div><details class="reveal"><summary class="btn btn-quiet">Link vervangen</summary><label class="field"><span>Agenda-sleutel <small>(wijzig dit als de link gedeeld is met iemand die hem niet mag hebben)</small></span><input name="calendarToken" value="${e(token)}"></label></details></div></section><div class="savebar" data-savebar><span class="savebar-text" data-save-text>Alles is opgeslagen</span><button class="btn btn-primary" type="submit">Opslaan</button></div></form>`;
+  const head = pageHead({ eyebrow: 'Beheer', title: 'Instellingen', text: 'Printers, je team en producenten. Alles op één plek, met één keer opslaan.' });
+  const body = `<form method="post" action="/admin/work/options" class="settings" data-dirty-form id="settings-form"><section class="panel" id="printers"><div class="panel-head"><h2>Printers</h2><label class="count-field"><span class="muted small">Aantal</span><input type="number" name="printerCount" min="1" max="20" value="${e(settings.printerCount)}" data-printer-count></label></div><div class="panel-body"><p class="muted small">Namen zie je terug in de planning, de zijbalk en de agenda.</p><div class="printer-names" data-printer-names>${printers}</div></div></section><section class="panel" id="team"><div class="panel-head"><h2>Team</h2><span class="muted small">${plural(settings.users.length, 'account', 'accounts')} naast de hoofdbeheerder</span></div><div class="panel-body"><div class="team">${team || '<p class="empty">Nog geen extra accounts. Voeg hieronder een collega toe.</p>'}</div><details class="reveal"><summary class="btn">+ Teamlid toevoegen</summary>${userRow({ role: 'worker' }, true)}</details><p class="muted small">Medewerkers zien productie en filament. Producenten (extern) zien alleen nieuwe orders en hun eigen orders. Admins zien alles.</p></div></section><div class="savebar" data-savebar><span class="savebar-text" data-save-text>Alles is opgeslagen</span><button class="btn btn-primary" type="submit">Opslaan</button></div></form>`;
   return renderAdmin({ title: 'Instellingen', user, active: 'options', context, body: (saved ? notice('Instellingen opgeslagen.') : '') + head + body });
 }
 
@@ -364,25 +264,102 @@ function statsPage({ context, user }) {
   return renderAdmin({ title: 'Cijfers', user, active: 'stats', context, body: head + body });
 }
 
+// Bedrijfsnaam van een producent staat in Instellingen > Team (niet in de inlog-cookie).
+async function companyOf(user) {
+  const settings = await readSettings();
+  return settings.users.find((account) => account.username === user.username)?.company || '';
+}
+
 // ---------- Routes ----------
 
 export function registerWorkViewRoutes(app) {
   const admin = adminOnly();
 
-  app.get('/admin/work', staffOnly, async (req, res) => {
+  app.get('/admin/work', teamOnly, async (req, res) => {
     await updateMissingProductionPrices().catch(() => {});
     const context = await adminContext(req.internalUser);
-    // Bord of lijst: een keuze via ?view= wordt onthouden in een cookie
-    const asked = ['bord', 'lijst'].includes(req.query.view) ? req.query.view : '';
-    if (asked) res.cookie('pr3nt_work_view', asked, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 1000 * 60 * 60 * 24 * 365 });
-    const view = asked || (req.cookies?.pr3nt_work_view === 'lijst' ? 'lijst' : 'bord');
-    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || ''), view }));
+    const flash = req.query.taken === '1' ? 'Die order is net door iemand anders geaccepteerd.' : '';
+    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || ''), flash }));
   });
 
-  app.get('/admin/work/agenda', staffOnly, async (req, res) => {
+  // De planning is weg: oude links komen gewoon op Productie uit.
+  app.get('/admin/work/agenda', teamOnly, (req, res) => res.redirect('/admin/work'));
+
+  const findVisible = async (req) => {
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+    return { quotes, quote: quote && canSee(req.internalUser, quote) ? quote : null };
+  };
+  const notFound = async (req, res) => {
     const context = await adminContext(req.internalUser);
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : nowWallClock().date;
-    res.send(agendaPage({ context, user: req.internalUser, selected: date }));
+    return res.status(404).send(renderAdmin({ title: 'Niet gevonden', user: req.internalUser, active: 'work', context, body: `${pageHead({ eyebrow: 'Productie', title: 'Deze order is er niet (meer)', text: 'Misschien heeft iemand anders hem al geaccepteerd.' })}<a class="btn btn-dark" href="/admin/work">Naar productie</a>` }));
+  };
+
+  app.get('/admin/work/orders/:id', teamOnly, async (req, res) => {
+    const { quotes, quote } = await findVisible(req);
+    if (!quote) return notFound(req, res);
+    const context = await adminContext(req.internalUser, { quotes });
+    const flash = req.query.sent === '1' ? 'Bericht verstuurd. De klant ziet het in het portaal, met Pr3nt als afzender.' : req.query.accepted === '1' ? 'Geaccepteerd. Deze order is nu van jou.' : '';
+    res.send(orderPage({ quote, context, user: req.internalUser, flash }));
+  });
+
+  // Eén tegelijk, zodat twee producenten niet tegelijk dezelfde order kunnen pakken.
+  let queue = Promise.resolve();
+  const exclusive = (task) => { const run = queue.then(task, task); queue = run.catch(() => {}); return run; };
+
+  app.post('/admin/work/orders/:id/accept', teamOnly, async (req, res) => {
+    const user = req.internalUser;
+    const result = await exclusive(async () => {
+      const quotes = await readQuotes();
+      const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+      if (!quote || !inProduction(quote) || phaseOf(quote) !== 'new') return 'taken';
+      const now = new Date().toISOString();
+      quote.producer = user.username;
+      quote.producerAcceptedAt = now;
+      quote.producerFee = producerFee(quote);
+      quote.status = 'print_queue';
+      quote.updatedAt = now;
+      await writeQuotes(quotes);
+      return 'ok';
+    });
+    if (result !== 'ok') return res.redirect('/admin/work?taken=1');
+    return res.redirect(`/admin/work/orders/${encodeURIComponent(req.params.id)}?accepted=1`);
+  });
+
+  app.post('/admin/work/orders/:id/status', teamOnly, async (req, res) => {
+    const user = req.internalUser;
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+    if (!quote || !isMine(user, quote) || phaseOf(quote) === 'new') return notFound(req, res);
+    const next = String(req.body?.status || '');
+    const allowed = { making: 'ready_to_ship', ship: 'shipped' }[phaseOf(quote)];
+    if (next !== allowed) return res.redirect(`/admin/work/orders/${encodeURIComponent(quote.id)}`);
+    quote.status = next;
+    quote.updatedAt = new Date().toISOString();
+    if (next === 'ready_to_ship') quote.readyAt = quote.updatedAt;
+    if (next === 'shipped') { quote.shippedAt = quote.updatedAt; fillTrackingFromMyParcel(quote); }
+    await writeQuotes(quotes);
+    if (next === 'shipped' && quote.email) sendCustomerMail(quote, 'Je print is verzonden', 'Je pakket is verzonden. De track & trace staat in je klantportaal.', 'Bekijk verzending').catch((error) => console.warn('Verzendmail niet verstuurd:', error.message));
+    return res.redirect(`/admin/work?moved=${encodeURIComponent(quote.id)}#q-${encodeURIComponent(quote.id)}`);
+  });
+
+  app.post('/admin/work/orders/:id/message', teamOnly, async (req, res) => {
+    const user = req.internalUser;
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+    if (!quote || !isMine(user, quote) || phaseOf(quote) === 'new') return notFound(req, res);
+    const text = String(req.body?.text || '').replace(/[<>]/g, '').trim().slice(0, 2000);
+    if (!text) return res.redirect(`/admin/work/orders/${encodeURIComponent(quote.id)}#gesprek`);
+    const reason = isProducer(user) ? blockedReason(text, user.company ? user : { company: await companyOf(user) }) : '';
+    if (reason) {
+      const context = await adminContext(user, { quotes });
+      return res.status(422).send(orderPage({ quote, context, user, draft: text, flash: `Niet verstuurd: je bericht bevat ${reason}. Dat mag niet in contact met de klant. Pas het aan en probeer opnieuw.` }));
+    }
+    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+    quote.messages.push({ from: 'pr3nt', text, createdAt: new Date().toISOString(), producer: user.username });
+    quote.updatedAt = new Date().toISOString();
+    await writeQuotes(quotes);
+    return res.redirect(`/admin/work/orders/${encodeURIComponent(quote.id)}?sent=1#gesprek`);
   });
 
   app.get('/admin/filament', staffOnly, async (req, res) => {
