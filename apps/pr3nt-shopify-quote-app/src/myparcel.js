@@ -52,7 +52,7 @@ export async function readSettings() {
   const count = Math.max(1, Math.min(20, Number(saved.printerCount || process.env.PRINTER_COUNT || 2)));
   const existingPrinters = Array.isArray(saved.printers) ? saved.printers : [];
   const printers = Array.from({ length: count }, (_, index) => { const current = existingPrinters[index] || {}; return { id: clean(current.id || `printer-${index + 1}`, 80), name: clean(current.name || `Printer ${index + 1}`, 80) }; });
-  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: roleOf(user.role), company: clean(user.company || '', 120), passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
+  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: roleOf(user.role), company: clean(user.company || '', 120), email: clean(user.email || '', 160), inviteToken: clean(user.inviteToken || '', 80), inviteExpires: clean(user.inviteExpires || '', 40), source: clean(user.source || '', 40), passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
   return { ...defaultSettings(), ...saved, printerCount: count, printers, users, calendarToken: saved.calendarToken || process.env.PRINT_CALENDAR_TOKEN || '' };
 }
 
@@ -77,13 +77,23 @@ async function writeSettingsFromBody(body = {}) {
     const existing = settings.users.find((user) => user.username.toLowerCase() === cleanUsername) || {};
     const password = String(passwords[index] || '');
     const hash = password ? passwordHash(password) : clean(existingHashes[index] || existing.passwordHash || '', 300);
-    if (!hash) return null;
-    return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roleOf(roles[index]), company: clean(companies[index] ?? existing.company ?? '', 120), passwordHash: hash };
+    if (!hash && !existing.inviteToken) return null;
+    const keep = { email: existing.email || '', inviteToken: hash && password ? '' : existing.inviteToken || '', inviteExpires: hash && password ? '' : existing.inviteExpires || '', source: existing.source || '' };
+    return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roleOf(roles[index]), company: clean(companies[index] ?? existing.company ?? '', 120), ...keep, passwordHash: hash };
   }).filter(Boolean);
   const next = { ...settings, printerCount: count, printers, calendarToken: token, users };
   await writeJson(settingsFilePath, next);
   return next;
 }
+
+// Accounts aanpassen buiten het instellingenformulier om (uitnodigingen voor producenten).
+export async function updateUsers(change) {
+  const settings = await readSettings();
+  const users = change(settings.users.map((user) => ({ ...user }))) || settings.users;
+  await writeJson(settingsFilePath, { ...settings, users });
+  return users;
+}
+export { passwordHash };
 
 export async function authenticateUser(username = '', password = '') {
   const cleanUsername = clean(username, 80).toLowerCase();
@@ -91,7 +101,7 @@ export async function authenticateUser(username = '', password = '') {
   const adminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_KEY || '';
   if (adminPassword && cleanUsername === adminUsername && safeEquals(String(password), adminPassword)) return { username: adminUsername, name: 'Admin', role: 'admin' };
   const settings = await readSettings();
-  const found = settings.users.find((user) => user.username.toLowerCase() === cleanUsername);
+  const found = settings.users.find((user) => user.username.toLowerCase() === cleanUsername || (user.email && user.email.toLowerCase() === cleanUsername));
   if (found && verifyPassword(password, found.passwordHash)) return { username: found.username, name: found.name || found.username, role: roleOf(found.role) };
   const legacyWorkerPassword = process.env.PRINT_WORKER_PASSWORD || process.env.PRINT_WORKER_KEY || '';
   if (legacyWorkerPassword && ['productie', 'medewerker', 'werk'].includes(cleanUsername) && safeEquals(String(password), legacyWorkerPassword)) return { username: cleanUsername, name: 'Productie', role: 'worker' };
