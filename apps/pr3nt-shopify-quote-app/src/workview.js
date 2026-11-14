@@ -110,7 +110,7 @@ function boardCard(quote, quotes, settings, user, moved) {
     actions = `<details class="card-more"><summary class="btn btn-dark">Inplannen</summary><form class="form" method="post" action="${action}"><input type="hidden" name="status" value="paid">${planFields(quote, settings, { start: slot.start, printer: slot.printer?.id })}<p class="muted small">Voorgesteld: eerste plek waar deze ${e(hoursText(printHours(quote)))} in past, op ${e(slot.printer?.name || 'printer')} ${e(clockText(slot.start))}.</p><button class="btn btn-primary" type="submit">Inplannen</button></form></details>${startNow}`;
   } else {
     const next = { planned: ['print_queue', 'Start printen'], printing: ['ready_to_ship', 'Klaar ✓'], ship: ['shipped', 'Verzonden'] }[column];
-    const label = column === 'ship' && quote.myParcelLabelUrl ? `<a class="btn" href="${e(quote.myParcelLabelUrl)}" target="_blank" rel="noopener">Label</a>` : '';
+    const label = column === 'ship' && quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
     actions = `<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${column === 'ship' ? 'btn-dark' : 'btn-primary'}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>${label}${column !== 'ship' ? `<details class="card-more"><summary class="btn btn-quiet">Planning</summary><form class="form" method="post" action="${action}"><input type="hidden" name="status" value="${e(quote.status)}">${planFields(quote, settings)}<button class="btn" type="submit">Opslaan</button></form></details>` : ''}`;
   }
   return `<article class="job${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}" ${dragData(quote, quotes, settings, column)}><div class="job-head"><strong>${name}</strong>${isRush(quote) ? '<em class="tag-rush">Spoed</em>' : ''}</div><p class="job-meta">${dot(quote.color)}<span>${e([quote.material, quote.color].filter(Boolean).join(' · ') || 'Print')}</span></p><p class="job-facts"><span>${e(hoursText(printHours(quote)))}</span>${amount ? `<span>${e(euro(amount))}</span>` : ''}<span class="mono">${e(quote.id)}</span></p>${when}${bar}${fileLinks ? `<div class="job-files">${fileLinks}</div>` : ''}<div class="job-actions">${actions}</div></article>`;
@@ -125,7 +125,8 @@ function listAction(quote, quotes, settings, column) {
     return `<form method="post" action="${action}"><input type="hidden" name="status" value="paid"><input type="hidden" name="assignedPrinter" value="${e(slot.printer?.id || '')}"><input type="hidden" name="scheduledStartAt" value="${e(slot.start)}"><input type="hidden" name="estimatedPrintHours" value="${e(hours)}"><button class="btn btn-dark" type="submit" title="Eerste vrije plek waar deze print in past">Inplannen ${e(clockText(slot.start))}</button></form>`;
   }
   const next = { planned: ['print_queue', 'Start printen', 'btn-primary'], printing: ['ready_to_ship', 'Klaar ✓', 'btn-primary'], ship: ['shipped', 'Verzonden', 'btn-dark'] }[column];
-  return `<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${next[2]}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>`;
+  const label = column === 'ship' && quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
+  return `${label}<form method="post" action="${action}">${keepFields(quote)}<button class="btn ${next[2]}" type="submit" name="status" value="${next[0]}">${next[1]}</button></form>`;
 }
 
 function listRow(quote, quotes, settings, user, moved) {
@@ -170,7 +171,9 @@ function workPage({ context, user, moved, view = 'bord' }) {
     : 'De werkplaats is leeg. Zodra er een order betaald is, verschijnt hij hier.';
   const movedQuote = moved ? quotes.find((quote) => quote.id === moved) : null;
   const flash = movedQuote ? (movedQuote.status === 'shipped' ? notice(`Verzonden! ${movedQuote.name || 'De klant'} krijgt een mail.`, 'party') : notice(`${movedQuote.name || 'Order'} staat nu bij ${statusText(movedQuote).toLowerCase()}.`)) : '';
-  const head = pageHead({ eyebrow: 'Werkplaats', title: 'Productie', text: e(text), actions: `${orders.length ? viewToggle(view) : ''}<a class="btn" href="/admin/work/agenda">Planning bekijken</a>` });
+  const toShip = orders.filter((quote) => columnOf(quote) === 'ship' && quote.myParcelShipmentId);
+  const allLabels = toShip.length > 1 ? `<a class="btn btn-dark" href="/admin/labels?ids=${encodeURIComponent(toShip.map((quote) => quote.id).join(','))}" target="_blank" rel="noopener">${toShip.length} labels printen</a>` : '';
+  const head = pageHead({ eyebrow: 'Werkplaats', title: 'Productie', text: e(text), actions: `${orders.length ? viewToggle(view) : ''}${allLabels}<a class="btn" href="/admin/work/agenda">Planning bekijken</a>` });
   const content = view === 'lijst' ? workList(orders, quotes, settings, user, moved) : `<div class="board" data-board>${cols}</div>`;
   const body = orders.length ? content : `<section class="panel">${emptyState('Niks op de planning', 'Tijd om de printbedden schoon te maken.')}</section>`;
   return renderAdmin({ title: 'Productie', user, active: 'work', context, body: `<div data-work-live>${flash}${head}${body}</div>` });

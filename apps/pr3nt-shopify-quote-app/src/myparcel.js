@@ -98,39 +98,201 @@ function requireAdminRole(req, res, next) { const user = sessionUser(req); if (i
 
 function requireCalendarAccess(req, res, next) { const submitted = String(req.query.token || ''); const envToken = process.env.PRINT_CALENDAR_TOKEN || ''; if (envToken && safeEquals(submitted, envToken)) return next(); readSettings().then((settings) => { if (settings.calendarToken && safeEquals(submitted, settings.calendarToken)) return next(); return res.status(401).send('Agenda-feed niet geautoriseerd'); }).catch(() => res.status(401).send('Agenda-feed niet geautoriseerd')); }
 
+// ---- MyParcel: zendingen automatisch aanmaken en labels printen ----
+// Elke betaalde order die nog verstuurd moet worden krijgt vanzelf een zending in MyParcel (webshop én offerte).
+// Het label haalt het beheer telkens vers op als PDF via /admin/quotes/:id/label, zodat een verlopen link nooit een probleem is.
+
+const countryCodes = { nederland: 'NL', netherlands: 'NL', holland: 'NL', belgie: 'BE', 'belgië': 'BE', belgium: 'BE', duitsland: 'DE', germany: 'DE', deutschland: 'DE', frankrijk: 'FR', france: 'FR', luxemburg: 'LU', luxembourg: 'LU', oostenrijk: 'AT', austria: 'AT', spanje: 'ES', spain: 'ES', italie: 'IT', 'italië': 'IT', italy: 'IT', denemarken: 'DK', denmark: 'DK' };
+function countryCode(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return 'NL';
+  if (/^[a-z]{2}$/i.test(raw)) return raw.toUpperCase();
+  return countryCodes[raw.toLowerCase()] || 'NL';
+}
+
 function shippingAddress(quote = {}) {
   const shipping = quote.shipping || quote.billing || {};
   const address = shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' ');
-  const match = String(address || '').trim().match(/^(.+?)\s+(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
-  return { person: clean(shipping.name || quote.name, 80), company: clean(shipping.company || quote.company, 80), street: clean(shipping.street || (match ? match[1] : address), 80), number: clean(shipping.houseNumber || (match ? match[2] : ''), 20), postalCode: clean(shipping.postalCode || shipping.postalcode || quote.billing?.postalCode, 20).replace(/\s+/g, ''), city: clean(shipping.city || quote.billing?.city, 80), country: clean(shipping.country || quote.billing?.country || 'NL', 2).toUpperCase().replace('NEDERLAND', 'NL'), email: clean(quote.email, 120), phone: clean(quote.phone, 40) };
+  const match = String(address || '').trim().match(/^(.+?)\s+(\d+)\s*[-/]?\s*([a-zA-Z0-9]{0,6})$/);
+  const number = clean(shipping.houseNumber || (match ? match[2] : ''), 20);
+  const splitNumber = String(number).match(/^(\d+)\s*[-/]?\s*(.*)$/);
+  return {
+    person: clean(shipping.name || quote.name, 80),
+    company: clean(shipping.company || quote.company, 80),
+    street: clean(shipping.street || (match ? match[1] : address), 80),
+    number: splitNumber ? splitNumber[1] : number,
+    suffix: clean(shipping.houseNumber ? (splitNumber ? splitNumber[2] : '') : (match ? match[3] : ''), 6),
+    postalCode: clean(shipping.postalCode || shipping.postalcode || quote.billing?.postalCode, 20).replace(/\s+/g, '').toUpperCase(),
+    city: clean(shipping.city || quote.billing?.city, 80),
+    country: countryCode(shipping.country || quote.billing?.country),
+    email: clean(quote.email, 120),
+    phone: clean(quote.phone, 40),
+  };
 }
 
-export function canCreateShipment(quote = {}) { if (!process.env.MYPARCEL_API_KEY) return { ok: false, reason: 'MYPARCEL_API_KEY ontbreekt.' }; if (!quote || quote.myParcelShipmentId) return { ok: false, reason: 'Geen quote of zending bestaat al.' }; if (!quote.paidAt && quote.status !== 'paid') return { ok: false, reason: 'Order is nog niet betaald.' }; const address = shippingAddress(quote); const missing = []; if (!address.person) missing.push('naam'); if (!address.street) missing.push('straat'); if (!address.number) missing.push('huisnummer'); if (!address.postalCode) missing.push('postcode'); if (!address.city) missing.push('plaats'); if (missing.length) return { ok: false, reason: `Verzendadres mist: ${missing.join(', ')}.` }; return { ok: true, address }; }
-function shipmentPayload(quote) { const address = shippingAddress(quote); const cc = address.country === 'BE' ? 'BE' : 'NL'; const recipient = { cc, person: address.person, company: address.company, street: address.street, number: address.number, postal_code: address.postalCode, city: address.city, email: address.email, phone: address.phone }; Object.keys(recipient).forEach((key) => { if (!recipient[key]) delete recipient[key]; }); return { data: { shipments: [{ reference_identifier: clean(quote.id, 50), recipient, options: { package_type: 1, label_description: clean(`Pr3nt ${quote.id}`, 45) } }] } }; }
+export function isPickup(quote = {}) {
+  return quote.delivery === 'afhalen' || /afhalen/i.test(String(quote.note || ''));
+}
+
+export function canCreateShipment(quote = {}) {
+  if (!process.env.MYPARCEL_API_KEY) return { ok: false, reason: 'MYPARCEL_API_KEY ontbreekt in .env.' };
+  if (!quote || quote.myParcelShipmentId) return { ok: false, reason: 'Er bestaat al een zending.' };
+  if (!quote.paidAt && quote.status !== 'paid') return { ok: false, reason: 'Order is nog niet betaald.' };
+  const address = shippingAddress(quote);
+  const missing = [];
+  if (!address.person) missing.push('naam');
+  if (!address.street) missing.push('straat');
+  if (!address.number) missing.push('huisnummer');
+  if (!address.postalCode) missing.push('postcode');
+  if (!address.city) missing.push('plaats');
+  if (missing.length) return { ok: false, reason: `Verzendadres mist: ${missing.join(', ')}.` };
+  return { ok: true, address };
+}
+
+// Moet deze order automatisch een zending krijgen? Alleen lopende, betaalde orders die verstuurd worden.
+const shipStatuses = new Set(['paid', 'print_queue', 'ready_to_ship']);
+const maxAutoAttempts = 3;
+export function needsAutoShipment(quote = {}) {
+  if (!quote || quote.archivedAt || quote.myParcelShipmentId) return false;
+  if (!quote.paidAt && quote.status !== 'paid') return false;
+  if (!shipStatuses.has(quote.status)) return false;
+  if (String(quote.trackingCode || '').trim()) return false;
+  if (isPickup(quote)) return false;
+  if (quote.myParcelStatus === 'error' && Number(quote.myParcelAttempts || 0) >= maxAutoAttempts) return false;
+  return true;
+}
+
+function shipmentPayload(quote) {
+  const address = shippingAddress(quote);
+  const recipient = { cc: address.country, person: address.person, company: address.company, street: address.street, number: address.number, number_suffix: address.suffix, postal_code: address.postalCode, city: address.city, email: address.email, phone: address.phone };
+  Object.keys(recipient).forEach((key) => { if (!recipient[key]) delete recipient[key]; });
+  const packageType = Number(process.env.MYPARCEL_PACKAGE_TYPE || 1) || 1;
+  const carrier = Number(process.env.MYPARCEL_CARRIER_ID || 1) || 1;
+  return { data: { shipments: [{ reference_identifier: clean(quote.id, 50), recipient, carrier, options: { package_type: packageType, label_description: clean(`Pr3nt ${quote.webshopOrderId || quote.id}`, 45) } }] } };
+}
 function authHeader() { return `basic ${Buffer.from(process.env.MYPARCEL_API_KEY || '').toString('base64')}`; }
-async function myParcelFetch(endpoint, options = {}) { const response = await fetch(`${myParcelApiBase}${endpoint}`, { ...options, headers: { Authorization: authHeader(), 'User-Agent': process.env.MYPARCEL_USER_AGENT || 'Pr3ntPortal/1', ...(options.headers || {}) } }); const text = await response.text(); let body = {}; try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; } if (!response.ok) throw new Error(`MyParcel API fout ${response.status}: ${JSON.stringify(body)}`); return body; }
+async function myParcelRequest(endpoint, options = {}) {
+  return fetch(`${myParcelApiBase}${endpoint}`, { ...options, headers: { Authorization: authHeader(), 'User-Agent': process.env.MYPARCEL_USER_AGENT || 'Pr3ntPortal/1', ...(options.headers || {}) }, signal: AbortSignal.timeout(20_000) });
+}
+async function myParcelFetch(endpoint, options = {}) {
+  const response = await myParcelRequest(endpoint, options);
+  const text = await response.text();
+  let body = {};
+  try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
+  if (!response.ok) throw new Error(`MyParcel API fout ${response.status}: ${JSON.stringify(body).slice(0, 400)}`);
+  return body;
+}
 function firstShipmentId(result = {}) { const data = result.data || result; const ids = data.ids || data.shipment_ids || data.shipmentIds || data.shipments; if (Array.isArray(ids)) { const first = ids[0]; if (typeof first === 'number' || typeof first === 'string') return String(first); return String(first?.id || first?.shipment_id || first?.shipmentId || ''); } return String(data.id || data.shipment_id || data.shipmentId || ''); }
-async function labelUrlForShipment(shipmentId) { if (!shipmentId) return ''; try { const result = await myParcelFetch(`/shipment_labels/${encodeURIComponent(shipmentId)}`, { method: 'GET', headers: { Accept: 'application/json;charset=utf-8' } }); const url = result?.data?.pdfs?.url || result?.data?.url || result?.url || ''; if (!url) return ''; return url.startsWith('http') ? url : `${myParcelApiBase}${url}`; } catch { return ''; } }
 
-export async function createMyParcelShipmentForQuote(quote) { const check = canCreateShipment(quote); if (!check.ok) return { skipped: true, reason: check.reason }; const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/vnd.shipment_label_link+json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote)) }); const shipmentId = firstShipmentId(result); if (!shipmentId) throw new Error(`MyParcel gaf geen shipment id terug: ${JSON.stringify(result)}`); const labelUrl = await labelUrlForShipment(shipmentId); return { skipped: false, shipmentId, labelUrl, raw: result }; }
+function labelFormat() {
+  const format = String(process.env.MYPARCEL_LABEL_FORMAT || 'A6').toUpperCase() === 'A4' ? 'A4' : 'A6';
+  const positions = format === 'A4' ? `&positions=${encodeURIComponent(process.env.MYPARCEL_LABEL_POSITIONS || '1;2;3;4')}` : '';
+  return `?format=${format}${positions}`;
+}
 
+export async function shipmentBarcode(shipmentId) {
+  if (!shipmentId) return '';
+  try {
+    const result = await myParcelFetch(`/shipments/${encodeURIComponent(shipmentId)}`, { method: 'GET', headers: { Accept: 'application/json;charset=utf-8' } });
+    const shipment = (result?.data?.shipments || [])[0] || {};
+    return clean(shipment.barcode || '', 60);
+  } catch { return ''; }
+}
+
+// Eén of meer labels als PDF, rechtstreeks van MyParcel. Het label opvragen meldt een concept-zending aan bij de vervoerder.
+export async function fetchLabelPdf(shipmentIds = []) {
+  const ids = shipmentIds.map((id) => String(id || '').replace(/\D/g, '')).filter(Boolean);
+  if (!ids.length) throw new Error('Geen zending om te printen.');
+  const response = await myParcelRequest(`/shipment_labels/${ids.join(';')}${labelFormat()}`, { method: 'GET', headers: { Accept: 'application/pdf' } });
+  if (!response.ok) throw new Error(`MyParcel gaf geen label (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+export async function createMyParcelShipmentForQuote(quote) {
+  const check = canCreateShipment(quote);
+  if (!check.ok) return { skipped: true, reason: check.reason };
+  const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote)) });
+  const shipmentId = firstShipmentId(result);
+  if (!shipmentId) throw new Error(`MyParcel gaf geen zending-id terug: ${JSON.stringify(result).slice(0, 300)}`);
+  // De zending staat nu als concept in MyParcel. Pas bij het eerste keer printen meldt MyParcel hem aan bij de vervoerder
+  // en krijgt hij een barcode, zodat een geannuleerde order niets kost.
+  return { skipped: false, shipmentId, barcode: '' };
+}
+
+// Zet het resultaat van een poging op de order (gedeeld door automatisch en de knop in het beheer).
+export function applyShipmentResult(quote, outcome, now = new Date().toISOString()) {
+  if (outcome.error) {
+    quote.myParcelStatus = 'error';
+    quote.myParcelError = clean(outcome.error, 500);
+    quote.myParcelTriedAt = now;
+    quote.myParcelAttempts = Number(quote.myParcelAttempts || 0) + 1;
+    return;
+  }
+  if (outcome.skipped) { quote.myParcelStatus = 'skipped'; quote.myParcelMessage = outcome.reason; return; }
+  quote.myParcelStatus = 'created';
+  quote.myParcelShipmentId = outcome.shipmentId;
+  quote.myParcelBarcode = outcome.barcode || '';
+  quote.myParcelCreatedAt = now;
+  delete quote.myParcelError;
+  delete quote.myParcelMessage;
+  delete quote.myParcelLabelUrl;
+  quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+  quote.messages.push({ from: 'pr3nt', text: `MyParcel-verzendlabel klaargezet (zending ${outcome.shipmentId}).`, createdAt: now });
+}
+
+// Bij Verzonden zonder ingevulde track & trace: neem de MyParcel-barcode over.
+export function fillTrackingFromMyParcel(quote = {}) {
+  if (quote.status !== 'shipped' || String(quote.trackingCode || '').trim() || !quote.myParcelBarcode) return false;
+  quote.trackingCode = quote.myParcelBarcode;
+  if (!quote.trackingCarrier) quote.trackingCarrier = 'postnl';
+  return true;
+}
+
+const myParcelFields = ['myParcelStatus', 'myParcelError', 'myParcelMessage', 'myParcelTriedAt', 'myParcelAttempts', 'myParcelShipmentId', 'myParcelBarcode', 'myParcelCreatedAt', 'myParcelLabelUrl'];
+let autoRunning = false;
 export async function createMissingMyParcelLabels() {
   if (!process.env.MYPARCEL_API_KEY) return { skipped: true, reason: 'MYPARCEL_API_KEY ontbreekt.' };
-  const quotes = await readQuotes();
-  let changed = false;
-  const results = [];
-  for (const quote of quotes) {
-    if (quote.archivedAt || quote.myParcelShipmentId || (!quote.paidAt && quote.status !== 'paid')) continue;
-    const now = new Date().toISOString();
-    try {
-      const result = await createMyParcelShipmentForQuote(quote);
-      if (result.skipped) { quote.myParcelStatus = 'skipped'; quote.myParcelMessage = result.reason; results.push({ id: quote.id, skipped: true, reason: result.reason }); }
-      else { quote.myParcelStatus = 'created'; quote.myParcelShipmentId = result.shipmentId; quote.myParcelLabelUrl = result.labelUrl; quote.myParcelCreatedAt = now; quote.messages = Array.isArray(quote.messages) ? quote.messages : []; quote.messages.push({ from: 'pr3nt', text: `MyParcel-verzendlabel klaargezet${result.shipmentId ? `: ${result.shipmentId}` : ''}.`, createdAt: now }); results.push({ id: quote.id, shipmentId: result.shipmentId, labelUrl: result.labelUrl }); }
-      changed = true;
-    } catch (error) { quote.myParcelStatus = 'error'; quote.myParcelError = error.message; quote.myParcelTriedAt = now; results.push({ id: quote.id, error: error.message }); changed = true; }
+  if (String(process.env.MYPARCEL_AUTO || 'on').toLowerCase() === 'off') return { skipped: true, reason: 'MYPARCEL_AUTO=off' };
+  if (autoRunning) return { skipped: true, reason: 'Loopt al.' };
+  autoRunning = true;
+  try {
+    const todo = (await readQuotes()).filter(needsAutoShipment);
+    const updates = new Map();
+    const results = [];
+    for (const quote of todo) {
+      const before = JSON.stringify(myParcelFields.map((key) => quote[key]));
+      let outcome;
+      try { outcome = await createMyParcelShipmentForQuote(quote); } catch (error) { outcome = { error: error.message }; }
+      if (outcome.skipped && quote.myParcelStatus === 'skipped' && quote.myParcelMessage === outcome.reason) continue;
+      applyShipmentResult(quote, outcome);
+      if (JSON.stringify(myParcelFields.map((key) => quote[key])) !== before) updates.set(quote.id, quote);
+      results.push({ id: quote.id, ...outcome });
+      if (outcome.shipmentId) console.log(`[myparcel] zending ${outcome.shipmentId} aangemaakt voor ${quote.id}`);
+      if (outcome.error) console.warn(`[myparcel] ${quote.id}: ${outcome.error}`);
+    }
+    if (updates.size) {
+      // Opnieuw inlezen en alleen de MyParcel-velden zetten, zodat een opslag in het beheer tussendoor niet verloren gaat.
+      const latest = await readQuotes();
+      for (const quote of latest) {
+        const ours = updates.get(quote.id);
+        if (!ours || quote.myParcelShipmentId) continue;
+        for (const key of myParcelFields) { if (ours[key] === undefined) delete quote[key]; else quote[key] = ours[key]; }
+        if (ours.myParcelShipmentId) quote.messages = [...(Array.isArray(quote.messages) ? quote.messages : []), ours.messages[ours.messages.length - 1]];
+      }
+      await writeQuotes(latest);
+    }
+    return { skipped: false, results };
+  } finally {
+    autoRunning = false;
   }
-  if (changed) await writeQuotes(quotes);
-  return { skipped: false, results };
+}
+
+export function startMyParcelAuto() {
+  if (String(process.env.MYPARCEL_AUTO || 'on').toLowerCase() === 'off') return;
+  const minutes = Math.max(1, Number(process.env.MYPARCEL_AUTO_MINUTES || 2) || 2);
+  const run = () => createMissingMyParcelLabels().catch((error) => console.warn('[myparcel] automatisch aanmaken mislukt:', error.message));
+  setTimeout(run, 30_000).unref?.();
+  setInterval(run, minutes * 60_000).unref?.();
 }
 
 function quoteLines(quote = {}) { return Array.isArray(quote.quoteLines) ? quote.quoteLines : []; }
@@ -194,7 +356,50 @@ export function registerMyParcelRoutes(app) {
   app.get('/admin/work/agenda', requireInternal, async (req, res) => { const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]); const selectedDate = clean(req.query.date || new Date().toISOString().slice(0, 10), 10); res.send(workAgendaHtml(quotes, settings, selectedDate, req.internalUser)); });
   app.get('/admin/work/stats', requireAdminRole, async (req, res) => { const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]); res.send(workStatsHtml(quotes, settings, req.internalUser)); });
   app.get('/admin/work/calendar.ics', requireCalendarAccess, async (_req, res) => { const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]); res.setHeader('Content-Type', 'text/calendar; charset=utf-8'); res.setHeader('Content-Disposition', 'inline; filename="pr3nt-printerplanning.ics"'); res.send(calendarIcs(quotes, settings)); });
-  app.post('/admin/work/quotes/:id', requireInternal, async (req, res) => { const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]); const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt); if (!quote) return res.status(404).send('Order niet gevonden'); const allowed = new Set(['paid', 'print_queue', 'ready_to_ship', 'shipped']); if (allowed.has(req.body.status)) quote.status = req.body.status; const start = clean(req.body.scheduledStartAt, 40); const hours = Math.max(0.25, money(req.body.estimatedPrintHours || estimatedPrintHours(quote))); const printer = settings.printers.find((item) => item.id === req.body.assignedPrinter || item.name === req.body.assignedPrinter) || settings.printers[0]; quote.estimatedPrintHours = fmt(hours); quote.assignedPrinter = printer?.id || clean(req.body.assignedPrinter, 120); quote.scheduledStartAt = start; quote.scheduledEndAt = start ? addHoursLocal(start, hours) : ''; if (quote.scheduledStartAt || quote.scheduledEndAt) { const printerName = settings.printers.find((item) => item.id === quote.assignedPrinter)?.name || quote.assignedPrinter || 'printer'; quote.customerEtaText = `Je order staat ingepland voor productie vanaf ${quote.scheduledStartAt.replace('T', ' ')}. Verwachte afronding: ${quote.scheduledEndAt.replace('T', ' ')}.`; quote.productionScheduleNote = `${printerName} · ${fmt(hours)} printuren`; } quote.updatedAt = new Date().toISOString(); await writeQuotes(quotes); res.redirect(`/admin/work?moved=${encodeURIComponent(quote.id)}#q-${encodeURIComponent(quote.id)}`); });
+  app.post('/admin/work/quotes/:id', requireInternal, async (req, res) => { const [quotes, settings] = await Promise.all([readQuotes(), readSettings()]); const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt); if (!quote) return res.status(404).send('Order niet gevonden'); const allowed = new Set(['paid', 'print_queue', 'ready_to_ship', 'shipped']); if (allowed.has(req.body.status)) quote.status = req.body.status; fillTrackingFromMyParcel(quote); const start = clean(req.body.scheduledStartAt, 40); const hours = Math.max(0.25, money(req.body.estimatedPrintHours || estimatedPrintHours(quote))); const printer = settings.printers.find((item) => item.id === req.body.assignedPrinter || item.name === req.body.assignedPrinter) || settings.printers[0]; quote.estimatedPrintHours = fmt(hours); quote.assignedPrinter = printer?.id || clean(req.body.assignedPrinter, 120); quote.scheduledStartAt = start; quote.scheduledEndAt = start ? addHoursLocal(start, hours) : ''; if (quote.scheduledStartAt || quote.scheduledEndAt) { const printerName = settings.printers.find((item) => item.id === quote.assignedPrinter)?.name || quote.assignedPrinter || 'printer'; quote.customerEtaText = `Je order staat ingepland voor productie vanaf ${quote.scheduledStartAt.replace('T', ' ')}. Verwachte afronding: ${quote.scheduledEndAt.replace('T', ' ')}.`; quote.productionScheduleNote = `${printerName} · ${fmt(hours)} printuren`; } quote.updatedAt = new Date().toISOString(); await writeQuotes(quotes); res.redirect(`/admin/work?moved=${encodeURIComponent(quote.id)}#q-${encodeURIComponent(quote.id)}`); });
   app.post('/print/quotes/:id', requireInternal, async (req, res) => res.redirect(307, `/admin/work/quotes/${encodeURIComponent(req.params.id)}`));
-  app.post('/admin/quotes/:id/myparcel', async (req, res) => { const adminKey = process.env.ADMIN_KEY || ''; const key = req.get('x-admin-key') || req.cookies?.pr3nt_admin_key; if (adminKey && key !== adminKey) return res.status(401).send('Niet ingelogd'); const quotes = await readQuotes(); const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt); if (!quote) return res.status(404).send('Order niet gevonden'); const now = new Date().toISOString(); try { const result = await createMyParcelShipmentForQuote(quote); if (result.skipped) { quote.myParcelStatus = 'skipped'; quote.myParcelMessage = result.reason; } else { quote.myParcelStatus = 'created'; quote.myParcelShipmentId = result.shipmentId; quote.myParcelLabelUrl = result.labelUrl; quote.myParcelCreatedAt = now; } } catch (error) { quote.myParcelStatus = 'error'; quote.myParcelError = error.message; quote.myParcelTriedAt = now; } await writeQuotes(quotes); res.redirect(`/admin/quotes/${encodeURIComponent(quote.id)}?saved=1`); });
+  app.post('/admin/quotes/:id/myparcel', requireAdminRole, async (req, res) => {
+    const quotes = await readQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
+    if (!quote) return res.status(404).send('Order niet gevonden');
+    let outcome;
+    try { outcome = await createMyParcelShipmentForQuote(quote); } catch (error) { outcome = { error: error.message }; }
+    applyShipmentResult(quote, outcome);
+    if (outcome.error) quote.myParcelAttempts = 0; // handmatig geprobeerd: automatisch mag het daarna weer opnieuw
+    await writeQuotes(quotes);
+    res.redirect(`/admin/quotes/${encodeURIComponent(quote.id)}?saved=1`);
+  });
+  // Label printen: altijd vers als PDF van MyParcel, zodat er nooit een verlopen link in het beheer staat.
+  const sendLabels = async (res, quotes) => {
+    const ids = quotes.map((quote) => quote.myParcelShipmentId).filter(Boolean);
+    if (!ids.length) return res.status(404).send('Er is nog geen MyParcel-zending voor deze order.');
+    try {
+      const pdf = await fetchLabelPdf(ids);
+      // Na het printen heeft de zending een barcode: bewaar die, dan wordt hij bij Verzonden de track & trace.
+      const missing = quotes.filter((quote) => quote.myParcelShipmentId && !quote.myParcelBarcode);
+      if (missing.length) {
+        const found = new Map();
+        for (const quote of missing) { const barcode = await shipmentBarcode(quote.myParcelShipmentId); if (barcode) found.set(quote.id, barcode); }
+        if (found.size) { const latest = await readQuotes(); latest.forEach((quote) => { if (found.has(quote.id)) { quote.myParcelBarcode = found.get(quote.id); quote.myParcelPrintedAt = new Date().toISOString(); } }); await writeQuotes(latest); }
+      }
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${quotes.length === 1 ? `label-${quotes[0].id}` : 'labels-pr3nt'}.pdf"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(pdf);
+    } catch (error) {
+      console.warn('[myparcel] label ophalen mislukt:', error.message);
+      return res.status(502).send(`Het label kon niet bij MyParcel worden opgehaald. ${e(error.message)}`);
+    }
+  };
+  app.get('/admin/quotes/:id/label', requireInternal, async (req, res) => {
+    const quote = (await readQuotes()).find((item) => item.id === req.params.id);
+    if (!quote) return res.status(404).send('Order niet gevonden');
+    return sendLabels(res, [quote]);
+  });
+  app.get('/admin/labels', requireInternal, async (req, res) => {
+    const wanted = new Set(String(req.query.ids || '').split(',').map((id) => id.trim()).filter(Boolean));
+    const quotes = (await readQuotes()).filter((quote) => wanted.has(quote.id) && quote.myParcelShipmentId);
+    return sendLabels(res, quotes);
+  });
+  startMyParcelAuto();
 }

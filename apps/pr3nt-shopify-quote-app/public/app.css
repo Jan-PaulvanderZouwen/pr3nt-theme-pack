@@ -1122,6 +1122,7 @@ body.is-admin { background: var(--paper); }
 .row-hours { font-size: 13.5px; color: var(--muted); text-align: right; }
 .row-action { justify-items: end; }
 .row-action form { display: contents; }
+.row-action:has(.btn + form) { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
 .row-action .btn { min-height: 34px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
 @media (max-width: 700px) {
   .job-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
