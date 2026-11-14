@@ -6,6 +6,8 @@ import { BASE, url, cmsError } from './ui.js';
 import * as v from './views.js';
 import { readQuotes } from '../admin.js';
 import { readSyncState, stopReminders, reminderAfter } from '../webshopsync.js';
+import { readSettings } from '../myparcel.js';
+import { inviteProducer, sendInviteMail, companyFromApplication } from '../producerinvite.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 30 } });
 
@@ -24,6 +26,9 @@ const FLASH = {
   bijgewerkt: 'Bijgewerkt.',
   herprijsd: 'Verkoopprijzen opnieuw berekend.',
   mail: 'Mail verstuurd.',
+  uitgenodigd: 'Goedgekeurd. De producent krijgt een mail om een wachtwoord te kiezen voor app.pr3nt.nl.',
+  uitnodiging: 'Uitnodiging voor app.pr3nt.nl verstuurd.',
+  uitnodiging_mislukt: 'Het account is aangemaakt, maar de mail kon niet worden verstuurd. Check de SMTP-instellingen of stuur de uitnodiging opnieuw.',
   testmail: 'Testmail verstuurd. Kijk in je inbox.',
   verstuurd: 'De mail wordt nu verstuurd. Je kunt deze pagina gerust sluiten.',
   gestopt: 'Versturen gestopt.',
@@ -446,12 +451,28 @@ export function registerCmsRoutes(app) {
 
   // ----- Producenten -----
   r('get', '/producenten', 'cms-producers', async (req, res) => {
-    const { applications, producers } = await get('producers');
-    res.send(v.producersView({ user: user(req), applications, producers, flash: flashOf(req) }));
+    const [{ applications, producers }, settings] = await Promise.all([get('producers'), readSettings()]);
+    const accounts = new Map(settings.users.filter((account) => account.role === 'producer').map((account) => [String(account.email || account.username).toLowerCase(), account]));
+    res.send(v.producersView({ user: user(req), applications, producers, accounts, flash: flashOf(req) }));
   });
+  // Uitnodigen voor app.pr3nt.nl: maakt een producent-account en mailt een link om een wachtwoord te kiezen.
+  const invite = async (person) => {
+    const result = await inviteProducer(person);
+    try { await sendInviteMail(result); return true; } catch (error) { console.warn('[producent] uitnodiging niet verstuurd:', error.message); return false; }
+  };
   r('post', '/producenten/:id(\\d+)/:action(goedkeuren|afwijzen|verwijderen)', 'cms-producers', async (req, res) => {
+    let application = null;
+    if (req.params.action === 'goedkeuren') application = (await get('producers')).applications.find((item) => String(item.id) === req.params.id) || null;
     await post(`producers/applications/${req.params.id}/${req.params.action}`);
+    if (application?.data?.email) {
+      const sent = await invite({ email: application.data.email, name: application.data.name, company: companyFromApplication(application.data) });
+      return go(res, '/producenten', sent ? 'uitgenodigd' : 'uitnodiging_mislukt');
+    }
     go(res, '/producenten', req.params.action === 'verwijderen' ? 'verwijderd' : 'bijgewerkt');
+  });
+  r('post', '/producenten/uitnodigen', 'cms-producers', async (req, res) => {
+    const sent = await invite({ email: str(req.body.email), name: str(req.body.name), company: str(req.body.company) });
+    go(res, '/producenten', sent ? 'uitnodiging' : 'uitnodiging_mislukt');
   });
 
   // ----- Foto's -----

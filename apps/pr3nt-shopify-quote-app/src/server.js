@@ -29,6 +29,7 @@ import { registerCmsRoutes } from './cms/routes.js';
 import { post as cmsPost } from './cms/client.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 import { startWebshopSync } from './webshopsync.js';
+import { registerProducerInviteRoutes } from './producerinvite.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -364,6 +365,7 @@ registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);
 registerFilamentRoutes(app);
 registerProductionPricingRoutes(app);
+registerProducerInviteRoutes(app);
 registerMyParcelRoutes(app);
 registerMollieRoutes(app);
 

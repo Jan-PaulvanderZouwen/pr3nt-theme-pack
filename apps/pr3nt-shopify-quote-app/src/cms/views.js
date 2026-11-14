@@ -269,13 +269,19 @@ export function messagesView({ user, messages, showAll, flash }) {
   return cmsPage({ title: 'Berichten', user, active: 'cms-messages', body: head + `<div class="stack">${list}</div>`, flash });
 }
 
-export function producersView({ user, applications, producers, flash }) {
+export function producersView({ user, applications, producers, accounts = new Map(), flash }) {
   const apps = applications.length ? applications.map((a) => `<article class="panel"><div class="panel-head"><div><strong>${e(a.data.name)}</strong> <span class="muted">· ${e(a.data.city || '')}</span><div class="muted small">${e(dateText(a.created_at))} · ${e(a.data.email)}</div></div>${pill(a.status, a.status === 'nieuw' ? 'wait' : a.status === 'goedgekeurd' ? 'ok' : '')}</div>
     <div class="panel-body"><dl class="spec">${Object.entries(a.data).filter(([k]) => !['name', 'email', 'city'].includes(k)).map(([k, v]) => `<dt>${e(k)}</dt><dd class="text">${e(Array.isArray(v) ? v.join(', ') : v)}</dd>`).join('')}</dl>
-    <div class="btn-row">${a.status === 'nieuw' ? `<form method="post" action="${url(`/producenten/${a.id}/goedkeuren`)}"><button class="btn btn-primary">Goedkeuren en welkomstmail sturen</button></form><form method="post" action="${url(`/producenten/${a.id}/afwijzen`)}"><button class="btn">Afwijzen</button></form>` : ''}<form method="post" action="${url(`/producenten/${a.id}/verwijderen`)}" data-confirm="Aanmelding verwijderen?"><button class="btn btn-quiet cms-danger">Verwijderen</button></form></div></div></article>`).join('') : emptyState('Geen aanmeldingen');
-  const rows = producers.map((p) => `<tr><td><a class="cms-strong" href="${url(`/klanten/${p.id}`)}">${e(p.name || p.email)}</a><div class="muted small">${e(p.email)}</div></td><td class="small">${e(p.city || '–')}</td><td class="num">${p.open}</td><td class="num">${euro(p.earned)}</td></tr>`);
-  const head = pageHead({ eyebrow: 'Website', title: 'Producenten', text: 'Aanmeldingen via pr3nt.nl/producent-worden en de producenten die voor je printen.' });
-  return cmsPage({ title: 'Producenten', user, active: 'cms-producers', body: head + panel('Actieve producenten', table(['Producent', 'Plaats', 'Orders', 'Totaal'], rows, { empty: 'Nog geen producenten.' })) + `<h2 class="cms-h2">Aanmeldingen</h2><div class="stack">${apps}</div>`, flash });
+    <div class="btn-row">${a.status === 'nieuw' ? `<form method="post" action="${url(`/producenten/${a.id}/goedkeuren`)}"><button class="btn btn-primary">Goedkeuren en uitnodigen voor app.pr3nt.nl</button></form><form method="post" action="${url(`/producenten/${a.id}/afwijzen`)}"><button class="btn">Afwijzen</button></form>` : ''}<form method="post" action="${url(`/producenten/${a.id}/verwijderen`)}" data-confirm="Aanmelding verwijderen?"><button class="btn btn-quiet cms-danger">Verwijderen</button></form></div></div></article>`).join('') : emptyState('Geen aanmeldingen');
+  const appCell = (p) => {
+    const account = accounts.get(String(p.email || '').toLowerCase());
+    const state = !account ? '<span class="muted small">Nog geen account</span>' : account.passwordHash ? '<span class="pill ok">Actief</span>' : '<span class="pill wait">Uitgenodigd</span>';
+    const button = account?.passwordHash ? '' : `<form method="post" action="${url('/producenten/uitnodigen')}"><input type="hidden" name="email" value="${e(p.email || '')}"><input type="hidden" name="name" value="${e(p.name || '')}"><input type="hidden" name="company" value="${e(p.company || '')}"><button class="btn btn-quiet">${account ? 'Opnieuw uitnodigen' : 'Uitnodigen'}</button></form>`;
+    return `<div class="btn-row">${state}${button}</div>`;
+  };
+  const rows = producers.map((p) => `<tr><td><a class="cms-strong" href="${url(`/klanten/${p.id}`)}">${e(p.name || p.email)}</a><div class="muted small">${e(p.email)}</div></td><td class="small">${e(p.city || '–')}</td><td class="num">${p.open}</td><td class="num">${euro(p.earned)}</td><td>${appCell(p)}</td></tr>`);
+  const head = pageHead({ eyebrow: 'Website', title: 'Producenten', text: 'Aanmeldingen via pr3nt.nl/producent-worden. Goedgekeurde producenten werken in app.pr3nt.nl: daar zien ze alleen nieuwe orders en hun eigen orders.' });
+  return cmsPage({ title: 'Producenten', user, active: 'cms-producers', body: head + panel('Actieve producenten', table(['Producent', 'Plaats', 'Orders', 'Totaal', 'app.pr3nt.nl'], rows, { empty: 'Nog geen producenten.' })) + `<h2 class="cms-h2">Aanmeldingen</h2><div class="stack">${apps}</div>`, flash });
 }
 
 // ---------- Media ----------
