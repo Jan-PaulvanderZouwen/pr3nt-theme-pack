@@ -1,6 +1,6 @@
 // Gedeelde opbouw voor het beheer: inloggen, zijbalk, paginakop en kleine hulpjes.
 import { e, logo, renderDocument, assetVersion } from './layout.js';
-import { sessionUser, isAdmin, isWorker } from '../myparcel.js';
+import { sessionUser, isAdmin, isWorker, isProducer, isTeam } from '../myparcel.js';
 import { money } from '../vat.js';
 
 const zone = 'Europe/Amsterdam';
@@ -24,6 +24,15 @@ function toLogin(req, res) {
 export function staffOnly(req, res, next) {
   const user = sessionUser(req);
   if (!isWorker(user)) return toLogin(req, res);
+  req.internalUser = user;
+  refreshAdminCookie(res, user);
+  return next();
+}
+
+// Productie: eigen team én externe producenten (die zien daar alleen nieuwe en eigen orders).
+export function teamOnly(req, res, next) {
+  const user = sessionUser(req);
+  if (!isTeam(user)) return toLogin(req, res);
   req.internalUser = user;
   refreshAdminCookie(res, user);
   return next();
@@ -184,9 +193,8 @@ function navItems(user, counts = {}) {
   const work = [
     ['orders', '/admin', 'Orders', counts.orders, true],
     ['work', '/admin/work', 'Productie', counts.work],
-    ['agenda', '/admin/work/agenda', 'Planning'],
     ['filament', '/admin/filament', 'Filament', counts.filament],
-  ].filter(([key]) => isAdmin(user) || key !== 'orders');
+  ].filter(([key]) => (isAdmin(user) || key !== 'orders') && (!isProducer(user) || key === 'work'));
   // Website-CMS: alles van pr3nt.nl (zie src/cms/)
   const site = isAdmin(user) ? [
     ['cms', '/admin/website', 'Overzicht'],
@@ -230,7 +238,7 @@ function sidebar(user, active, context = {}) {
   const { work, site, manage } = navItems(user, context.counts || {});
   const named = displayName(user);
   const name = named || (isAdmin(user) ? 'Beheerder' : 'Productie');
-  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${site.length ? `<span class="label">Website</span>${site.map((item) => navLink(item, active)).join('')}` : ''}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav>${printersNow(context.printers)}<div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
+  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : isProducer(user) ? 'Producent' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${site.length ? `<span class="label">Website</span>${site.map((item) => navLink(item, active)).join('')}` : ''}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav><div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : isProducer(user) ? 'Producent' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
 }
 
 export function renderAdmin({ title, user, active, body, context = {}, scripts = '' }) {
@@ -239,5 +247,5 @@ export function renderAdmin({ title, user, active, body, context = {}, scripts =
 }
 
 function forbiddenPage(user) {
-  return renderAdmin({ title: 'Geen toegang', user, active: '', body: `${pageHead({ eyebrow: 'Geen toegang', title: 'Deze pagina is voor beheerders', text: 'Je kunt wel bij productie, planning en filament.' })}<div><a class="btn btn-dark" href="/admin/work">Naar productie</a></div>` });
+  return renderAdmin({ title: 'Geen toegang', user, active: '', body: `${pageHead({ eyebrow: 'Geen toegang', title: 'Deze pagina is voor beheerders', text: 'Je kunt wel bij productie.' })}<div><a class="btn btn-dark" href="/admin/work">Naar productie</a></div>` });
 }

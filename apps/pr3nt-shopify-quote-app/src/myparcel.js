@@ -35,6 +35,10 @@ function hasLegacyWorkerKey(req) { const workerKey = process.env.PRINT_WORKER_KE
 export function sessionUser(req) { const user = readSessionCookie(req); if (user) return user; if (hasAdminKey(req)) return { username: 'admin', role: 'admin', name: 'Admin' }; if (hasLegacyWorkerKey(req)) return { username: 'productie', role: 'worker', name: 'Productie' }; return null; }
 export function isAdmin(user) { return user?.role === 'admin'; }
 export function isWorker(user) { return user?.role === 'worker' || user?.role === 'admin'; }
+// Externe producent: logt in op app.pr3nt.nl, ziet alleen nieuwe orders en de orders die hij zelf heeft geaccepteerd.
+export function isProducer(user) { return user?.role === 'producer'; }
+export function isTeam(user) { return isWorker(user) || isProducer(user); }
+function roleOf(value) { return value === 'admin' ? 'admin' : value === 'producer' ? 'producer' : 'worker'; }
 export function setInternalSession(res, user) { res.cookie?.(sessionCookie, makeSession(user), { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 1000 * 60 * 60 * 12 }); if (isAdmin(user) && process.env.ADMIN_KEY) res.cookie?.('pr3nt_admin_key', process.env.ADMIN_KEY, { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 1000 * 60 * 60 * 12 }); }
 function clearInternalSession(res) { res.clearCookie?.(sessionCookie); res.clearCookie?.('pr3nt_worker_key'); }
 
@@ -48,7 +52,7 @@ export async function readSettings() {
   const count = Math.max(1, Math.min(20, Number(saved.printerCount || process.env.PRINTER_COUNT || 2)));
   const existingPrinters = Array.isArray(saved.printers) ? saved.printers : [];
   const printers = Array.from({ length: count }, (_, index) => { const current = existingPrinters[index] || {}; return { id: clean(current.id || `printer-${index + 1}`, 80), name: clean(current.name || `Printer ${index + 1}`, 80) }; });
-  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: user.role === 'admin' ? 'admin' : 'worker', passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
+  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: roleOf(user.role), company: clean(user.company || '', 120), passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
   return { ...defaultSettings(), ...saved, printerCount: count, printers, users, calendarToken: saved.calendarToken || process.env.PRINT_CALENDAR_TOKEN || '' };
 }
 
@@ -60,6 +64,7 @@ async function writeSettingsFromBody(body = {}) {
   const usernames = arrayValue(body.userName);
   const displayNames = arrayValue(body.userDisplayName);
   const roles = arrayValue(body.userRole);
+  const companies = arrayValue(body.userCompany);
   const passwords = arrayValue(body.userPassword);
   const existingHashes = arrayValue(body.userPasswordHash);
   const deleteUsers = new Set(arrayValue(body.deleteUser).map((value) => String(value)));
@@ -73,7 +78,7 @@ async function writeSettingsFromBody(body = {}) {
     const password = String(passwords[index] || '');
     const hash = password ? passwordHash(password) : clean(existingHashes[index] || existing.passwordHash || '', 300);
     if (!hash) return null;
-    return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roles[index] === 'admin' ? 'admin' : 'worker', passwordHash: hash };
+    return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roleOf(roles[index]), company: clean(companies[index] ?? existing.company ?? '', 120), passwordHash: hash };
   }).filter(Boolean);
   const next = { ...settings, printerCount: count, printers, calendarToken: token, users };
   await writeJson(settingsFilePath, next);
@@ -87,7 +92,7 @@ export async function authenticateUser(username = '', password = '') {
   if (adminPassword && cleanUsername === adminUsername && safeEquals(String(password), adminPassword)) return { username: adminUsername, name: 'Admin', role: 'admin' };
   const settings = await readSettings();
   const found = settings.users.find((user) => user.username.toLowerCase() === cleanUsername);
-  if (found && verifyPassword(password, found.passwordHash)) return { username: found.username, name: found.name || found.username, role: found.role || 'worker' };
+  if (found && verifyPassword(password, found.passwordHash)) return { username: found.username, name: found.name || found.username, role: roleOf(found.role) };
   const legacyWorkerPassword = process.env.PRINT_WORKER_PASSWORD || process.env.PRINT_WORKER_KEY || '';
   if (legacyWorkerPassword && ['productie', 'medewerker', 'werk'].includes(cleanUsername) && safeEquals(String(password), legacyWorkerPassword)) return { username: cleanUsername, name: 'Productie', role: 'worker' };
   return null;
@@ -130,6 +135,12 @@ function shippingAddress(quote = {}) {
   };
 }
 
+// Heeft de klant verzendkosten betaald? Alleen dan komt er een label (anders is het afhalen of gratis zonder pakket).
+export function chargedShipping(quote = {}) {
+  const lines = Array.isArray(quote.quoteLines) ? quote.quoteLines : [];
+  return lines.some((line) => /verzend|shipping|porto/i.test(`${line.label || ''}`) && money(line.qty || 1) * money(line.unit || 0) > 0);
+}
+
 export function isPickup(quote = {}) {
   return quote.delivery === 'afhalen' || /afhalen/i.test(String(quote.note || ''));
 }
@@ -157,7 +168,7 @@ export function needsAutoShipment(quote = {}) {
   if (!quote.paidAt && quote.status !== 'paid') return false;
   if (!shipStatuses.has(quote.status)) return false;
   if (String(quote.trackingCode || '').trim()) return false;
-  if (isPickup(quote)) return false;
+  if (isPickup(quote) || !chargedShipping(quote)) return false;
   if (quote.myParcelStatus === 'error' && Number(quote.myParcelAttempts || 0) >= maxAutoAttempts) return false;
   return true;
 }
@@ -391,14 +402,17 @@ export function registerMyParcelRoutes(app) {
       return res.status(502).send(`Het label kon niet bij MyParcel worden opgehaald. ${e(error.message)}`);
     }
   };
-  app.get('/admin/quotes/:id/label', requireInternal, async (req, res) => {
+  // Producenten mogen alleen labels van hun eigen orders printen.
+  const requireTeam = (req, res, next) => { const user = sessionUser(req); if (!isTeam(user)) return res.status(401).send(loginHtml()); req.internalUser = user; return next(); };
+  const mayPrint = (user, quote) => isWorker(user) || (isProducer(user) && quote.producer === user.username);
+  app.get('/admin/quotes/:id/label', requireTeam, async (req, res) => {
     const quote = (await readQuotes()).find((item) => item.id === req.params.id);
-    if (!quote) return res.status(404).send('Order niet gevonden');
+    if (!quote || !mayPrint(req.internalUser, quote)) return res.status(404).send('Order niet gevonden');
     return sendLabels(res, [quote]);
   });
-  app.get('/admin/labels', requireInternal, async (req, res) => {
+  app.get('/admin/labels', requireTeam, async (req, res) => {
     const wanted = new Set(String(req.query.ids || '').split(',').map((id) => id.trim()).filter(Boolean));
-    const quotes = (await readQuotes()).filter((quote) => wanted.has(quote.id) && quote.myParcelShipmentId);
+    const quotes = (await readQuotes()).filter((quote) => wanted.has(quote.id) && quote.myParcelShipmentId && mayPrint(req.internalUser, quote));
     return sendLabels(res, quotes);
   });
   startMyParcelAuto();

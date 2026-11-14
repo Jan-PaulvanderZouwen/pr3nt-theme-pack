@@ -112,8 +112,9 @@ export function needsQuote(quote) {
   return ['received', 'creating_quote'].includes(quote.status || 'received') || (quote.status === 'quote_sent' && quoteSubtotalExVat(quote) <= 0);
 }
 
+// Betaald, maar nog door niemand opgepakt (geen producent).
 export function needsPlanning(quote) {
-  return quote.status === 'paid' && !quote.scheduledStartAt;
+  return quote.status === 'paid' && !quote.producer;
 }
 
 export function productionOrders(quotes) {

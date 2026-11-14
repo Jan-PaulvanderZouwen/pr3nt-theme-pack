@@ -11,12 +11,13 @@ import {
 import {
   readQuotes, writeQuotes, ensurePortalToken, applyAutomaticStatus, portalUrl, archiveRetentionDays, archiveDeleteDate,
 } from './admin.js';
-import { authenticateUser, setInternalSession, sessionUser, isAdmin, isWorker, canCreateShipment, isPickup } from './myparcel.js';
+import { authenticateUser, setInternalSession, sessionUser, isAdmin, isWorker, isTeam, isProducer, canCreateShipment, isPickup, chargedShipping } from './myparcel.js';
 import { updateMissingProductionPrices } from './productionpricing.js';
 import { carriers, carrierOf, carrierName, trackingUrl } from './carriers.js';
 import { shippingOf } from './shippingcontext.js';
 import { quoteLines, quoteSubtotalExVat, quoteVatAmount, quoteTotalInclVat, vatRatePercent, money, fmt } from './vat.js';
 import { viewerScript, quoteFiles, fileName, fileExt } from './portalview.js';
+import { producerFee } from './producers.js';
 
 // ---------- Inloggen ----------
 
@@ -30,6 +31,7 @@ const loginTips = [
 function safeNext(value = '', user = null) {
   const next = String(value || '');
   if (!next.startsWith('/admin') || next.startsWith('//') || next.startsWith('/admin/login')) return '';
+  if (isProducer(user) && !/^\/admin\/work/.test(next)) return '';
   if (!isAdmin(user) && !/^\/admin\/(work|filament)/.test(next)) return '';
   return next;
 }
@@ -76,7 +78,7 @@ function todoCards(active) {
   const cards = [
     { tab: 'nieuw', tone: 'orange', count: fresh.length, title: fresh.length === 1 ? 'Offerte maken' : 'Offertes maken', hint: oldest ? `Oudste: ${ago(oldest)}` : 'Alles is beantwoord' },
     { tab: 'berichten', tone: 'blue', count: replies.length, title: replies.length === 1 ? 'Klant wacht op antwoord' : 'Klanten wachten op antwoord', hint: replies.length ? names(replies) : 'Geen open vragen' },
-    { href: '/admin/work', tone: 'green', count: plan.length, title: 'Inplannen', hint: plan.length ? 'Nog niet op een printer' : 'Alles staat ingepland' },
+    { href: '/admin/work', tone: 'green', count: plan.length, title: plan.length === 1 ? 'Wacht op producent' : 'Wachten op producent', hint: plan.length ? 'Nog niet geaccepteerd' : 'Alles is opgepakt' },
     { tab: 'verzenden', tone: 'ink', count: ship.length, title: ship.length === 1 ? 'Pakket versturen' : 'Pakketten versturen', hint: ship.length ? `${ship.filter((quote) => quote.myParcelShipmentId).length} van ${ship.length} met label` : 'Niks klaar om te versturen' },
   ];
   return `<section class="todo" aria-label="Wacht op jou">${cards.map((card, index) => {
@@ -173,7 +175,7 @@ function messageList(quote) {
   return messages.map((message) => {
     if (isSystemMessage(message)) return `<div class="msg-sys"><span>${e(message.text)}</span><small>${e(clockOrDate(message.createdAt))}</small></div>`;
     const mine = message.from !== 'klant';
-    return `<div class="msg${mine ? ' me' : ''}">${e(message.text)}<small>${mine ? 'pr3nt' : e(firstName(quote))} · ${e(clockOrDate(message.createdAt))}</small></div>`;
+    return `<div class="msg${mine ? ' me' : ''}">${e(message.text)}<small>${mine ? (message.producer ? `pr3nt, via ${e(message.producer)}` : 'pr3nt') : e(firstName(quote))} · ${e(clockOrDate(message.createdAt))}</small></div>`;
   }).join('');
 }
 
@@ -248,14 +250,19 @@ function shippingPanel(quote) {
   return `<section class="panel" id="verzending" aria-labelledby="ship-title"><div class="panel-head"><h2 id="ship-title">Verzending</h2>${link ? `<a class="btn btn-quiet" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : ''}</div><div class="panel-body">${address}${label}<div class="form-grid"><label class="field"><span>Track & trace</span><input name="trackingCode" form="quote-form" value="${e(code)}" placeholder="${e(!code && quote.myParcelBarcode ? quote.myParcelBarcode : 'Bijv. 3SABCD1234567')}" data-tracking autocomplete="off"></label><label class="field"><span>Vervoerder</span><select name="trackingCarrier" form="quote-form">${carriers.map((carrier) => `<option value="${carrier.id}" ${carrierOf(quote).id === carrier.id ? 'selected' : ''}>${e(carrier.name)}</option>`).join('')}</select></label></div>${!code && quote.myParcelBarcode ? '<p class="muted small">Leeg laten mag: zet je de order op Verzonden, dan wordt de MyParcel-barcode de track & trace.</p>' : ''}<p class="muted small" data-tracking-hint hidden>Bij opslaan gaat de status naar Verzonden en krijgt ${e(firstName(quote))} een mail met de track & trace.</p></div></section>`;
 }
 
+const selfName = () => String(process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+
 function productionPanel(quote, settings) {
-  const printer = printerOf(quote, settings);
-  const planned = quote.scheduledStartAt
-    ? `<p class="plan-line">${dot(quote.color)}<span><strong>${e(printer?.name || 'Printer')}</strong> · ${e(clockText(quote.scheduledStartAt))} tot ${e(timeOnly(quote.scheduledEndAt))}<small>${e(hoursText(printHours(quote)))} printen</small></span></p>`
-    : `<p class="muted small">${isPaid(quote) ? 'Nog niet ingepland.' : 'Inplannen kan zodra er betaald is.'}</p>`;
   const value = quote.productionAmount || quote.productionOfferAmount || quote.productionPrice || '';
   const auto = quote.productionAmountSource === 'auto';
-  return `<section class="panel" aria-labelledby="prod-title"><div class="panel-head"><h2 id="prod-title">Productie</h2>${isPaid(quote) ? `<a class="btn btn-quiet" href="/admin/work#q-${encodeURIComponent(quote.id)}">${quote.scheduledStartAt ? 'Naar productie' : 'Inplannen'} →</a>` : ''}</div><div class="panel-body">${planned}<label class="field"><span>Productievergoeding <small>${auto ? '(automatisch berekend)' : '(excl. btw)'}</small></span><input name="productionAmount" form="quote-form" value="${e(value)}" inputmode="decimal" placeholder="Bijv. 12,50"></label></div></section>`;
+  const team = (settings.users || []).filter((account) => account.role === 'producer' || account.role === 'worker');
+  const known = !quote.producer || quote.producer === selfName() || team.some((account) => account.username === quote.producer);
+  const options = [['', 'Nog niemand (staat open voor producenten)'], [selfName(), 'Ikzelf'], ...team.map((account) => [account.username, `${account.name || account.username}${account.role === 'producer' ? ' (producent)' : ''}`]), ...(known ? [] : [[quote.producer, quote.producer]])]
+    .map(([key, label]) => `<option value="${e(key)}" ${String(quote.producer || '') === key ? 'selected' : ''}>${e(label)}</option>`).join('');
+  const fee = producerFee(quote);
+  const feeLine = fee.total ? `<p class="muted small">Producent krijgt ${e(euro(fee.total))}${fee.ship ? ` (${e(euro(fee.print))} printen + ${e(euro(fee.ship))} verzenden)` : ''}${quote.producerFee ? ', vastgezet bij accepteren' : ''}.</p>` : '';
+  const since = quote.producerAcceptedAt ? `<p class="muted small">Geaccepteerd ${e(ago(quote.producerAcceptedAt))}.</p>` : '';
+  return `<section class="panel" aria-labelledby="prod-title"><div class="panel-head"><h2 id="prod-title">Productie</h2>${isPaid(quote) ? `<a class="btn btn-quiet" href="/admin/work#q-${encodeURIComponent(quote.id)}">Naar productie →</a>` : ''}</div><div class="panel-body"><label class="field"><span>Producent</span><select name="producer" form="quote-form">${options}</select></label>${since}<label class="field"><span>Productievergoeding printen <small>${auto ? '(automatisch berekend)' : '(excl. btw)'}</small></span><input name="productionAmount" form="quote-form" value="${e(value)}" inputmode="decimal" placeholder="Bijv. 12,50"></label>${feeLine}</div></section>`;
 }
 
 function morePanel(quote) {
@@ -274,10 +281,10 @@ function nextStep(quote, settings) {
   if (needsQuote(quote)) return step(lines ? 'Offerte afmaken en versturen' : 'Maak de offerte', `Vul de regels in of laad de standaardofferte. Bij opslaan krijgt ${e(name)} automatisch een mail met de prijs en een betaallink.`, '<a class="btn btn-dark" href="#offerte">Naar offerte</a>');
   if (quote.status === 'quote_sent' && !isAccepted(quote)) return step(`Wacht op akkoord van ${e(name)}`, quote.quoteSentAt ? `De offerte is ${e(ago(quote.quoteSentAt))} gemaild. Je hoeft nu niks te doen.` : 'De offerte staat in het portaal, maar is nog niet gemaild. Sla op om hem te versturen.');
   if (isAccepted(quote) && !isPaid(quote)) return step('Wacht op betaling', `${e(name)} heeft akkoord gegeven. Zodra Mollie de betaling meldt, gaat de order vanzelf naar Betaald.`);
-  if (quote.status === 'paid' && !quote.scheduledStartAt) return step('Plan de print in', 'Betaald en klaar voor de printer. Bij inplannen staat de eerstvolgende vrije plek al klaar.', `<a class="btn btn-dark" href="/admin/work#q-${encodeURIComponent(quote.id)}">Inplannen</a>`);
+  if (quote.status === 'paid' && !quote.producer) return step('Wacht op een producent', 'Betaald. De order staat bij Productie open voor producenten. Wil je hem zelf printen of aan iemand geven? Kies dat bij Productie hiernaast.', `<form method="post" action="/admin/work/orders/${encodeURIComponent(quote.id)}/accept"><button class="btn btn-dark" type="submit">Zelf printen</button></form>`);
   if (['paid', 'print_queue'].includes(quote.status)) {
-    const printer = printerOf(quote, settings);
-    return step(quote.status === 'print_queue' ? 'Ligt op de printer' : 'Ingepland', `${e(printer?.name || 'Printer')}, ${e(clockText(quote.scheduledStartAt))} tot ${e(timeOnly(quote.scheduledEndAt))}. ${e(name)} ziet in het portaal wanneer het klaar is.`, '<a class="btn" href="/admin/work/agenda">Naar planning</a>');
+    const who = quote.producer === selfName() ? 'jou' : ((settings.users || []).find((account) => account.username === quote.producer)?.name || quote.producer);
+    return step(`In productie bij ${e(who)}`, `${quote.producerAcceptedAt ? `Geaccepteerd ${e(ago(quote.producerAcceptedAt))}. ` : ''}${e(name)} ziet in het portaal dat de print in productie is.`, quote.producer === selfName() ? `<form method="post" action="/admin/work/orders/${encodeURIComponent(quote.id)}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Print is klaar ✓</button></form>` : '');
   }
   if (quote.status === 'ready_to_ship') return step('Klaar om te versturen', quote.myParcelShipmentId ? `Print het label, plak het op het pakket en zet de order op Verzonden. ${e(name)} krijgt dan vanzelf een mail met de track & trace.` : `Vul de track & trace in en sla op. ${e(name)} krijgt dan vanzelf een mail.`, `${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<a class="btn btn-dark" href="#verzending">Naar verzending</a>`);
   if (quote.status === 'shipped') return step(`Onderweg met ${e(carrierName(quote))}`, link ? 'Het pakket is verstuurd. Je kunt het zelf ook volgen.' : 'Het pakket is verstuurd.', link ? `<a class="btn" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : '');
@@ -333,7 +340,7 @@ function notFoundPage(user, context) {
 export function registerAdminViewRoutes(app) {
   app.get('/admin/login', (req, res) => {
     const user = sessionUser(req);
-    if (isWorker(user)) return res.redirect(safeNext(req.query.next, user) || homeFor(user));
+    if (isTeam(user)) return res.redirect(safeNext(req.query.next, user) || homeFor(user));
     res.send(loginPage({ next: String(req.query.next || '').slice(0, 300) }));
   });
 
@@ -350,7 +357,7 @@ export function registerAdminViewRoutes(app) {
 
   app.get('/admin', (req, res, next) => {
     const user = sessionUser(req);
-    if (isWorker(user) && !isAdmin(user)) return res.redirect('/admin/work');
+    if (isTeam(user) && !isAdmin(user)) return res.redirect('/admin/work');
     return next();
   }, admin, async (req, res) => {
     await updateMissingProductionPrices().catch(() => {});
