@@ -11,7 +11,7 @@ import {
 import {
   readQuotes, writeQuotes, ensurePortalToken, applyAutomaticStatus, portalUrl, archiveRetentionDays, archiveDeleteDate,
 } from './admin.js';
-import { authenticateUser, setInternalSession, sessionUser, isAdmin, isWorker, canCreateShipment } from './myparcel.js';
+import { authenticateUser, setInternalSession, sessionUser, isAdmin, isWorker, canCreateShipment, isPickup } from './myparcel.js';
 import { updateMissingProductionPrices } from './productionpricing.js';
 import { carriers, carrierOf, carrierName, trackingUrl } from './carriers.js';
 import { shippingOf } from './shippingcontext.js';
@@ -77,7 +77,7 @@ function todoCards(active) {
     { tab: 'nieuw', tone: 'orange', count: fresh.length, title: fresh.length === 1 ? 'Offerte maken' : 'Offertes maken', hint: oldest ? `Oudste: ${ago(oldest)}` : 'Alles is beantwoord' },
     { tab: 'berichten', tone: 'blue', count: replies.length, title: replies.length === 1 ? 'Klant wacht op antwoord' : 'Klanten wachten op antwoord', hint: replies.length ? names(replies) : 'Geen open vragen' },
     { href: '/admin/work', tone: 'green', count: plan.length, title: 'Inplannen', hint: plan.length ? 'Nog niet op een printer' : 'Alles staat ingepland' },
-    { tab: 'verzenden', tone: 'ink', count: ship.length, title: ship.length === 1 ? 'Pakket versturen' : 'Pakketten versturen', hint: ship.length ? `${ship.filter((quote) => quote.myParcelLabelUrl).length} van ${ship.length} met label` : 'Niks klaar om te versturen' },
+    { tab: 'verzenden', tone: 'ink', count: ship.length, title: ship.length === 1 ? 'Pakket versturen' : 'Pakketten versturen', hint: ship.length ? `${ship.filter((quote) => quote.myParcelShipmentId).length} van ${ship.length} met label` : 'Niks klaar om te versturen' },
   ];
   return `<section class="todo" aria-label="Wacht op jou">${cards.map((card, index) => {
     const href = card.href || `/admin?tab=${card.tab}`;
@@ -229,19 +229,23 @@ function shippingPanel(quote) {
   const shipping = shippingOf(quote);
   const complete = shipping.name && shipping.address && shipping.postalCode && shipping.city;
   const address = complete ? `<div class="address"><strong>${e(shipping.name)}</strong>${shipping.company ? `<span>${e(shipping.company)}</span>` : ''}<span>${e(shipping.address)}</span><span>${e(shipping.postalCode)} ${e(shipping.city)}</span><span>${e(shipping.country || 'Nederland')}</span></div>` : '<p class="empty">De klant heeft nog geen verzendadres ingevuld.</p>';
+  const labelHref = `/admin/quotes/${encodeURIComponent(quote.id)}/label`;
+  const makeForm = (text, quiet) => `<form method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}/myparcel"><button class="btn${quiet ? ' btn-quiet' : ''}" type="submit">${text}</button></form>`;
   let label = '';
-  if (quote.myParcelLabelUrl) label = `<a class="btn" href="${e(quote.myParcelLabelUrl)}" target="_blank" rel="noopener">Verzendlabel openen</a>`;
-  else if (quote.myParcelShipmentId) label = `<p class="muted small">MyParcel-zending ${e(quote.myParcelShipmentId)} staat klaar.</p>`;
-  else if (isPaid(quote)) {
+  if (quote.myParcelShipmentId) {
+    const barcode = quote.myParcelBarcode ? ` · barcode <span class="mono">${e(quote.myParcelBarcode)}</span>` : '';
+    label = `<div class="btn-row"><a class="btn btn-dark" href="${labelHref}" target="_blank" rel="noopener">Label printen</a></div><p class="muted small">MyParcel-zending ${e(quote.myParcelShipmentId)}${barcode}</p>`;
+  } else if (isPaid(quote)) {
     const check = canCreateShipment(quote);
     const problem = quote.myParcelStatus === 'error' ? `<p class="callout warn"><strong>MyParcel gaf een fout</strong>${e(String(quote.myParcelError || '').slice(0, 220))}</p>` : '';
-    label = check.ok
-      ? `${problem}<form method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}/myparcel"><button class="btn" type="submit">Verzendlabel maken</button></form>`
-      : `${problem}<p class="muted small">Label lukt nog niet: ${e(check.reason)}</p>`;
+    if (!check.ok) label = `${problem}<p class="muted small">Label lukt nog niet: ${e(check.reason)}</p>`;
+    else if (isPickup(quote)) label = `<p class="muted small">Klant haalt op, dus er komt geen label.</p>${makeForm('Toch een label maken', true)}`;
+    else if (!['shipped', 'delivered'].includes(quote.status) && quote.myParcelStatus !== 'error') label = `<p class="muted small">Het label wordt binnen een paar minuten vanzelf aangemaakt in MyParcel.</p>${makeForm('Nu aanmaken', true)}`;
+    else label = `${problem}${makeForm('Verzendlabel maken')}`;
   }
   const code = String(quote.trackingCode || '').trim();
   const link = code ? trackingUrl(quote, shipping) : '';
-  return `<section class="panel" id="verzending" aria-labelledby="ship-title"><div class="panel-head"><h2 id="ship-title">Verzending</h2>${link ? `<a class="btn btn-quiet" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : ''}</div><div class="panel-body">${address}${label}<div class="form-grid"><label class="field"><span>Track & trace</span><input name="trackingCode" form="quote-form" value="${e(code)}" placeholder="Bijv. 3SABCD1234567" data-tracking autocomplete="off"></label><label class="field"><span>Vervoerder</span><select name="trackingCarrier" form="quote-form">${carriers.map((carrier) => `<option value="${carrier.id}" ${carrierOf(quote).id === carrier.id ? 'selected' : ''}>${e(carrier.name)}</option>`).join('')}</select></label></div><p class="muted small" data-tracking-hint hidden>Bij opslaan gaat de status naar Verzonden en krijgt ${e(firstName(quote))} een mail met de track & trace.</p></div></section>`;
+  return `<section class="panel" id="verzending" aria-labelledby="ship-title"><div class="panel-head"><h2 id="ship-title">Verzending</h2>${link ? `<a class="btn btn-quiet" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : ''}</div><div class="panel-body">${address}${label}<div class="form-grid"><label class="field"><span>Track & trace</span><input name="trackingCode" form="quote-form" value="${e(code)}" placeholder="${e(!code && quote.myParcelBarcode ? quote.myParcelBarcode : 'Bijv. 3SABCD1234567')}" data-tracking autocomplete="off"></label><label class="field"><span>Vervoerder</span><select name="trackingCarrier" form="quote-form">${carriers.map((carrier) => `<option value="${carrier.id}" ${carrierOf(quote).id === carrier.id ? 'selected' : ''}>${e(carrier.name)}</option>`).join('')}</select></label></div>${!code && quote.myParcelBarcode ? '<p class="muted small">Leeg laten mag: zet je de order op Verzonden, dan wordt de MyParcel-barcode de track & trace.</p>' : ''}<p class="muted small" data-tracking-hint hidden>Bij opslaan gaat de status naar Verzonden en krijgt ${e(firstName(quote))} een mail met de track & trace.</p></div></section>`;
 }
 
 function productionPanel(quote, settings) {
@@ -275,7 +279,7 @@ function nextStep(quote, settings) {
     const printer = printerOf(quote, settings);
     return step(quote.status === 'print_queue' ? 'Ligt op de printer' : 'Ingepland', `${e(printer?.name || 'Printer')}, ${e(clockText(quote.scheduledStartAt))} tot ${e(timeOnly(quote.scheduledEndAt))}. ${e(name)} ziet in het portaal wanneer het klaar is.`, '<a class="btn" href="/admin/work/agenda">Naar planning</a>');
   }
-  if (quote.status === 'ready_to_ship') return step('Klaar om te versturen', `Vul de track & trace in en sla op. ${e(name)} krijgt dan vanzelf een mail.`, `${quote.myParcelLabelUrl ? `<a class="btn" href="${e(quote.myParcelLabelUrl)}" target="_blank" rel="noopener">Label openen</a>` : ''}<a class="btn btn-dark" href="#verzending">Naar verzending</a>`);
+  if (quote.status === 'ready_to_ship') return step('Klaar om te versturen', quote.myParcelShipmentId ? `Print het label, plak het op het pakket en zet de order op Verzonden. ${e(name)} krijgt dan vanzelf een mail met de track & trace.` : `Vul de track & trace in en sla op. ${e(name)} krijgt dan vanzelf een mail.`, `${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<a class="btn btn-dark" href="#verzending">Naar verzending</a>`);
   if (quote.status === 'shipped') return step(`Onderweg met ${e(carrierName(quote))}`, link ? 'Het pakket is verstuurd. Je kunt het zelf ook volgen.' : 'Het pakket is verstuurd.', link ? `<a class="btn" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : '');
   if (quote.status === 'delivered') {
     const review = quote.review ? ` ${e(name)} gaf een ${e(quote.review.rating)}/5${quote.review.review ? `: “${e(String(quote.review.review).slice(0, 140))}”` : '.'}` : '';

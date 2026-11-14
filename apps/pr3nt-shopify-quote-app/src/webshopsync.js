@@ -134,6 +134,7 @@ export function quoteFromWebshopOrder(order, now = new Date().toISOString()) {
     rush: d.rush ? 'Ja' : 'Nee',
     description: str(d.comment || d.description),
     note: pickup ? 'Afhalen op afspraak' : '',
+    delivery: pickup ? 'afhalen' : 'verzenden',
     quoteLines: linesOf(order),
     shipping,
     billing: { name: shipping.name, company: shipping.company, address: shipping.address, postalCode: shipping.postalCode, city: shipping.city, country: shipping.country },

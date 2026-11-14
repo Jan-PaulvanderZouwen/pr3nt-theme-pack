@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { carriers, carrierOf } from './carriers.js';
-import { sessionUser, isAdmin } from './myparcel.js';
+import { sessionUser, isAdmin, fillTrackingFromMyParcel } from './myparcel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -321,6 +321,7 @@ export function registerAdminRoutes(app) {
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       quote.messages.push({ from: 'pr3nt', text: newMessage, createdAt: new Date().toISOString() });
     }
+    fillTrackingFromMyParcel(quote);
     applyAutomaticStatus(quote);
     if (quote.status === 'quote_sent') await notifyCustomerQuoteSent(quote);
     quote.updatedAt = new Date().toISOString();
