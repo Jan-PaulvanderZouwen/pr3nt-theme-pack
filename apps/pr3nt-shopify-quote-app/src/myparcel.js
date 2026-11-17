@@ -179,7 +179,7 @@ export function needsAutoShipment(quote = {}) {
   if (!shipStatuses.has(quote.status)) return false;
   if (String(quote.trackingCode || '').trim()) return false;
   if (isPickup(quote) || !chargedShipping(quote)) return false;
-  if (quote.myParcelStatus === 'error' && Number(quote.myParcelAttempts || 0) >= maxAutoAttempts) return false;
+  if (quote.myParcelStatus === 'error' && !isKeyError(quote.myParcelError) && Number(quote.myParcelAttempts || 0) >= maxAutoAttempts) return false;
   return true;
 }
 
@@ -191,7 +191,11 @@ function shipmentPayload(quote) {
   const carrier = Number(process.env.MYPARCEL_CARRIER_ID || 1) || 1;
   return { data: { shipments: [{ reference_identifier: clean(quote.id, 50), recipient, carrier, options: { package_type: packageType, label_description: clean(`Pr3nt ${quote.webshopOrderId || quote.id}`, 45) } }] } };
 }
-function authHeader() { return `basic ${Buffer.from(process.env.MYPARCEL_API_KEY || '').toString('base64')}`; }
+// Sleutel zonder spaties, aanhalingstekens of Windows-regeleinde (komt vaak mee bij plakken in .env).
+function apiKey() { return String(process.env.MYPARCEL_API_KEY || '').replace(/["'\r\s]/g, ''); }
+function authHeader() { return `basic ${Buffer.from(apiKey()).toString('base64')}`; }
+// 401/403: de sleutel wordt geweigerd. Dat ligt niet aan de order, dus telt niet als mislukte poging.
+export function isKeyError(message = '') { return /MyParcel API fout 40[13]/.test(String(message)); }
 async function myParcelRequest(endpoint, options = {}) {
   return fetch(`${myParcelApiBase}${endpoint}`, { ...options, headers: { Authorization: authHeader(), 'User-Agent': process.env.MYPARCEL_USER_AGENT || 'Pr3ntPortal/1', ...(options.headers || {}) }, signal: AbortSignal.timeout(20_000) });
 }
@@ -271,6 +275,7 @@ export function fillTrackingFromMyParcel(quote = {}) {
 
 const myParcelFields = ['myParcelStatus', 'myParcelError', 'myParcelMessage', 'myParcelTriedAt', 'myParcelAttempts', 'myParcelShipmentId', 'myParcelBarcode', 'myParcelCreatedAt', 'myParcelLabelUrl'];
 let autoRunning = false;
+let lastKeyWarning = '';
 export async function createMissingMyParcelLabels() {
   if (!process.env.MYPARCEL_API_KEY) return { skipped: true, reason: 'MYPARCEL_API_KEY ontbreekt.' };
   if (String(process.env.MYPARCEL_AUTO || 'on').toLowerCase() === 'off') return { skipped: true, reason: 'MYPARCEL_AUTO=off' };
@@ -284,6 +289,13 @@ export async function createMissingMyParcelLabels() {
       const before = JSON.stringify(myParcelFields.map((key) => quote[key]));
       let outcome;
       try { outcome = await createMyParcelShipmentForQuote(quote); } catch (error) { outcome = { error: error.message }; }
+      if (outcome.error && isKeyError(outcome.error)) {
+        // Geen zin om de rest ook te proberen: meld het één keer en probeer het bij de volgende ronde opnieuw.
+        if (lastKeyWarning !== outcome.error.slice(0, 24)) console.warn(`[myparcel] MyParcel weigert de API-sleutel (fout ${(outcome.error.match(/40\d/) || [''])[0]}). Controleer MYPARCEL_API_KEY in .env en herstart. Orders blijven wachten.`);
+        lastKeyWarning = outcome.error.slice(0, 24);
+        break;
+      }
+      lastKeyWarning = '';
       if (outcome.skipped && quote.myParcelStatus === 'skipped' && quote.myParcelMessage === outcome.reason) continue;
       applyShipmentResult(quote, outcome);
       if (JSON.stringify(myParcelFields.map((key) => quote[key])) !== before) updates.set(quote.id, quote);
