@@ -164,6 +164,32 @@ async function getMolliePayment(paymentId) {
   return body;
 }
 
+const reusableStatuses = new Set(['open', 'pending']);
+
+function applyPaymentStatus(quote, payment, paymentId) {
+  const now = new Date().toISOString();
+  quote.molliePaymentId = payment.id || paymentId || quote.molliePaymentId;
+  quote.molliePaymentStatus = payment.status || quote.molliePaymentStatus || 'open';
+  quote.molliePaymentMethod = payment.method || quote.molliePaymentMethod || '';
+  quote.molliePaymentUpdatedAt = now;
+  if (payment.status === 'paid') {
+    clearWaitingCustomer(quote);
+    quote.status = 'paid';
+    quote.paidAt = payment.paidAt || now;
+    quote.molliePaymentPaidAt = payment.paidAt || now;
+    quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
+    if (!messageExists(quote, 'Betaling ontvangen via Mollie')) quote.messages.push({ from: 'pr3nt', text: 'Betaling ontvangen via Mollie.', createdAt: quote.paidAt });
+  }
+}
+
+function findByToken(quotes, token) {
+  return quotes.find((item) => !item.archivedAt && (item.portalToken ? item.portalToken === token : item.id === token));
+}
+
+function payErrorHtml(portal) {
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Betalen lukt even niet · pr3nt.nl</title><style>body{margin:0;background:#F7F4EF;color:#101820;font-family:Inter,system-ui,sans-serif}.card{max-width:560px;margin:70px auto;background:#fff;border-radius:18px;padding:28px;border:1px solid #e5e1da}.button{display:inline-flex;margin-top:14px;border-radius:999px;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;font-weight:700}</style></head><body><section class="card"><h1>Betalen lukt nu even niet</h1><p>We konden geen betaalpagina openen. Probeer het over een paar minuten opnieuw, of stuur ons een bericht via je portaal. We helpen je graag verder.</p><a class="button" href="${e(portal)}">Naar mijn portaal</a></section></body></html>`;
+}
+
 function messageExists(quote, text) {
   return Array.isArray(quote.messages) && quote.messages.some((message) => String(message.text || '').includes(text));
 }
@@ -319,6 +345,48 @@ function mollieErrorHtml(error) {
 }
 
 export function registerMollieRoutes(app) {
+  // Vaste betaallink voor mail en portaal: /portal/<token>/pay. Een Mollie-checkout verloopt na korte tijd,
+  // dus hier kijken we bij elke klik of de betaling nog open staat en maken we zo nodig een nieuwe aan.
+  app.get('/portal/:token/pay', async (req, res) => {
+    const token = req.params.token;
+    const portal = `/portal/${encodeURIComponent(token)}`;
+    try {
+      const quotes = await readQuotes();
+      const quote = findByToken(quotes, token);
+      if (!quote) return res.status(404).send('Aanvraag niet gevonden.');
+      if (quote.paidAt || quote.status === 'paid') return res.redirect(`${portal}?saved=Betaling%20is%20al%20ontvangen`);
+
+      const manualUrl = quote.paymentUrl && quote.paymentUrl !== quote.molliePaymentUrl ? quote.paymentUrl : '';
+      if (manualUrl) return res.redirect(manualUrl);
+
+      const total = amountValue(quoteTotalInclVat(quote));
+      if (money(total) <= 0 || !process.env.MOLLIE_API_KEY) return res.redirect(quote.molliePaymentUrl || portal);
+
+      if (quote.molliePaymentId && quote.molliePaymentAmount === total) {
+        const current = await getMolliePayment(quote.molliePaymentId).catch(() => null);
+        if (current?.status === 'paid') {
+          applyPaymentStatus(quote, current, quote.molliePaymentId);
+          await writeQuotes(quotes);
+          return res.redirect(`${portal}?saved=Betaling%20is%20al%20ontvangen`);
+        }
+        const url = checkoutUrl(current);
+        if (current && reusableStatuses.has(current.status) && url) return res.redirect(url);
+      }
+
+      const oldUrl = quote.molliePaymentUrl || '';
+      const payment = await createMollieCheckoutPayment(quote, total);
+      const now = new Date().toISOString();
+      Object.assign(quote, payment, { paymentUrl: payment.molliePaymentUrl, updatedAt: now });
+      // Geen nieuwe offertemail sturen alleen omdat de Mollie-link is vernieuwd.
+      if (quote.mollieQuoteMailSentUrl && quote.mollieQuoteMailSentUrl === oldUrl) quote.mollieQuoteMailSentUrl = payment.molliePaymentUrl;
+      await writeQuotes(quotes);
+      return res.redirect(payment.molliePaymentUrl);
+    } catch (error) {
+      console.warn('Mollie betaallink kon niet worden geopend:', error.message);
+      return res.status(502).send(payErrorHtml(portal));
+    }
+  });
+
   app.use('/admin/quotes/:id', async (req, res, next) => {
     if (req.method !== 'GET') return next();
     const originalSend = res.send.bind(res);
@@ -381,7 +449,13 @@ export function registerMollieRoutes(app) {
       if (!quote || quote.paidAt || quote.status === 'paid') return next();
 
       const now = new Date().toISOString();
-      const manualUrl = String(req.body?.paymentUrl || '').trim();
+      let manualUrl = String(req.body?.paymentUrl || '').trim();
+      // Het beheer stuurt de huidige link mee in het formulier. Is dat onze eigen Mollie-link, dan is het geen handmatige link
+      // en moet Mollie gewoon een nieuwe link kunnen maken (bijv. als het bedrag is veranderd).
+      if (manualUrl && manualUrl === quote.molliePaymentUrl) {
+        manualUrl = '';
+        req.body.paymentUrl = '';
+      }
       if (manualUrl) {
         if (resetQuoteMailForManualLink(quote, manualUrl, now)) await writeQuotes(quotes);
         return next();
@@ -414,7 +488,7 @@ export function registerMollieRoutes(app) {
         quoteTotalInclVat: quoteForVat.quoteTotalInclVat,
       });
 
-      if (quote.molliePaymentUrl && quote.molliePaymentAmount === totalInclVat && quote.molliePaymentStatus !== 'paid') {
+      if (quote.molliePaymentUrl && quote.molliePaymentAmount === totalInclVat && reusableStatuses.has(quote.molliePaymentStatus || 'open')) {
         if (manualChanged) await writeQuotes(quotes);
         req.body.paymentUrl = quote.paymentUrl || quote.molliePaymentUrl;
         return next();
@@ -452,19 +526,10 @@ export function registerMollieRoutes(app) {
       const quotes = await readQuotes();
       const quote = quotes.find((item) => !item.archivedAt && ((quoteId && item.id === quoteId) || item.molliePaymentId === paymentId || (paymentLinkId && item.molliePaymentLinkId === paymentLinkId)));
       if (!quote) return res.status(200).send('OK');
-      const now = new Date().toISOString();
-      quote.molliePaymentId = payment.id || paymentId;
-      quote.molliePaymentStatus = payment.status || quote.molliePaymentStatus || 'open';
-      quote.molliePaymentMethod = payment.method || quote.molliePaymentMethod || '';
-      quote.molliePaymentUpdatedAt = now;
-      if (payment.status === 'paid') {
-        clearWaitingCustomer(quote);
-        quote.status = 'paid';
-        quote.paidAt = payment.paidAt || now;
-        quote.molliePaymentPaidAt = payment.paidAt || now;
-        quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
-        if (!messageExists(quote, 'Betaling ontvangen via Mollie')) quote.messages.push({ from: 'pr3nt', text: 'Betaling ontvangen via Mollie.', createdAt: quote.paidAt });
-      }
+      // Een oude (verlopen) betaling mag de huidige link niet overschrijven; alleen 'betaald' telt altijd.
+      const isCurrent = !quote.molliePaymentId || quote.molliePaymentId === (payment.id || paymentId);
+      if (!isCurrent && payment.status !== 'paid') return res.status(200).send('OK');
+      applyPaymentStatus(quote, payment, paymentId);
       await writeQuotes(quotes);
     } catch (error) {
       console.warn('Mollie webhook kon niet worden verwerkt:', error.message);
