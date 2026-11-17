@@ -104,7 +104,7 @@ function quoteSummaryHtml(quote) {
 function html(quote, title, message, cta = 'Open mijn klantportaal') {
   const payUrl = paymentUrl(quote);
   const useMollieCta = quote.status === 'quote_sent' && payUrl && quote.manualStatus !== 'waiting_customer';
-  const url = useMollieCta ? payUrl : portalUrl(quote);
+  const url = useMollieCta ? `${portalUrl(quote)}/pay` : portalUrl(quote);
   const ctaText = useMollieCta ? 'betaal veilig via Mollie' : cta;
   const fallbackUrl = useMollieCta ? portalUrl(quote) : url;
   const tracking = quote.status === 'shipped' && quote.trackingCode ? `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:16px;padding:14px;margin:18px 0"><strong>Track & trace</strong><br>${e(quote.trackingCode)}${trackingUrl(quote, shippingOf(quote)) ? `<br><a href="${e(trackingUrl(quote, shippingOf(quote)))}" style="color:#06603f;font-weight:700">Volg je pakket bij ${e(carrierName(quote))}</a>` : ''}</div>` : '';
@@ -201,7 +201,7 @@ export function registerStatusMailRoutes(app) {
     }
     await writeQuotes(quotes);
 
-    if (quote.paymentUrl) return res.redirect(quote.paymentUrl);
+    if (paymentUrl(quote)) return res.redirect(`/portal/${encodeURIComponent(req.params.token)}/pay`);
     return res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Reactie%20ontvangen`);
   });
 

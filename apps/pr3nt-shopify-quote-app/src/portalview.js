@@ -154,7 +154,7 @@ function actionPanel(quote, state) {
     return `<div class="action"><span class="label">Jouw offerte</span>${amount}${acceptForm(quote, state)}<p>Printen start na betaling. Vragen over de offerte? Stuur ons een <a href="#berichten">bericht</a>.</p></div>`;
   }
   if (state.canPay) {
-    return `<div class="action"><span class="label">Openstaand bedrag</span>${amount}<a class="btn btn-primary" href="${e(state.payUrl)}">Betaal veilig via Mollie</a><p>Je betaalt met iDEAL of Bancontact.</p></div>`;
+    return `<div class="action"><span class="label">Openstaand bedrag</span>${amount}<a class="btn btn-primary" href="/portal/${token}/pay">Betaal veilig via Mollie</a><p>Je betaalt met iDEAL of Bancontact.</p></div>`;
   }
   if (state.status === 'shipped' && quote.trackingCode) {
     return `<div class="action"><span class="label">Track & trace</span>${trackingUrl(quote, shippingOf(quote)) ? `<a class="btn btn-primary" href="${e(trackingUrl(quote, shippingOf(quote)))}" target="_blank" rel="noopener">Volg je pakket</a>` : ''}<div class="code"><span>${e(quote.trackingCode)}</span><button class="btn btn-quiet" type="button" data-copy="${e(quote.trackingCode)}">Kopiëren</button></div><p>Verstuurd met ${e(carrierName(quote))}.</p></div>`;

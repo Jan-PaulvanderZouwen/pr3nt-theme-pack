@@ -43,7 +43,7 @@ export function registerQuoteCheckoutRoutes(app) {
     }
     await writeQuotes(quotes);
 
-    if (quote.paymentUrl) return res.redirect(quote.paymentUrl);
+    if (quote.paymentUrl || quote.molliePaymentUrl) return res.redirect(`/portal/${encodeURIComponent(req.params.token)}/pay`);
     return res.redirect(`/portal/${encodeURIComponent(req.params.token)}?saved=Offerte%20akkoord%20gegeven`);
   });
 }
