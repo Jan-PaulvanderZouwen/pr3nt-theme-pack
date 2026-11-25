@@ -37,7 +37,7 @@ function safeNext(value = '', user = null) {
 }
 
 function homeFor(user) {
-  return isAdmin(user) ? '/admin' : '/admin/work';
+  return isAdmin(user) ? '/admin' : isProducer(user) ? '/admin/work/overzicht' : '/admin/work';
 }
 
 function loginPage({ error = '', next = '', username = '' } = {}) {
@@ -79,7 +79,7 @@ function todoCards(active) {
     { tab: 'nieuw', tone: 'orange', count: fresh.length, title: fresh.length === 1 ? 'Offerte maken' : 'Offertes maken', hint: oldest ? `Oudste: ${ago(oldest)}` : 'Alles is beantwoord' },
     { tab: 'berichten', tone: 'blue', count: replies.length, title: replies.length === 1 ? 'Klant wacht op antwoord' : 'Klanten wachten op antwoord', hint: replies.length ? names(replies) : 'Geen open vragen' },
     { href: '/admin/work', tone: 'green', count: plan.length, title: plan.length === 1 ? 'Wacht op producent' : 'Wachten op producent', hint: plan.length ? 'Nog niet geaccepteerd' : 'Alles is opgepakt' },
-    { tab: 'verzenden', tone: 'ink', count: ship.length, title: ship.length === 1 ? 'Pakket versturen' : 'Pakketten versturen', hint: ship.length ? `${ship.filter((quote) => quote.myParcelShipmentId).length} van ${ship.length} met label` : 'Niks klaar om te versturen' },
+    { href: '/admin/verzenden', tone: 'ink', count: ship.length, title: ship.length === 1 ? 'Pakket versturen' : 'Pakketten versturen', hint: ship.length ? `${ship.filter((quote) => !quote.myParcelShipmentId).length ? `${ship.filter((quote) => !quote.myParcelShipmentId).length} wacht op een label` : 'Alle labels zijn gemaakt'}` : 'Niks klaar om te versturen' },
   ];
   return `<section class="todo" aria-label="Wacht op jou">${cards.map((card, index) => {
     const href = card.href || `/admin?tab=${card.tab}`;
@@ -248,7 +248,7 @@ function shippingPanel(quote) {
     const problem = quote.myParcelStatus === 'error' ? `<p class="callout warn"><strong>MyParcel gaf een fout</strong>${e(String(quote.myParcelError || '').slice(0, 220))}</p>` : '';
     if (!check.ok) label = `${problem}<p class="muted small">Label lukt nog niet: ${e(check.reason)}</p>`;
     else if (isPickup(quote)) label = `<p class="muted small">Klant haalt op, dus er komt geen label.</p>${makeForm('Toch een label maken', true)}`;
-    else if (!['shipped', 'delivered'].includes(quote.status) && quote.myParcelStatus !== 'error') label = `<p class="muted small">Het label wordt binnen een paar minuten vanzelf aangemaakt in MyParcel.</p>${makeForm('Nu aanmaken', true)}`;
+    else if (!['shipped', 'delivered'].includes(quote.status) && quote.myParcelStatus !== 'error') label = `<p class="muted small">${quote.status === 'ready_to_ship' ? 'Klaar om te versturen.' : 'Nog in productie.'} Het label maak je zelf; bij <a href="/admin/verzenden">Verzenden</a> bundel je orders naar hetzelfde adres in één pakket.</p>${makeForm('Label maken', quote.status !== 'ready_to_ship')}`;
     else label = `${problem}${makeForm('Verzendlabel maken')}`;
   }
   const code = String(quote.trackingCode || '').trim();
@@ -256,6 +256,7 @@ function shippingPanel(quote) {
   return `<section class="panel" id="verzending" aria-labelledby="ship-title"><div class="panel-head"><h2 id="ship-title">Verzending</h2>${link ? `<a class="btn btn-quiet" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : ''}</div><div class="panel-body">${address}${label}<div class="form-grid"><label class="field"><span>Track & trace</span><input name="trackingCode" form="quote-form" value="${e(code)}" placeholder="${e(!code && quote.myParcelBarcode ? quote.myParcelBarcode : 'Bijv. 3SABCD1234567')}" data-tracking autocomplete="off"></label><label class="field"><span>Vervoerder</span><select name="trackingCarrier" form="quote-form">${carriers.map((carrier) => `<option value="${carrier.id}" ${carrierOf(quote).id === carrier.id ? 'selected' : ''}>${e(carrier.name)}</option>`).join('')}</select></label></div>${!code && quote.myParcelBarcode ? '<p class="muted small">Leeg laten mag: zet je de order op Verzonden, dan wordt de MyParcel-barcode de track & trace.</p>' : ''}<p class="muted small" data-tracking-hint hidden>Bij opslaan gaat de status naar Verzonden en krijgt ${e(firstName(quote))} een mail met de track & trace.</p></div></section>`;
 }
 
+const producerLabel = (quote, settings) => (settings.users || []).find((account) => account.username === quote.producer)?.name || quote.producer;
 const selfName = () => String(process.env.ADMIN_USERNAME || 'admin').toLowerCase();
 
 function productionPanel(quote, settings) {
@@ -268,13 +269,13 @@ function productionPanel(quote, settings) {
   const fee = producerFee(quote);
   const feeLine = fee.total ? `<p class="muted small">Producent krijgt ${e(euro(fee.total))}${fee.ship ? ` (${e(euro(fee.print))} printen + ${e(euro(fee.ship))} verzenden)` : ''}${quote.producerFee ? ', vastgezet bij accepteren' : ''}.</p>` : '';
   const since = quote.producerAcceptedAt ? `<p class="muted small">Geaccepteerd ${e(ago(quote.producerAcceptedAt))}.</p>` : '';
-  return `<section class="panel" aria-labelledby="prod-title"><div class="panel-head"><h2 id="prod-title">Productie</h2>${isPaid(quote) ? `<a class="btn btn-quiet" href="/admin/work#q-${encodeURIComponent(quote.id)}">Naar productie →</a>` : ''}</div><div class="panel-body"><label class="field"><span>Producent</span><select name="producer" form="quote-form">${options}</select></label>${since}<label class="field"><span>Productievergoeding printen <small>${auto ? '(automatisch berekend)' : '(excl. btw)'}</small></span><input name="productionAmount" form="quote-form" value="${e(value)}" inputmode="decimal" placeholder="Bijv. 12,50"></label>${feeLine}</div></section>`;
+  return `<section class="panel" aria-labelledby="prod-title"><div class="panel-head"><h2 id="prod-title">Productie</h2>${isPaid(quote) ? `<a class="btn btn-quiet" href="/admin/work#q-${encodeURIComponent(quote.id)}">Naar productie →</a>` : ''}</div><div class="panel-body"><label class="field"><span>Producent</span><select name="producer" form="quote-form">${options}</select><input type="hidden" name="producerWas" form="quote-form" value="${e(quote.producer || '')}"></label>${since}<label class="field"><span>Productievergoeding printen <small>${auto ? '(automatisch berekend)' : '(excl. btw)'}</small></span><input name="productionAmount" form="quote-form" value="${e(value)}" inputmode="decimal" placeholder="Bijv. 12,50"></label>${feeLine}</div></section>`;
 }
 
 function morePanel(quote) {
   const current = isWaiting(quote) ? 'waiting_customer' : quote.status || 'received';
   const options = [...steps.slice(0, 3), ['waiting_customer', 'Wacht op klantreactie'], ...steps.slice(3)].map(([value, label]) => `<option value="${value}" ${value === current ? 'selected' : ''}>${value === 'accepted' ? 'Akkoord, wacht op betaling' : label}</option>`).join('');
-  return `<section class="panel" aria-labelledby="more-title"><div class="panel-head"><h2 id="more-title">Intern</h2></div><div class="panel-body"><label class="field"><span>Notitie voor jezelf <small>(klant ziet dit niet)</small></span><textarea name="internalNote" form="quote-form" data-autosize placeholder="Bijv. eerst testprint op 0,16 mm">${e(quote.internalNote || '')}</textarea></label><details class="reveal"><summary class="btn btn-quiet">Status handmatig wijzigen</summary><label class="field"><span>Status <small>(gaat normaal vanzelf, klant krijgt een mail bij wijziging)</small></span><select name="status" form="quote-form" data-status-select>${options}</select></label></details><form method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}/delete" data-confirm="Deze aanvraag naar het archief verplaatsen? Na ${archiveRetentionDays} dagen worden de gegevens en bestanden definitief verwijderd."><button class="btn btn-quiet danger-link" type="submit">Naar archief</button></form></div></section>`;
+  return `<section class="panel" aria-labelledby="more-title"><div class="panel-head"><h2 id="more-title">Intern</h2></div><div class="panel-body"><label class="field"><span>Notitie voor jezelf <small>(klant ziet dit niet)</small></span><textarea name="internalNote" form="quote-form" data-autosize placeholder="Bijv. eerst testprint op 0,16 mm">${e(quote.internalNote || '')}</textarea></label><details class="reveal"><summary class="btn btn-quiet">Status handmatig wijzigen</summary><label class="field"><span>Status <small>(gaat normaal vanzelf, klant krijgt een mail bij wijziging)</small></span><select name="status" form="quote-form" data-status-select>${options}</select><input type="hidden" name="statusWas" form="quote-form" value="${e(current)}"></label></details><form method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}/delete" data-confirm="Deze aanvraag naar het archief verplaatsen? Na ${archiveRetentionDays} dagen worden de gegevens en bestanden definitief verwijderd."><button class="btn btn-quiet danger-link" type="submit">Naar archief</button></form></div></section>`;
 }
 
 function nextStep(quote, settings) {
@@ -292,6 +293,7 @@ function nextStep(quote, settings) {
     const who = quote.producer === selfName() ? 'jou' : ((settings.users || []).find((account) => account.username === quote.producer)?.name || quote.producer);
     return step(`In productie bij ${e(who)}`, `${quote.producerAcceptedAt ? `Geaccepteerd ${e(ago(quote.producerAcceptedAt))}. ` : ''}${e(name)} ziet in het portaal dat de print in productie is.`, quote.producer === selfName() ? `<form method="post" action="/admin/work/orders/${encodeURIComponent(quote.id)}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Print is klaar ✓</button></form>` : '');
   }
+  if (quote.status === 'ready_to_ship' && !quote.myParcelShipmentId && !String(quote.trackingCode || '').trim() && quote.producer && quote.producer !== selfName() && chargedShipping(quote) && !isPickup(quote)) return step('Label maken', `De print is klaar. Maak het verzendlabel; ${e(producerLabel(quote, settings))} krijgt dan een mail om het te printen en het pakket weg te brengen.`, '<a class="btn btn-dark" href="/admin/verzenden">Naar Verzenden</a>');
   if (quote.status === 'ready_to_ship') return step('Klaar om te versturen', quote.myParcelShipmentId ? `Print het label, plak het op het pakket en zet de order op Verzonden. ${e(name)} krijgt dan vanzelf een mail met de track & trace.` : `Vul de track & trace in en sla op. ${e(name)} krijgt dan vanzelf een mail.`, `${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<a class="btn btn-dark" href="#verzending">Naar verzending</a>`);
   if (quote.status === 'shipped') return step(`Onderweg met ${e(carrierName(quote))}`, link ? 'Het pakket is verstuurd. Je kunt het zelf ook volgen.' : 'Het pakket is verstuurd.', link ? `<a class="btn" href="${e(link)}" target="_blank" rel="noopener">Volg pakket ↗</a>` : '');
   if (quote.status === 'delivered') {

@@ -30,6 +30,9 @@ import { post as cmsPost } from './cms/client.js';
 import { mailFrom, transactionalMailOptions } from './mailutils.js';
 import { startWebshopSync } from './webshopsync.js';
 import { registerProducerInviteRoutes } from './producerinvite.js';
+import { registerProducerViewRoutes } from './producerview.js';
+import { registerPayoutViewRoutes } from './payoutview.js';
+import { startProducerMail } from './producermail.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -358,6 +361,8 @@ if (process.env.PORTAL_DESIGN !== 'classic') registerPortalViewRoutes(app);
 registerCmsRoutes(app);
 if (process.env.ADMIN_DESIGN !== 'classic' && process.env.PORTAL_DESIGN !== 'classic') {
   registerAdminViewRoutes(app);
+  registerProducerViewRoutes(app);
+  registerPayoutViewRoutes(app);
   registerWorkViewRoutes(app);
 }
 
@@ -439,3 +444,4 @@ app.listen(config.port, () => console.log(`pr3nt quote app running on port ${con
 
 // Betaalde webshoporders van pr3nt.nl naar Orders, herinneringen voor onbetaalde (zie webshopsync.js)
 startWebshopSync();
+startProducerMail();

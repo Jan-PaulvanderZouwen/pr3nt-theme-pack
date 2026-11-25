@@ -190,11 +190,23 @@ export function emptyState(title, text = '') {
 // ---------- Zijbalk ----------
 
 function navItems(user, counts = {}) {
+  // Producenten hebben hun eigen menu: overzicht, productie, geld, cijfers, filament en account.
+  if (isProducer(user)) {
+    return { work: [
+      ['p-home', '/admin/work/overzicht', 'Overzicht'],
+      ['work', '/admin/work', 'Productie', counts.work],
+      ['p-pay', '/admin/work/vergoeding', 'Vergoeding'],
+      ['p-stats', '/admin/work/statistieken', 'Statistieken'],
+      ['p-filament', '/admin/work/filament', 'Filament'],
+      ['p-account', '/admin/work/account', 'Account'],
+    ], site: [], manage: [] };
+  }
   const work = [
     ['orders', '/admin', 'Orders', counts.orders, true],
     ['work', '/admin/work', 'Productie', counts.work],
+    ['ship', '/admin/verzenden', 'Verzenden', counts.ship],
     ['filament', '/admin/filament', 'Filament', counts.filament],
-  ].filter(([key]) => (isAdmin(user) || key !== 'orders') && (!isProducer(user) || key === 'work'));
+  ].filter(([key]) => isAdmin(user) || !['orders', 'ship'].includes(key));
   // Website-CMS: alles van pr3nt.nl (zie src/cms/)
   const site = isAdmin(user) ? [
     ['cms', '/admin/website', 'Overzicht'],
@@ -212,6 +224,7 @@ function navItems(user, counts = {}) {
     ['cms-settings', '/admin/website/instellingen', 'Instellingen'],
   ] : [];
   const manage = isAdmin(user) ? [
+    ['payouts', '/admin/uitbetalen', 'Uitbetalen'],
     ['stats', '/admin/work/stats', 'Cijfers'],
     ['options', '/admin/work/options', 'Instellingen'],
   ] : [];
@@ -238,7 +251,7 @@ function sidebar(user, active, context = {}) {
   const { work, site, manage } = navItems(user, context.counts || {});
   const named = displayName(user);
   const name = named || (isAdmin(user) ? 'Beheerder' : 'Productie');
-  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : isProducer(user) ? 'Producent' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${site.length ? `<span class="label">Website</span>${site.map((item) => navLink(item, active)).join('')}` : ''}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav><div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : isProducer(user) ? 'Producent' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
+  return `<aside class="side"><div class="side-top">${logo(isAdmin(user) ? '/admin' : isProducer(user) ? '/admin/work/overzicht' : '/admin/work')}<span class="side-role">${isAdmin(user) ? 'Beheer' : isProducer(user) ? 'Producent' : 'Werkplaats'}</span></div><nav class="side-nav" aria-label="Beheer"><span class="label">Werk</span>${work.map((item) => navLink(item, active)).join('')}${site.length ? `<span class="label">Website</span>${site.map((item) => navLink(item, active)).join('')}` : ''}${manage.length ? `<span class="label">Beheer</span>${manage.map((item) => navLink(item, active)).join('')}` : ''}</nav><div class="side-user"><span class="avatar" aria-hidden="true">${e(named ? initials(named) : '3')}</span><span class="side-user-name"><strong>${e(name)}</strong><small>${isAdmin(user) ? 'Admin' : isProducer(user) ? 'Producent' : 'Medewerker'}</small></span><form method="post" action="/admin/logout"><button class="btn btn-quiet" type="submit" title="Uitloggen">Uitloggen</button></form></div></aside>`;
 }
 
 export function renderAdmin({ title, user, active, body, context = {}, scripts = '' }) {

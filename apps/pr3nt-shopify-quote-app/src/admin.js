@@ -5,6 +5,8 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { carriers, carrierOf } from './carriers.js';
 import { sessionUser, isAdmin, fillTrackingFromMyParcel } from './myparcel.js';
+import { readClaims, applyClaims, setClaim, releaseClaim } from './claims.js';
+import { notifyProducerAssigned, notifyProducerReleased } from './producermail.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,6 +150,8 @@ export async function readQuotes() {
   }
   const purged = await purgeExpiredArchives(quotes);
   if (purged.changed) await writeQuotes(purged.quotes);
+  // Een geaccepteerde order blijft van zijn producent, ook als een ander onderdeel quotes.json met oude gegevens overschreef.
+  applyClaims(purged.quotes, await readClaims());
   return purged.quotes;
 }
 
@@ -308,7 +312,9 @@ export function registerAdminRoutes(app) {
     quote.material = clean(req.body.material, 50);
     quote.color = clean(req.body.color, 120);
     quote.rush = req.body.rush === 'Ja' ? 'Ja' : 'Nee';
-    quote.status = statuses.some(([value]) => value === req.body.status) ? req.body.status : quote.status;
+    // Alleen een status die je echt hebt gekozen telt: een formulier dat al even openstond, zet een nieuwere status niet terug.
+    const statusChosen = typeof req.body.statusWas !== 'string' || req.body.status !== req.body.statusWas;
+    if (statusChosen) quote.status = statuses.some(([value]) => value === req.body.status) ? req.body.status : quote.status;
     quote.note = clean(req.body.note, 3000);
     quote.quoteLines = normalizeQuoteLines(req.body);
     quote.quoteAmount = fmt(quoteTotal(quote));
@@ -321,11 +327,18 @@ export function registerAdminRoutes(app) {
       quote.messages = Array.isArray(quote.messages) ? quote.messages : [];
       quote.messages.push({ from: 'pr3nt', text: newMessage, createdAt: new Date().toISOString() });
     }
+    let producerChange = null;
     if (typeof req.body.producer === 'string') {
       const producer = clean(req.body.producer, 80).toLowerCase();
-      if (producer !== String(quote.producer || '')) {
-        if (producer) { quote.producer = producer; quote.producerAcceptedAt = new Date().toISOString(); delete quote.producerFee; if (quote.status === 'paid') quote.status = 'print_queue'; }
-        else { delete quote.producer; delete quote.producerAcceptedAt; delete quote.producerFee; if (quote.status === 'print_queue') quote.status = 'paid'; }
+      const before = String(quote.producer || '');
+      // Stond de keuze nog op wat er bij het openen stond, dan heb je niks gewijzigd. Zo maakt een oud formulier
+      // een order die net door een producent is geaccepteerd niet opnieuw vrij (anders krijg je dubbele orders).
+      const untouched = typeof req.body.producerWas === 'string' && producer === clean(req.body.producerWas, 80).toLowerCase();
+      if (!untouched && producer !== before) {
+        const now = new Date().toISOString();
+        if (producer) { quote.producer = producer; quote.producerAcceptedAt = now; delete quote.producerFee; if (quote.status === 'paid') quote.status = 'print_queue'; await setClaim(quote.id, { producer, at: now, by: 'admin' }); }
+        else { delete quote.producer; delete quote.producerAcceptedAt; delete quote.producerFee; quote.producerReleasedAt = now; if (quote.status === 'print_queue') quote.status = 'paid'; await releaseClaim(quote.id); }
+        producerChange = { before, after: producer };
       }
     }
     fillTrackingFromMyParcel(quote);
@@ -333,6 +346,10 @@ export function registerAdminRoutes(app) {
     if (quote.status === 'quote_sent') await notifyCustomerQuoteSent(quote);
     quote.updatedAt = new Date().toISOString();
     await writeQuotes(quotes);
+    if (producerChange) {
+      if (producerChange.before) notifyProducerReleased(producerChange.before, quote).catch((error) => console.warn('[producent] mail niet verstuurd:', error.message));
+      if (producerChange.after) notifyProducerAssigned(producerChange.after, quote).catch((error) => console.warn('[producent] mail niet verstuurd:', error.message));
+    }
     res.redirect(`/admin/quotes/${encodeURIComponent(quote.id)}?saved=1`);
   });
 }

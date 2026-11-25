@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual, randomUUID, createHmac, randomBytes, scryptSync } from 'node:crypto';
 import { sessionSecret } from './sessionsecret.js';
+import { readClaims, applyClaims } from './claims.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +23,7 @@ function safeEquals(a = '', b = '') { const left = Buffer.from(String(a)); const
 
 async function readJson(filePath, fallback) { try { const data = JSON.parse(await readFile(filePath, 'utf8')); return data || fallback; } catch { return fallback; } }
 async function writeJson(filePath, data) { await writeFile(filePath, JSON.stringify(data, null, 2)); }
-async function readQuotes() { const quotes = await readJson(quotesFilePath, []); return Array.isArray(quotes) ? quotes : []; }
+async function readQuotes() { const quotes = await readJson(quotesFilePath, []); if (!Array.isArray(quotes)) return []; applyClaims(quotes, await readClaims()); return quotes; }
 async function writeQuotes(quotes) { await writeJson(quotesFilePath, quotes); }
 
 function passwordHash(password) { const salt = randomBytes(16).toString('hex'); const hash = scryptSync(String(password || ''), salt, 64).toString('hex'); return `${salt}:${hash}`; }
@@ -52,7 +53,7 @@ export async function readSettings() {
   const count = Math.max(1, Math.min(20, Number(saved.printerCount || process.env.PRINTER_COUNT || 2)));
   const existingPrinters = Array.isArray(saved.printers) ? saved.printers : [];
   const printers = Array.from({ length: count }, (_, index) => { const current = existingPrinters[index] || {}; return { id: clean(current.id || `printer-${index + 1}`, 80), name: clean(current.name || `Printer ${index + 1}`, 80) }; });
-  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: roleOf(user.role), company: clean(user.company || '', 120), email: clean(user.email || '', 160), inviteToken: clean(user.inviteToken || '', 80), inviteExpires: clean(user.inviteExpires || '', 40), source: clean(user.source || '', 40), passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
+  const users = Array.isArray(saved.users) ? saved.users.map((user) => ({ username: clean(user.username, 80), name: clean(user.name || user.username, 120), role: roleOf(user.role), company: clean(user.company || '', 120), email: clean(user.email || '', 160), inviteToken: clean(user.inviteToken || '', 80), inviteExpires: clean(user.inviteExpires || '', 40), source: clean(user.source || '', 40), iban: clean(user.iban || '', 40), accountName: clean(user.accountName || '', 120), notifyNew: user.notifyNew === 'off' ? 'off' : '', paused: user.paused === 'on' ? 'on' : '', materials: clean(user.materials || '', 200), phone: clean(user.phone || '', 40), passwordHash: clean(user.passwordHash || '', 300) })).filter((user) => user.username) : [];
   return { ...defaultSettings(), ...saved, printerCount: count, printers, users, calendarToken: saved.calendarToken || process.env.PRINT_CALENDAR_TOKEN || '' };
 }
 
@@ -78,7 +79,7 @@ async function writeSettingsFromBody(body = {}) {
     const password = String(passwords[index] || '');
     const hash = password ? passwordHash(password) : clean(existingHashes[index] || existing.passwordHash || '', 300);
     if (!hash && !existing.inviteToken) return null;
-    const keep = { email: existing.email || '', inviteToken: hash && password ? '' : existing.inviteToken || '', inviteExpires: hash && password ? '' : existing.inviteExpires || '', source: existing.source || '' };
+    const keep = { email: existing.email || '', inviteToken: hash && password ? '' : existing.inviteToken || '', inviteExpires: hash && password ? '' : existing.inviteExpires || '', source: existing.source || '', iban: existing.iban || '', accountName: existing.accountName || '', notifyNew: existing.notifyNew || '', paused: existing.paused || '', materials: existing.materials || '', phone: existing.phone || '' };
     return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roleOf(roles[index]), company: clean(companies[index] ?? existing.company ?? '', 120), ...keep, passwordHash: hash };
   }).filter(Boolean);
   const next = { ...settings, printerCount: count, printers, calendarToken: token, users };
@@ -183,13 +184,14 @@ export function needsAutoShipment(quote = {}) {
   return true;
 }
 
-function shipmentPayload(quote) {
+function shipmentPayload(quote, bundle = [quote]) {
   const address = shippingAddress(quote);
   const recipient = { cc: address.country, person: address.person, company: address.company, street: address.street, number: address.number, number_suffix: address.suffix, postal_code: address.postalCode, city: address.city, email: address.email, phone: address.phone };
   Object.keys(recipient).forEach((key) => { if (!recipient[key]) delete recipient[key]; });
   const packageType = Number(process.env.MYPARCEL_PACKAGE_TYPE || 1) || 1;
   const carrier = Number(process.env.MYPARCEL_CARRIER_ID || 1) || 1;
-  return { data: { shipments: [{ reference_identifier: clean(quote.id, 50), recipient, carrier, options: { package_type: packageType, label_description: clean(`Pr3nt ${quote.webshopOrderId || quote.id}`, 45) } }] } };
+  const refs = bundle.map((item) => item.webshopOrderId || item.id);
+  return { data: { shipments: [{ reference_identifier: clean(bundle.map((item) => item.id).join('+'), 50), recipient, carrier, options: { package_type: packageType, label_description: clean(`Pr3nt ${refs.join(' + ')}`, 45) } }] } };
 }
 // Sleutel zonder spaties, aanhalingstekens of Windows-regeleinde (komt vaak mee bij plakken in .env).
 function apiKey() { return String(process.env.MYPARCEL_API_KEY || '').replace(/["'\r\s]/g, ''); }
@@ -226,17 +228,27 @@ export async function shipmentBarcode(shipmentId) {
 
 // Eén of meer labels als PDF, rechtstreeks van MyParcel. Het label opvragen meldt een concept-zending aan bij de vervoerder.
 export async function fetchLabelPdf(shipmentIds = []) {
-  const ids = shipmentIds.map((id) => String(id || '').replace(/\D/g, '')).filter(Boolean);
+  const ids = [...new Set(shipmentIds.map((id) => String(id || '').replace(/\D/g, '')).filter(Boolean))];
   if (!ids.length) throw new Error('Geen zending om te printen.');
   const response = await myParcelRequest(`/shipment_labels/${ids.join(';')}${labelFormat()}`, { method: 'GET', headers: { Accept: 'application/pdf' } });
   if (!response.ok) throw new Error(`MyParcel gaf geen label (${response.status}): ${(await response.text()).slice(0, 300)}`);
   return Buffer.from(await response.arrayBuffer());
 }
 
-export async function createMyParcelShipmentForQuote(quote) {
+// Zelfde adres? Dan kan het in één pakket met één label.
+export function addressKey(quote = {}) {
+  const address = shippingAddress(quote);
+  return [address.country, address.postalCode, address.number, String(address.suffix || '').toUpperCase()].join('|');
+}
+export { shippingAddress };
+
+export async function createMyParcelShipmentForQuote(quote, bundle = [quote]) {
   const check = canCreateShipment(quote);
   if (!check.ok) return { skipped: true, reason: check.reason };
-  const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote)) });
+  const taken = bundle.find((item) => item.myParcelShipmentId);
+  if (taken) return { skipped: true, reason: `Order ${taken.id} heeft al een zending.` };
+  if (bundle.some((item) => addressKey(item) !== addressKey(quote))) return { skipped: true, reason: 'Deze orders gaan niet naar hetzelfde adres.' };
+  const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote, bundle)) });
   const shipmentId = firstShipmentId(result);
   if (!shipmentId) throw new Error(`MyParcel gaf geen zending-id terug: ${JSON.stringify(result).slice(0, 300)}`);
   // De zending staat nu als concept in MyParcel. Pas bij het eerste keer printen meldt MyParcel hem aan bij de vervoerder
@@ -276,9 +288,12 @@ export function fillTrackingFromMyParcel(quote = {}) {
 const myParcelFields = ['myParcelStatus', 'myParcelError', 'myParcelMessage', 'myParcelTriedAt', 'myParcelAttempts', 'myParcelShipmentId', 'myParcelBarcode', 'myParcelCreatedAt', 'myParcelLabelUrl'];
 let autoRunning = false;
 let lastKeyWarning = '';
+// Standaard maakt de app géén zendingen meer vanzelf: jij maakt labels zelf (en gebundeld) via Verzenden.
+// Wil je het oude gedrag terug, zet dan MYPARCEL_AUTO=on in .env.
+export function autoShipmentsOn() { return String(process.env.MYPARCEL_AUTO || 'off').toLowerCase() === 'on'; }
 export async function createMissingMyParcelLabels() {
   if (!process.env.MYPARCEL_API_KEY) return { skipped: true, reason: 'MYPARCEL_API_KEY ontbreekt.' };
-  if (String(process.env.MYPARCEL_AUTO || 'on').toLowerCase() === 'off') return { skipped: true, reason: 'MYPARCEL_AUTO=off' };
+  if (!autoShipmentsOn()) return { skipped: true, reason: 'MYPARCEL_AUTO staat niet aan' };
   if (autoRunning) return { skipped: true, reason: 'Loopt al.' };
   autoRunning = true;
   try {
@@ -321,7 +336,7 @@ export async function createMissingMyParcelLabels() {
 }
 
 export function startMyParcelAuto() {
-  if (String(process.env.MYPARCEL_AUTO || 'on').toLowerCase() === 'off') return;
+  if (!autoShipmentsOn()) return;
   const minutes = Math.max(1, Number(process.env.MYPARCEL_AUTO_MINUTES || 2) || 2);
   const run = () => createMissingMyParcelLabels().catch((error) => console.warn('[myparcel] automatisch aanmaken mislukt:', error.message));
   setTimeout(run, 30_000).unref?.();
@@ -372,7 +387,7 @@ function calendarIcs(quotes, settings) { const events = eligibleOrders(quotes).f
 export function registerMyParcelRoutes(app) {
   app.use('/api/mollie/webhook', (req, res, next) => { res.on('finish', () => { createMissingMyParcelLabels().catch((error) => console.warn('MyParcel automatische labels mislukt:', error.message)); }); next(); });
   app.get('/admin/login', (_req, res) => res.send(loginHtml()));
-  app.post('/admin/login', async (req, res) => { const user = await authenticateUser(req.body?.username || '', req.body?.password || ''); if (!user) return res.status(401).send(loginHtml('Gebruikersnaam of wachtwoord is onjuist.')); setInternalSession(res, user); res.clearCookie?.('pr3nt_worker_key'); return res.redirect(isAdmin(user) ? '/admin?classic=1' : '/admin/work'); });
+  app.post('/admin/login', async (req, res) => { const user = await authenticateUser(req.body?.username || '', req.body?.password || ''); if (!user) return res.status(401).send(loginHtml('Gebruikersnaam of wachtwoord is onjuist.')); setInternalSession(res, user); res.clearCookie?.('pr3nt_worker_key'); return res.redirect(isAdmin(user) ? '/admin?classic=1' : isProducer(user) ? '/admin/work/overzicht' : '/admin/work'); });
   app.post('/admin/logout', (_req, res) => { clearInternalSession(res); res.redirect('/admin/login'); });
   app.get('/admin', (req, res, next) => { if (req.query?.classic === '1') return next(); const user = sessionUser(req); if (isAdmin(user)) return res.redirect('/admin?classic=1'); if (isWorker(user)) return res.redirect('/admin/work'); return res.redirect('/admin/login'); });
   app.get('/print', (_req, res) => res.redirect('/admin/work'));
@@ -400,6 +415,7 @@ export function registerMyParcelRoutes(app) {
     applyShipmentResult(quote, outcome);
     if (outcome.error) quote.myParcelAttempts = 0; // handmatig geprobeerd: automatisch mag het daarna weer opnieuw
     await writeQuotes(quotes);
+    if (outcome.shipmentId) import('./producermail.js').then(({ notifyLabelsReady }) => notifyLabelsReady([quote])).catch((error) => console.warn('[producent-mail] labelmail niet verstuurd:', error.message));
     res.redirect(`/admin/quotes/${encodeURIComponent(quote.id)}?saved=1`);
   });
   // Label printen: altijd vers als PDF van MyParcel, zodat er nooit een verlopen link in het beheer staat.
@@ -412,7 +428,8 @@ export function registerMyParcelRoutes(app) {
       const missing = quotes.filter((quote) => quote.myParcelShipmentId && !quote.myParcelBarcode);
       if (missing.length) {
         const found = new Map();
-        for (const quote of missing) { const barcode = await shipmentBarcode(quote.myParcelShipmentId); if (barcode) found.set(quote.id, barcode); }
+        const byShipment = new Map();
+        for (const quote of missing) { if (!byShipment.has(quote.myParcelShipmentId)) byShipment.set(quote.myParcelShipmentId, await shipmentBarcode(quote.myParcelShipmentId)); const barcode = byShipment.get(quote.myParcelShipmentId); if (barcode) found.set(quote.id, barcode); }
         if (found.size) { const latest = await readQuotes(); latest.forEach((quote) => { if (found.has(quote.id)) { quote.myParcelBarcode = found.get(quote.id); quote.myParcelPrintedAt = new Date().toISOString(); } }); await writeQuotes(latest); }
       }
       res.setHeader('Content-Type', 'application/pdf');
