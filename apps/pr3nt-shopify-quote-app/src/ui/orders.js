@@ -1,6 +1,6 @@
 // Afgeleide orderinformatie voor het beheer: labels, groepen, wie is aan zet en wat er wacht.
 import { readQuotes } from '../admin.js';
-import { readSettings, estimatedPrintHours } from '../myparcel.js';
+import { readSettings, estimatedPrintHours, chargedShipping, isPickup } from '../myparcel.js';
 import { readFilament, stockRows } from '../filament.js';
 import { money, quoteSubtotalExVat } from '../vat.js';
 import { nowWallClock, wallClock } from './adminshell.js';
@@ -189,7 +189,11 @@ export async function adminContext(user, preloaded = {}) {
     quotes,
     settings,
     filament,
-    counts: { orders: ordersWaiting, work: toPlan, filament: user?.role === 'admin' ? openRequests || low : low },
+    counts: {
+      orders: ordersWaiting, work: toPlan, filament: user?.role === 'admin' ? openRequests || low : low,
+      // Klaar gemeld, klant betaalde verzending, maar nog geen label: dat wacht op jou bij Verzenden.
+      ship: active.filter((quote) => quote.status === 'ready_to_ship' && chargedShipping(quote) && !isPickup(quote) && !quote.myParcelShipmentId && !String(quote.trackingCode || '').trim()).length,
+    },
     printers: printerStates(quotes, settings),
   };
 }

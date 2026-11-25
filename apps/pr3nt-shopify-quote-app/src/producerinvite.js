@@ -57,7 +57,8 @@ export async function sendInviteMail({ account, link, hasPassword }) {
   const html = `<div style="margin:0;padding:0;background:#F7F4EF;font-family:Inter,Arial,sans-serif;color:#101820"><div style="max-width:560px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border-radius:20px;padding:28px;border:1px solid #e9e4dc">
 <p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#00A86B;margin:0 0 6px">Pr3nt producenten</p>
 <h1 style="font-size:24px;margin:0 0 14px">Welkom, ${e(first)}!</h1>
-<p style="line-height:1.6">Je aanmelding als producent is goedgekeurd. Al je orders lopen via <strong>app.pr3nt.nl</strong>: daar zie je nieuwe orders, accepteer je wat je wilt printen, download je de bestanden en print je het verzendlabel.</p>
+<p style="line-height:1.6">Je aanmelding als producent is goedgekeurd. Al je orders lopen via <strong>app.pr3nt.nl</strong>: daar zie je nieuwe orders (je krijgt er ook een mail van), accepteer je wat je wilt printen en download je de bestanden. Per order zie je vooraf wat je eraan verdient. Het verzendlabel maakt Pr3nt; jij print het, plakt het op het pakket en brengt het weg.</p>
+<p style="line-height:1.6">Vul na het inloggen bij Account je IBAN in, dan kunnen we je uitbetalen.</p>
 <p style="line-height:1.6">${hasPassword ? 'Je had al een account. Met de knop hieronder stel je een nieuw wachtwoord in.' : 'Kies eerst je wachtwoord. Daarna kom je meteen in je omgeving.'}</p>
 <p style="margin:24px 0"><a href="${e(link)}" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:13px 20px;border-radius:12px;font-weight:600">${hasPassword ? 'Nieuw wachtwoord kiezen' : 'Wachtwoord kiezen en starten'}</a></p>
 <p style="line-height:1.6;color:#5b6470;font-size:14px">Inloggen doe je later met je e-mailadres (${e(account.email)}) op ${e(baseUrl())}/admin/login. De link is ${inviteDays} dagen geldig.</p>
@@ -90,6 +91,6 @@ export function registerProducerInviteRoutes(app) {
     if (password !== String(req.body?.again || '')) return res.status(400).send(formPage(account, req.params.token, 'De twee wachtwoorden zijn niet hetzelfde.'));
     await updateUsers((users) => users.map((user) => (user.username === account.username ? { ...user, passwordHash: passwordHash(password), inviteToken: '', inviteExpires: '' } : user)));
     setInternalSession(res, { username: account.username, name: account.name || account.username, role: 'producer' });
-    res.redirect('/admin/work');
+    res.redirect('/admin/work/overzicht');
   });
 }

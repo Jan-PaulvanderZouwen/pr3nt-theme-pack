@@ -591,4 +591,29 @@
       card.classList.add('is-moved');
     }
   }
+
+  // Productie en overzicht verversen zichzelf, zodat een order die iemand anders net accepteerde vanzelf verdwijnt.
+  var live = document.querySelector('[data-work-live][data-refresh]');
+  if (live && window.fetch && window.DOMParser) {
+    var every = Math.max(20, Number(live.getAttribute('data-refresh')) || 45) * 1000;
+    setInterval(function () {
+      var current = document.querySelector('[data-work-live][data-refresh]');
+      if (!current || document.hidden || document.body.classList.contains('is-dragging')) return;
+      var active = document.activeElement;
+      if (active && current.contains(active) && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
+      fetch(location.pathname + location.search, { credentials: 'same-origin', headers: { 'X-Requested-With': 'refresh' } })
+        .then(function (response) { return response.ok && !response.redirected ? response.text() : null; })
+        .then(function (html) {
+          if (!html) return;
+          var next = new DOMParser().parseFromString(html, 'text/html');
+          var fresh = next.querySelector('[data-work-live][data-refresh]');
+          if (!fresh || fresh.innerHTML === current.innerHTML) return;
+          current.replaceWith(fresh);
+          var nav = next.querySelector('.side-nav');
+          var oldNav = document.querySelector('.side-nav');
+          if (nav && oldNav) oldNav.replaceWith(nav);
+        })
+        .catch(function () {});
+    }, every);
+  }
 })();

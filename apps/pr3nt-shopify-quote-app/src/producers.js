@@ -26,6 +26,28 @@ export function canSee(user, quote = {}) {
   return quote.producer === user.username || (phaseOf(quote) === 'new' && inProduction(quote));
 }
 
+// Wat een producent kan en wil: pauze (geen nieuwe orders) en welke materialen hij print.
+export function materialsOf(account = {}) {
+  return String(account.materials || '').split(/[,;\n]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
+}
+export function fitsProducer(account, quote = {}) {
+  if (!account) return true;
+  if (account.paused === 'on') return false;
+  const list = materialsOf(account);
+  if (!list.length || !quote.material) return true;
+  const material = String(quote.material).toLowerCase();
+  return list.some((item) => material.includes(item) || item.includes(material));
+}
+export function accountOf(user, settings = {}) {
+  return (settings.users || []).find((account) => account.username === user?.username) || null;
+}
+// Mag deze producent deze nieuwe order zien en accepteren? Zijn eigen orders ziet hij altijd.
+export function offeredTo(user, quote, settings) {
+  if (!canSee(user, quote)) return false;
+  if (!isProducer(user) || quote.producer === user.username) return true;
+  return fitsProducer(accountOf(user, settings), quote);
+}
+
 export function isMine(user, quote = {}) {
   if (isWorker(user)) return true;
   return isProducer(user) && quote.producer === user.username;

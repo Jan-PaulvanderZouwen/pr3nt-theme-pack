@@ -12,7 +12,10 @@ import {
 import { isAdmin, isProducer, readSettings, chargedShipping, isPickup, fillTrackingFromMyParcel } from './myparcel.js';
 import { readQuotes, writeQuotes } from './admin.js';
 import { sendCustomerMail } from './statusmails.js';
-import { phaseOf, inProduction, canSee, isMine, producerFee, blockedReason, contactRule, producerConversation } from './producers.js';
+import { phaseOf, inProduction, canSee, isMine, producerFee, blockedReason, contactRule, producerConversation, offeredTo } from './producers.js';
+import { claimOrder } from './claims.js';
+import { notifyProducerAccepted } from './producermail.js';
+import { readPayouts, balanceOf, isEarned, feeLine } from './payouts.js';
 import { updateMissingProductionPrices } from './productionpricing.js';
 import { stockRows, workerLabel } from './filament.js';
 import { humanize } from './sitecontent.js';
@@ -65,12 +68,18 @@ function feeText(quote) {
   return fee.ship ? `${euro(fee.total)} <small>(${euro(fee.print)} printen + ${euro(fee.ship)} verzenden)</small>` : `${euro(fee.total)} <small>(printen)</small>`;
 }
 
+// Moet er nog een label komen voordat het pakket weg kan? Dat label maakt Pr3nt (bij Verzenden), niet de producent.
+function waitsForLabel(quote) {
+  return chargedShipping(quote) && !isPickup(quote) && !quote.myParcelShipmentId && !String(quote.trackingCode || '').trim();
+}
+
 function rowAction(quote, user) {
   const action = `/admin/work/orders/${encodeURIComponent(quote.id)}`;
   const phase = phaseOf(quote);
   if (phase === 'new') return `<form method="post" action="${action}/accept"><button class="btn btn-dark" type="submit">Accepteren</button></form>`;
   if (!isMine(user, quote)) return '';
   if (phase === 'making') return `<form method="post" action="${action}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Klaar ✓</button></form>`;
+  if (waitsForLabel(quote)) return isAdmin(user) ? '<a class="btn" href="/admin/verzenden">Label maken</a>' : '<span class="muted small">Wacht op label</span>';
   const label = quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label</a>` : '';
   return `${label}<form method="post" action="${action}/status"><button class="btn btn-dark" type="submit" name="status" value="shipped">Verzonden</button></form>`;
 }
@@ -83,9 +92,9 @@ function productionRow(quote, user, settings, moved) {
   return `<article class="job-row${isRush(quote) ? ' is-rush' : ''}${moved ? ' is-moved' : ''}" id="q-${e(quote.id)}" style="--c:${swatch(quote.color)}"><div class="row-main"><strong><a href="${orderLink(quote, user)}">${e(orderTitle(quote, user))}</a>${isRush(quote) ? ' <em class="tag-rush">Spoed</em>' : ''}</strong><small>${dot(quote.color)}${e(meta)} · <span class="mono">${e(quote.id)}</span></small></div><div class="row-when">${who}</div><div class="row-hours num">${e(hoursText(printHours(quote)))}</div><div class="row-action">${rowAction(quote, user)}</div></article>`;
 }
 
-function workPage({ context, user, moved, flash: flashText = '' }) {
+function workPage({ context, user, moved, flash: flashText = '', balance = null }) {
   const { quotes, settings } = context;
-  const orders = quotes.filter((quote) => inProduction(quote) && canSee(user, quote))
+  const orders = quotes.filter((quote) => inProduction(quote) && offeredTo(user, quote, settings))
     .sort((a, b) => (isRush(b) - isRush(a)) || String(a.paidAt || a.createdAt).localeCompare(String(b.paidAt || b.createdAt)));
   const groups = phases.map(([key, label, hint]) => {
     const rows = orders.filter((quote) => phaseOf(quote) === key);
@@ -100,9 +109,10 @@ function workPage({ context, user, moved, flash: flashText = '' }) {
   const flash = flashText ? notice(flashText, 'warn') : movedQuote ? (movedQuote.status === 'shipped' ? notice('Verzonden! De klant krijgt een mail met de track & trace.', 'party') : notice(`${orderTitle(movedQuote, user)} staat nu bij ${statusText(movedQuote).toLowerCase()}.`)) : '';
   const toShip = orders.filter((quote) => phaseOf(quote) === 'ship' && quote.myParcelShipmentId && isMine(user, quote));
   const allLabels = toShip.length > 1 ? `<a class="btn btn-dark" href="/admin/labels?ids=${encodeURIComponent(toShip.map((quote) => quote.id).join(','))}" target="_blank" rel="noopener">${toShip.length} labels printen</a>` : '';
-  const head = pageHead({ eyebrow: isProducer(user) ? 'Producent' : 'Werkplaats', title: 'Productie', text: e(text), actions: allLabels });
+  const earned = isProducer(user) && balance ? `<a class="btn" href="/admin/work/vergoeding">Te ontvangen ${e(euro(balance.total + balance.waitingTotal))}</a>` : '';
+  const head = pageHead({ eyebrow: isProducer(user) ? 'Producent' : 'Werkplaats', title: 'Productie', text: e(text), actions: `${allLabels}${earned}` });
   const body = orders.length ? `<div class="work-list">${groups}</div>` : `<section class="panel">${emptyState(isProducer(user) ? 'Even niks te doen' : 'Niks in productie', 'Tijd om de printbedden schoon te maken.')}</section>`;
-  return renderAdmin({ title: 'Productie', user, active: 'work', context, body: `<div data-work-live>${flash}${head}${body}</div>` });
+  return renderAdmin({ title: 'Productie', user, active: 'work', context, body: `<div data-work-live data-refresh="45">${flash}${head}${body}</div>` });
 }
 
 // ---------- Order voor producent of medewerker ----------
@@ -120,11 +130,13 @@ function orderPage({ quote, context, user, flash = '', draft = '' }) {
   const fileList = files.length
     ? (mine ? `<ul class="files">${files.map((file) => `<li class="file"><span class="file-ext">${e(String(file.originalName || file.url).split('.').pop().slice(0, 4).toUpperCase())}</span><div class="file-main"><strong>${e(file.originalName || 'Bestand')}</strong></div><div class="file-actions"><a class="btn btn-quiet" href="${e(file.url)}" download>Download</a></div></li>`).join('')}</ul>` : `<p class="muted small">${plural(files.length, 'bestand', 'bestanden')}. Downloaden kan na accepteren.</p>`)
     : '<p class="muted small">Geen bestanden bij deze order.</p>';
-  const feePanel = `<section class="panel"><div class="panel-head"><h2>Vergoeding</h2><strong class="num">${fee.total ? euro(fee.total) : '-'}</strong></div><div class="panel-body"><dl class="spec"><dt>Printen</dt><dd>${euro(fee.print)}</dd>${fee.ship ? `<dt>Verzenden</dt><dd>${euro(fee.ship)} <span class="muted small">inpakken en wegbrengen; het label betaalt Pr3nt</span></dd>` : '<dt>Verzenden</dt><dd class="muted">Niet nodig (afhalen of geen verzendkosten)</dd>'}</dl>${quote.producer && !isProducer(user) ? `<p class="muted small">Producent: ${e(producerName(quote.producer, settings))}</p>` : ''}</div></section>`;
+  const feeState = isEarned(quote) ? '<p class="muted small">Verdiend: telt mee in je volgende uitbetaling. <a href="/admin/work/vergoeding">Bekijk vergoeding</a></p>' : phase === 'new' ? '<p class="muted small">Dit bedrag staat vast zodra je accepteert.</p>' : '<p class="muted small">Je verdient dit zodra de order verzonden is.</p>';
+  const feePanel = `<section class="panel"><div class="panel-head"><h2>Vergoeding</h2><strong class="num">${fee.total ? euro(fee.total) : '-'}</strong></div><div class="panel-body"><dl class="spec"><dt>Printen</dt><dd>${euro(fee.print)}</dd>${fee.ship ? `<dt>Verzenden</dt><dd>${euro(fee.ship)} <span class="muted small">inpakken en wegbrengen; het label betaalt Pr3nt</span></dd>` : '<dt>Verzenden</dt><dd class="muted">Niet nodig (afhalen of geen verzendkosten)</dd>'}</dl>${quote.producer && !isProducer(user) ? `<p class="muted small">Producent: ${e(producerName(quote.producer, settings))}</p>` : ''}${feeState}</div></section>`;
   let next = '';
   if (phase === 'new') next = `<form method="post" action="${action}/accept"><button class="btn btn-dark" type="submit">Order accepteren</button></form><p class="muted small">Na accepteren is de order van jou en zien andere producenten hem niet meer.</p>`;
   else if (mine && phase === 'making') next = `<form method="post" action="${action}/status"><button class="btn btn-primary" type="submit" name="status" value="ready_to_ship">Print is klaar ✓</button></form>`;
-  else if (mine && phase === 'ship') next = `<div class="btn-row">${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<form method="post" action="${action}/status"><button class="btn btn-dark" type="submit" name="status" value="shipped">Verzonden</button></form></div>${quote.myParcelShipmentId ? '<p class="muted small">Print het label, plak het op het pakket en breng het naar een PostNL-punt. Bij Verzonden krijgt de klant de track & trace.</p>' : (chargedShipping(quote) && !isPickup(quote) ? '<p class="muted small">Het label wordt zo vanzelf klaargezet.</p>' : '<p class="muted small">Geen label nodig: deze klant haalt op of betaalde geen verzending. Overleg met Pr3nt hoe de print bij de klant komt.</p>')}`;
+  else if (mine && phase === 'ship' && waitsForLabel(quote)) next = isAdmin(user) ? '<div class="btn-row"><a class="btn btn-dark" href="/admin/verzenden">Label maken bij Verzenden</a></div>' : '<p class="muted small">Pr3nt maakt het verzendlabel. Je krijgt een mail zodra het klaarstaat; daarna print je het hier.</p>';
+  else if (mine && phase === 'ship') next = `<div class="btn-row">${quote.myParcelShipmentId ? `<a class="btn" href="/admin/quotes/${encodeURIComponent(quote.id)}/label" target="_blank" rel="noopener">Label printen</a>` : ''}<form method="post" action="${action}/status"><button class="btn btn-dark" type="submit" name="status" value="shipped">Verzonden</button></form></div>${quote.myParcelShipmentId ? '<p class="muted small">Print het label, plak het op het pakket en breng het naar een PostNL-punt. Bij Verzonden krijgt de klant de track & trace.</p>' : (chargedShipping(quote) && !isPickup(quote) ? '<p class="muted small">Track & trace is al ingevuld.</p>' : '<p class="muted small">Geen label nodig: deze klant haalt op of betaalde geen verzending. Overleg met Pr3nt hoe de print bij de klant komt.</p>')}`;
   const nextPanel = next ? `<section class="next" aria-label="Volgende stap"><span class="label">Volgende stap</span><div class="next-main"><div><h2>${e(statusText(quote))}</h2></div><div>${next}</div></div></section>` : '';
   const thread = producerConversation(quote, user).map((message) => {
     const me = message.from !== 'klant';
@@ -257,8 +269,8 @@ function statsPage({ context, user }) {
   };
   const production = productionOrders(quotes);
   const plannedHours = production.filter((quote) => quote.scheduledStartAt).reduce((sum, quote) => sum + printHours(quote), 0);
-  const payout = paidList.filter((quote) => String(quote.paidAt).slice(0, 7) === month).reduce((sum, quote) => sum + money(quote.productionAmount || 0), 0);
-  const workshop = `<dl class="spec"><dt>In de werkplaats</dt><dd>${plural(production.length, 'order', 'orders')}</dd><dt>Ingeplande printuren</dt><dd>${e(hoursText(plannedHours))} over ${plural(settings.printers.length, 'printer', 'printers')}</dd><dt>Productievergoeding</dt><dd>${e(euro(payout))} deze maand</dd><dt>Verzendlabels klaar</dt><dd>${all.filter((quote) => quote.myParcelShipmentId).length}</dd><dt>Spoedorders actief</dt><dd>${all.filter((quote) => isRush(quote) && !['shipped', 'delivered'].includes(quote.status)).length}</dd></dl>`;
+  const payout = quotes.filter((quote) => isEarned(quote) && String(quote.shippedAt || '').slice(0, 7) === month).reduce((sum, quote) => sum + feeLine(quote).total, 0);
+  const workshop = `<dl class="spec"><dt>In de werkplaats</dt><dd>${plural(production.length, 'order', 'orders')}</dd><dt>Ingeplande printuren</dt><dd>${e(hoursText(plannedHours))} over ${plural(settings.printers.length, 'printer', 'printers')}</dd><dt>Productievergoeding</dt><dd>${e(euro(payout))} verdiend deze maand · <a href="/admin/uitbetalen">uitbetalen</a></dd><dt>Verzendlabels klaar</dt><dd>${all.filter((quote) => quote.myParcelShipmentId).length}</dd><dt>Spoedorders actief</dt><dd>${all.filter((quote) => isRush(quote) && !['shipped', 'delivered'].includes(quote.status)).length}</dd></dl>`;
   const head = pageHead({ eyebrow: 'Beheer', title: 'Cijfers', text: thisMonth.length ? `Deze maand ${plural(thisMonth.length, 'betaalde order', 'betaalde orders')}. ${delta !== null && delta > 0 ? 'Het gaat de goede kant op.' : 'Elke order telt.'}` : 'Nog geen betaalde orders deze maand. Die eerste komt eraan.' });
   const body = `<section class="kpis">${kpis}</section><div class="grid-2"><section class="panel"><div class="panel-head"><h2>Per week</h2><span class="muted small">laatste 8 weken</span></div><div class="panel-body">${chart}</div></section><section class="panel"><div class="panel-head"><h2>Werkplaats</h2></div><div class="panel-body">${workshop}</div></section></div><div class="grid-2 even"><section class="panel"><div class="panel-head"><h2>Populairste kleuren</h2></div><div class="panel-body">${tallyList(tally('color'), true)}</div></section><section class="panel"><div class="panel-head"><h2>Materialen</h2></div><div class="panel-body">${tallyList(tally('material'), false)}</div></section></div>`;
   return renderAdmin({ title: 'Cijfers', user, active: 'stats', context, body: head + body });
@@ -278,8 +290,9 @@ export function registerWorkViewRoutes(app) {
   app.get('/admin/work', teamOnly, async (req, res) => {
     await updateMissingProductionPrices().catch(() => {});
     const context = await adminContext(req.internalUser);
-    const flash = req.query.taken === '1' ? 'Die order is net door iemand anders geaccepteerd.' : '';
-    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || ''), flash }));
+    const flash = req.query.taken === '1' ? 'Net te laat: die order is al door een andere producent geaccepteerd.' : '';
+    const balance = isProducer(req.internalUser) ? balanceOf(req.internalUser.username, context.quotes, await readPayouts()) : null;
+    res.send(workPage({ context, user: req.internalUser, moved: String(req.query.moved || ''), flash, balance }));
   });
 
   // De planning is weg: oude links komen gewoon op Productie uit.
@@ -288,7 +301,10 @@ export function registerWorkViewRoutes(app) {
   const findVisible = async (req) => {
     const quotes = await readQuotes();
     const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
-    return { quotes, quote: quote && canSee(req.internalUser, quote) ? quote : null };
+    if (!quote || !canSee(req.internalUser, quote)) return { quotes, quote: null };
+    // Nieuwe orders die niet bij deze producent passen (pauze, ander materiaal) laten we niet zien.
+    if (isProducer(req.internalUser) && phaseOf(quote) === 'new' && !offeredTo(req.internalUser, quote, await readSettings())) return { quotes, quote: null };
+    return { quotes, quote };
   };
   const notFound = async (req, res) => {
     const context = await adminContext(req.internalUser);
@@ -303,7 +319,9 @@ export function registerWorkViewRoutes(app) {
     res.send(orderPage({ quote, context, user: req.internalUser, flash }));
   });
 
-  // Eén tegelijk, zodat twee producenten niet tegelijk dezelfde order kunnen pakken.
+  // Accepteren is 'wie het eerst komt': twee lagen bescherming tegen dubbele orders.
+  // 1. Binnen dit proces één accept tegelijk (wachtrij).
+  // 2. Een claimbestand dat het besturingssysteem maar één keer laat aanmaken (ook bij meerdere processen).
   let queue = Promise.resolve();
   const exclusive = (task) => { const run = queue.then(task, task); queue = run.catch(() => {}); return run; };
 
@@ -312,17 +330,23 @@ export function registerWorkViewRoutes(app) {
     const result = await exclusive(async () => {
       const quotes = await readQuotes();
       const quote = quotes.find((item) => item.id === req.params.id && !item.archivedAt);
-      if (!quote || !inProduction(quote) || phaseOf(quote) !== 'new') return 'taken';
+      if (quote && quote.producer === user.username) return { state: 'ok', quote, again: true };
+      if (!quote || !inProduction(quote) || phaseOf(quote) !== 'new') return { state: 'taken' };
+      if (isProducer(user) && !offeredTo(user, quote, await readSettings())) return { state: 'taken' };
       const now = new Date().toISOString();
+      const fee = producerFee(quote);
+      const claim = await claimOrder(quote.id, { producer: user.username, at: now, fee }, { releasedAt: quote.producerReleasedAt || '' });
+      if (!claim.ok) return { state: 'taken' };
       quote.producer = user.username;
       quote.producerAcceptedAt = now;
-      quote.producerFee = producerFee(quote);
+      quote.producerFee = fee;
       quote.status = 'print_queue';
       quote.updatedAt = now;
       await writeQuotes(quotes);
-      return 'ok';
+      return { state: 'ok', quote };
     });
-    if (result !== 'ok') return res.redirect('/admin/work?taken=1');
+    if (result.state !== 'ok') return res.redirect('/admin/work?taken=1');
+    if (isProducer(user) && !result.again) notifyProducerAccepted(user.username, result.quote).catch((error) => console.warn('[producent-mail] acceptmail niet verstuurd:', error.message));
     return res.redirect(`/admin/work/orders/${encodeURIComponent(req.params.id)}?accepted=1`);
   });
 
@@ -334,12 +358,25 @@ export function registerWorkViewRoutes(app) {
     const next = String(req.body?.status || '');
     const allowed = { making: 'ready_to_ship', ship: 'shipped' }[phaseOf(quote)];
     if (next !== allowed) return res.redirect(`/admin/work/orders/${encodeURIComponent(quote.id)}`);
-    quote.status = next;
-    quote.updatedAt = new Date().toISOString();
-    if (next === 'ready_to_ship') quote.readyAt = quote.updatedAt;
-    if (next === 'shipped') { quote.shippedAt = quote.updatedAt; fillTrackingFromMyParcel(quote); }
+    if (next === 'shipped' && waitsForLabel(quote)) return res.redirect(`/admin/work/orders/${encodeURIComponent(quote.id)}`);
+    const now = new Date().toISOString();
+    // Orders in hetzelfde pakket (één label) gaan samen op Verzonden.
+    const together = next === 'shipped' && quote.myParcelShipmentId
+      ? quotes.filter((item) => item.id === quote.id || (item.myParcelShipmentId === quote.myParcelShipmentId && !item.archivedAt && item.status === 'ready_to_ship' && isMine(user, item)))
+      : [quote];
+    together.forEach((item) => {
+      item.status = next;
+      item.updatedAt = now;
+      if (next === 'ready_to_ship') item.readyAt = now;
+      if (next === 'shipped') {
+        item.shippedAt = now;
+        fillTrackingFromMyParcel(item);
+        // Vergoeding vastzetten: dit bedrag komt in de uitbetaling.
+        if (item.producer && !item.producerFee?.total) item.producerFee = producerFee(item);
+      }
+    });
     await writeQuotes(quotes);
-    if (next === 'shipped' && quote.email) sendCustomerMail(quote, 'Je print is verzonden', 'Je pakket is verzonden. De track & trace staat in je klantportaal.', 'Bekijk verzending').catch((error) => console.warn('Verzendmail niet verstuurd:', error.message));
+    if (next === 'shipped') together.filter((item) => item.email).forEach((item) => sendCustomerMail(item, 'Je print is verzonden', 'Je pakket is verzonden. De track & trace staat in je klantportaal.', 'Bekijk verzending').catch((error) => console.warn('Verzendmail niet verstuurd:', error.message)));
     return res.redirect(`/admin/work?moved=${encodeURIComponent(quote.id)}#q-${encodeURIComponent(quote.id)}`);
   });
 
