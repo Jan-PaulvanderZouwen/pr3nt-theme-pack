@@ -384,6 +384,26 @@ function icsDate(value = '') { const date = new Date(value); if (Number.isNaN(da
 function icsEscape(value = '') { return String(value).replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n'); }
 function calendarIcs(quotes, settings) { const events = eligibleOrders(quotes).filter((q) => q.scheduledStartAt && q.scheduledEndAt).map((quote) => { const printer = settings.printers.find((p) => p.id === quote.assignedPrinter || p.name === quote.assignedPrinter); const title = `Pr3nt print: ${quote.name || quote.id}`; const description = [`Order: ${quote.id}`, `Printer: ${printer?.name || quote.assignedPrinter || '-'}`, `Printuren: ${fmt(quote.estimatedPrintHours || estimatedPrintHours(quote))}`, `Materiaal: ${quote.material || '-'}`, `Kleur: ${quote.color || '-'}`].join('\n'); return ['BEGIN:VEVENT', `UID:${icsEscape(quote.id)}@pr3nt.nl`, `DTSTAMP:${icsDate(new Date().toISOString())}`, `DTSTART:${icsDate(quote.scheduledStartAt)}`, `DTEND:${icsDate(quote.scheduledEndAt)}`, `SUMMARY:${icsEscape(title)}`, `DESCRIPTION:${icsEscape(description)}`, 'END:VEVENT'].join('\r\n'); }).join('\r\n'); return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pr3nt//Printerplanning//NL', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Pr3nt printerplanning', events, 'END:VCALENDAR'].filter(Boolean).join('\r\n'); }
 
+// Begrijpelijke uitleg als MyParcel het label weigert, in plaats van een lap JSON.
+function findUrl(value) {
+  if (!value || typeof value !== 'object') return '';
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string' && /url|link|checkout/i.test(key) && /^https:\/\//.test(item)) return item;
+    const nested = findUrl(item);
+    if (nested) return nested;
+  }
+  return '';
+}
+export function labelErrorHtml(message = '') {
+  const status = (String(message).match(/\((\d{3})\)/) || [])[1] || '';
+  let payUrl = '';
+  try { payUrl = findUrl(JSON.parse(String(message).slice(String(message).indexOf('{')))); } catch { /* geen JSON */ }
+  const box = (title, text, extra = '') => `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(title)}</title></head><body style="margin:0;background:#F7F4EF;font-family:Inter,Arial,sans-serif;color:#101820"><main style="max-width:560px;margin:48px auto;padding:0 16px"><div style="background:#fff;border:1px solid #e9e4dc;border-radius:20px;padding:28px"><p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#C2410C">Label niet gelukt</p><h1 style="margin:0 0 12px;font-size:23px">${e(title)}</h1><p style="line-height:1.6;margin:0">${text}</p>${extra}<p style="margin:20px 0 0"><a href="javascript:history.back()" style="color:#101820">← Terug</a></p></div></main></body></html>`;
+  if (status === '402') return box('MyParcel wil eerst betaald worden', 'Je MyParcel-account staat op <strong>vooruitbetalen</strong>: voor elk label maakt MyParcel een losse factuur, en het label komt pas vrij als die betaald is. Betaal de openstaande factuur in MyParcel, of zet in je MyParcel-account <strong>automatische incasso</strong> aan. Dan komen labels direct vrij en krijg je één verzamelfactuur.', payUrl ? `<p style="margin:20px 0 0"><a href="${e(payUrl)}" target="_blank" rel="noopener" style="display:inline-block;background:#101820;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:600">Factuur betalen bij MyParcel</a></p>` : '');
+  if (status === '401' || status === '403' || /fout 40[13]/.test(message)) return box('MyParcel weigert de API-sleutel', 'Controleer <code>MYPARCEL_API_KEY</code> in <code>.env</code> (zonder spaties of aanhalingstekens) en herstart de app.');
+  return box('MyParcel gaf geen label', `Probeer het zo nog eens. Melding van MyParcel: <code style="font-size:12px">${e(String(message).slice(0, 300))}</code>`);
+}
+
 export function registerMyParcelRoutes(app) {
   app.use('/api/mollie/webhook', (req, res, next) => { res.on('finish', () => { createMissingMyParcelLabels().catch((error) => console.warn('MyParcel automatische labels mislukt:', error.message)); }); next(); });
   app.get('/admin/login', (_req, res) => res.send(loginHtml()));
@@ -437,8 +457,8 @@ export function registerMyParcelRoutes(app) {
       res.setHeader('Cache-Control', 'no-store');
       return res.send(pdf);
     } catch (error) {
-      console.warn('[myparcel] label ophalen mislukt:', error.message);
-      return res.status(502).send(`Het label kon niet bij MyParcel worden opgehaald. ${e(error.message)}`);
+      console.warn('[myparcel] label ophalen mislukt:', error.message.slice(0, 200));
+      return res.status(502).send(labelErrorHtml(error.message));
     }
   };
   // Producenten mogen alleen labels van hun eigen orders printen.
