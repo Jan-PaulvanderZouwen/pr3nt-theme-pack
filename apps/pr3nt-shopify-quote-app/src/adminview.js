@@ -18,6 +18,7 @@ import { shippingOf } from './shippingcontext.js';
 import { quoteLines, quoteSubtotalExVat, quoteVatAmount, quoteTotalInclVat, vatRatePercent, money, fmt } from './vat.js';
 import { viewerScript, quoteFiles, fileName, fileExt } from './portalview.js';
 import { producerFee } from './producers.js';
+import { packageOptions, packageOf, pickupOption, shippingLineFor } from './packages.js';
 
 // ---------- Inloggen ----------
 
@@ -161,12 +162,24 @@ function lineRow(line = {}) {
   return `<div class="qline" data-line><div class="qline-desc"><input name="lineLabel" form="quote-form" value="${e(line.label || '')}" placeholder="Omschrijving" aria-label="Omschrijving"><input name="lineDescription" form="quote-form" class="qline-sub" value="${e(line.description || '')}" placeholder="Toelichting (optioneel)" aria-label="Toelichting"></div><input name="lineQty" form="quote-form" inputmode="decimal" value="${e(line.qty || '')}" placeholder="1" aria-label="Aantal"><input name="lineUnit" form="quote-form" inputmode="decimal" value="${e(line.unit || '')}" placeholder="0,00" aria-label="Prijs excl. btw"><output class="qline-total num" data-line-total>${total ? euro(total) : ''}</output><button class="btn btn-quiet qline-remove" type="button" data-remove-line aria-label="Regel verwijderen">×</button></div>`;
 }
 
-function quoteEditor(quote) {
+// Pakketmaat kiezen: de verzendregel volgt vanzelf (in de browser direct, op de server bij opslaan).
+function packagePicker(quote, settings) {
+  const options = packageOptions(settings);
+  const current = quote.packageSize === 'pickup' || (!quote.packageSize && isPickup(quote)) ? 'pickup' : packageOf(quote, settings).id;
+  const paid = isPaid(quote);
+  const incl = (excl) => euro(Math.round(money(excl) * (1 + vatRatePercent() / 100) * 100) / 100);
+  const option = (id, name, hint, side, data = '') => `<label title="${e(hint)}"><input type="radio" name="packageSize" form="quote-form" value="${id}" ${current === id ? 'checked' : ''}${data}><span><strong>${e(name)}</strong><small>${side}</small></span></label>`;
+  const choices = options.map((size) => { const line = shippingLineFor(size); return option(size.id, size.name, size.hint, `${incl(size.price)} incl. btw`, ` data-line-label="${e(line.label)}" data-line-desc="${e(line.description)}" data-line-unit="${e(line.unit)}"`); }).join('') + option(pickupOption.id, pickupOption.name, pickupOption.hint, 'gratis');
+  const note = paid ? 'Betaald: een andere maat verandert alleen het label, niet wat de klant betaalde.' : 'De verzendregel past zich aan. Prijzen wijzig je bij <a href="/admin/work/options#verzendkosten">Instellingen</a>.';
+  return `<div class="pkg" data-packages${paid ? ' data-paid' : ''}><div class="pkg-head"><strong>Verzending</strong><span class="muted small">${note}</span></div><div class="choice pkg-choice">${choices}</div><input type="hidden" name="packageSizeWas" form="quote-form" value="${e(current)}"></div>`;
+}
+
+function quoteEditor(quote, settings = {}) {
   const lines = quoteLines(quote);
   const rows = (lines.length ? lines : [{}]).map(lineRow).join('');
   const sent = quote.quoteSentAt ? `<span class="pill act">Gemaild ${e(ago(quote.quoteSentAt))}</span>` : lines.length ? '<span class="pill">Nog niet gemaild</span>' : '';
   const locked = isPaid(quote) ? '<p class="callout">Deze order is betaald. Pas de regels alleen aan als je dat ook met de klant hebt afgesproken.</p>' : '';
-  return `<section class="panel" id="offerte" aria-labelledby="quote-title"><div class="panel-head"><h2 id="quote-title">Offerte</h2>${sent}</div><div class="panel-body">${locked}<div class="qlines" data-lines><div class="qline qline-head" aria-hidden="true"><span>Omschrijving</span><span>Aantal</span><span>Prijs excl.</span><span class="r">Totaal</span><span></span></div>${rows}</div><template id="qline-template">${lineRow({})}</template><div class="qline-tools"><div class="btn-row"><button class="btn" type="button" data-add-line>+ Regel</button><button class="btn btn-quiet" type="button" data-template-lines data-template='${e(JSON.stringify(quoteTemplate))}'>Standaardofferte laden</button></div><dl class="totals" data-vat="${vatRatePercent()}"><dt>Subtotaal excl. btw</dt><dd class="num" data-sum="sub">${euro(quoteSubtotalExVat(quote))}</dd><dt>Btw ${vatRatePercent().toLocaleString('nl-NL', { maximumFractionDigits: 2 })}%</dt><dd class="num" data-sum="vat">${euro(quoteVatAmount(quote))}</dd><dt class="grand">Klant betaalt</dt><dd class="num grand" data-sum="total">${euro(quoteTotalInclVat(quote))}</dd></dl></div></div></section>`;
+  return `<section class="panel" id="offerte" aria-labelledby="quote-title"><div class="panel-head"><h2 id="quote-title">Offerte</h2>${sent}</div><div class="panel-body">${locked}<div class="qlines" data-lines><div class="qline qline-head" aria-hidden="true"><span>Omschrijving</span><span>Aantal</span><span>Prijs excl.</span><span class="r">Totaal</span><span></span></div>${rows}</div>${packagePicker(quote, settings)}<template id="qline-template">${lineRow({})}</template><div class="qline-tools"><div class="btn-row"><button class="btn" type="button" data-add-line>+ Regel</button><button class="btn btn-quiet" type="button" data-template-lines data-template='${e(JSON.stringify(quoteTemplate))}'>Standaardofferte laden</button></div><dl class="totals" data-vat="${vatRatePercent()}"><dt>Subtotaal excl. btw</dt><dd class="num" data-sum="sub">${euro(quoteSubtotalExVat(quote))}</dd><dt>Btw ${vatRatePercent().toLocaleString('nl-NL', { maximumFractionDigits: 2 })}%</dt><dd class="num" data-sum="vat">${euro(quoteVatAmount(quote))}</dd><dt class="grand">Klant betaalt</dt><dd class="num grand" data-sum="total">${euro(quoteTotalInclVat(quote))}</dd></dl></div></div></section>`;
 }
 
 function messageList(quote) {
@@ -333,7 +346,7 @@ function detailPage({ quote, quotes, settings, user, context, saved }) {
   const paid = isPaid(quote) ? '1' : '0';
   const sent = quote.quoteSentAt ? '1' : '0';
   const savebar = `<div class="savebar" data-savebar><span class="savebar-text" data-save-text>Alles is opgeslagen</span><span class="muted small kbd-hint">Ctrl + S</span><form id="quote-form" method="post" action="/admin/quotes/${encodeURIComponent(quote.id)}" data-dirty-form data-paid="${paid}" data-sent="${sent}"><button class="btn btn-primary" type="submit" data-save-label>Opslaan</button></form></div>`;
-  const main = `<div class="stack">${quoteEditor(quote)}${messagesPanel(quote)}${filesPanel(quote)}</div>`;
+  const main = `<div class="stack">${quoteEditor(quote, settings)}${messagesPanel(quote)}${filesPanel(quote)}</div>`;
   const side = `<div class="stack">${customerPanel(quote, quotes)}${requestPanel(quote)}${paymentPanel(quote)}${shippingPanel(quote)}${productionPanel(quote, settings)}${morePanel(quote)}</div>`;
   const body = `${savedNotice(quote, saved)}${head}<div class="detail-status">${statusBar(quote)}${nextStep(quote, settings)}</div><div class="detail-layout">${main}${side}</div>${savebar}`;
   return renderAdmin({ title: quote.name || quote.id, user, active: 'orders', context, body, scripts: viewerScript(quote) });

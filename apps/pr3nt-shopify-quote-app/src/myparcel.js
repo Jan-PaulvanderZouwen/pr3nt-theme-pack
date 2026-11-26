@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { bundlePackage, myParcelOptions, packagesFromBody } from './packages.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual, randomUUID, createHmac, randomBytes, scryptSync } from 'node:crypto';
@@ -82,7 +83,7 @@ async function writeSettingsFromBody(body = {}) {
     const keep = { email: existing.email || '', inviteToken: hash && password ? '' : existing.inviteToken || '', inviteExpires: hash && password ? '' : existing.inviteExpires || '', source: existing.source || '', iban: existing.iban || '', accountName: existing.accountName || '', notifyNew: existing.notifyNew || '', paused: existing.paused || '', materials: existing.materials || '', phone: existing.phone || '' };
     return { username: cleanUsername, name: clean(displayNames[index] || cleanUsername, 120), role: roleOf(roles[index]), company: clean(companies[index] ?? existing.company ?? '', 120), ...keep, passwordHash: hash };
   }).filter(Boolean);
-  const next = { ...settings, printerCount: count, printers, calendarToken: token, users };
+  const next = { ...settings, printerCount: count, printers, calendarToken: token, users, ...packagesFromBody(body, settings) };
   await writeJson(settingsFilePath, next);
   return next;
 }
@@ -153,7 +154,7 @@ export function chargedShipping(quote = {}) {
 }
 
 export function isPickup(quote = {}) {
-  return quote.delivery === 'afhalen' || /afhalen/i.test(String(quote.note || ''));
+  return quote.packageSize === 'pickup' || quote.delivery === 'afhalen' || /afhalen/i.test(String(quote.note || ''));
 }
 
 export function canCreateShipment(quote = {}) {
@@ -184,14 +185,17 @@ export function needsAutoShipment(quote = {}) {
   return true;
 }
 
-function shipmentPayload(quote, bundle = [quote]) {
+export function shipmentPayload(quote, bundle = [quote], settings = {}) {
   const address = shippingAddress(quote);
   const recipient = { cc: address.country, person: address.person, company: address.company, street: address.street, number: address.number, number_suffix: address.suffix, postal_code: address.postalCode, city: address.city, email: address.email, phone: address.phone };
   Object.keys(recipient).forEach((key) => { if (!recipient[key]) delete recipient[key]; });
-  const packageType = Number(process.env.MYPARCEL_PACKAGE_TYPE || 1) || 1;
+  // Maat per order (Instellingen > Verzendkosten). MYPARCEL_PACKAGE_TYPE in .env overschrijft alles, voor noodgevallen.
+  const size = bundlePackage(bundle, settings);
+  const forced = Number(process.env.MYPARCEL_PACKAGE_TYPE || 0);
+  const options = forced ? { package_type: forced } : myParcelOptions(size);
   const carrier = Number(process.env.MYPARCEL_CARRIER_ID || 1) || 1;
   const refs = bundle.map((item) => item.webshopOrderId || item.id);
-  return { data: { shipments: [{ reference_identifier: clean(bundle.map((item) => item.id).join('+'), 50), recipient, carrier, options: { package_type: packageType, label_description: clean(`Pr3nt ${refs.join(' + ')}`, 45) } }] } };
+  return { data: { shipments: [{ reference_identifier: clean(bundle.map((item) => item.id).join('+'), 50), recipient, carrier, options: { ...options, label_description: clean(`Pr3nt ${refs.join(' + ')}`, 45) }, physical_properties: { weight: size.weight } }] } };
 }
 // Sleutel zonder spaties, aanhalingstekens of Windows-regeleinde (komt vaak mee bij plakken in .env).
 function apiKey() { return String(process.env.MYPARCEL_API_KEY || '').replace(/["'\r\s]/g, ''); }
@@ -248,7 +252,7 @@ export async function createMyParcelShipmentForQuote(quote, bundle = [quote]) {
   const taken = bundle.find((item) => item.myParcelShipmentId);
   if (taken) return { skipped: true, reason: `Order ${taken.id} heeft al een zending.` };
   if (bundle.some((item) => addressKey(item) !== addressKey(quote))) return { skipped: true, reason: 'Deze orders gaan niet naar hetzelfde adres.' };
-  const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote, bundle)) });
+  const result = await myParcelFetch('/shipments', { method: 'POST', headers: { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1', Accept: 'application/json;charset=utf-8' }, body: JSON.stringify(shipmentPayload(quote, bundle, await readSettings())) });
   const shipmentId = firstShipmentId(result);
   if (!shipmentId) throw new Error(`MyParcel gaf geen zending-id terug: ${JSON.stringify(result).slice(0, 300)}`);
   // De zending staat nu als concept in MyParcel. Pas bij het eerste keer printen meldt MyParcel hem aan bij de vervoerder

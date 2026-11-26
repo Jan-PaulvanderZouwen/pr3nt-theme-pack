@@ -953,6 +953,18 @@ body.is-admin { background: var(--paper); }
 .qline-remove { min-height: 38px; padding: 0; width: 32px; font-size: 18px; color: var(--muted); }
 .qline-remove:hover { color: var(--red); }
 .qline.is-leaving { opacity: 0; transform: translateX(10px); transition: opacity .2s ease, transform .2s ease; }
+.pkg { display: grid; gap: 8px; margin: 12px 0 4px; }
+.pkg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pkg-head strong { font-size: 14px; font-weight: 600; }
+.pkg-choice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pkg-choice span { display: grid; gap: 1px; align-content: center; min-height: 52px; padding: 8px 12px; line-height: 1.25; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.pkg-choice span strong { font-size: 13.5px; font-weight: 600; }
+.pkg-choice span small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pkg-choice label:hover span { border-color: var(--ink); }
+.pkg-choice input:checked + span { transform: translateY(-1px); }
+.pkg-choice input:checked + span small { color: rgba(255,255,255,.75); }
+@media (max-width: 640px) { .pkg-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .pkg-choice span { transition: none; } .pkg-choice input:checked + span { transform: none; } }
 .qline-tools { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
 .totals { display: grid; grid-template-columns: auto auto; gap: 4px 20px; margin: 0 0 0 auto; font-size: 14px; }
 .totals dt { color: var(--muted); }
@@ -1656,3 +1668,12 @@ body.is-login { background: var(--paper); }
 .money-table tr.is-minus td { color: var(--orange-ink); }
 .table-wrap { overflow-x: auto; }
 .steps-list { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; line-height: 1.5; }
+
+/* Instellingen: verzendkosten per pakketmaat */
+.pkg-rows { display: grid; gap: 10px; }
+.pkg-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.pkg-row:first-child { border-top: 0; }
+.pkg-name { display: grid; gap: 2px; }
+.pkg-name small, .pkg-row .field small { font-size: 12px; }
+.pkg-row .check { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; white-space: nowrap; }
+@media (max-width: 760px) { .pkg-row { grid-template-columns: 1fr 1fr; } .pkg-name { grid-column: 1 / -1; } }
