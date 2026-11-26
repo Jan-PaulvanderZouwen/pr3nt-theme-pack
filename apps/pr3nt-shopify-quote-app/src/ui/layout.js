@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
 // Versie in de URL zodat browsers na een deploy direct de nieuwe opmaak en scripts laden.
 export const assetVersion = (() => {
-  try { return ['app.css', 'portal.js', 'admin.js'].map((file) => Math.round(statSync(path.join(publicDir, file)).mtimeMs).toString(36)).join(''); } catch { return '1'; }
+  try { return ['app.css', 'shell.css', 'portal.js', 'admin.js'].map((file) => Math.round(statSync(path.join(publicDir, file)).mtimeMs).toString(36)).join(''); } catch { return '1'; }
 })();
+
+// Bootstrap 5 staat los in public/vendor/bootstrap (geen CDN nodig op de server).
+const bootstrapVersion = '5.3.9';
 
 export function e(value = '') {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -30,7 +33,7 @@ export function logo(href = '') {
 const fonts = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap';
 
 export function renderDocument({ title = 'pr3nt', body = '', scripts = '', bodyClass = '' } = {}) {
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>${e(title)} · pr3nt</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${fonts}"><link rel="stylesheet" href="/assets/app.css?v=${assetVersion}"></head><body${bodyClass ? ` class="${e(bodyClass)}"` : ''}>${body}${scripts}</body></html>`;
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>${e(title)} · pr3nt</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${fonts}"><link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css?v=${bootstrapVersion}"><link rel="stylesheet" href="/assets/app.css?v=${assetVersion}"><link rel="stylesheet" href="/assets/shell.css?v=${assetVersion}"></head><body${bodyClass ? ` class="${e(bodyClass)}"` : ''}>${body}<script src="/assets/vendor/bootstrap/bootstrap.bundle.min.js?v=${bootstrapVersion}" defer></script>${scripts}</body></html>`;
 }
 
 export function renderShell({ title = 'pr3nt', topbar = '', body = '', scripts = '' } = {}) {

@@ -280,7 +280,7 @@ export function producersView({ user, applications, producers, accounts = new Ma
     return `<div class="btn-row">${state}${button}</div>`;
   };
   const rows = producers.map((p) => `<tr><td><a class="cms-strong" href="${url(`/klanten/${p.id}`)}">${e(p.name || p.email)}</a><div class="muted small">${e(p.email)}</div></td><td class="small">${e(p.city || '–')}</td><td class="num">${p.open}</td><td class="num">${euro(p.earned)}</td><td>${appCell(p)}</td></tr>`);
-  const head = pageHead({ eyebrow: 'Website', title: 'Producenten', text: 'Aanmeldingen via pr3nt.nl/producent-worden. Goedgekeurde producenten werken in app.pr3nt.nl: daar zien ze alleen nieuwe orders en hun eigen orders.' });
+  const head = pageHead({ eyebrow: 'Beheer', title: 'Producenten', text: 'Aanmeldingen via pr3nt.nl/producent-worden. Goedgekeurde producenten werken in app.pr3nt.nl: daar zien ze alleen nieuwe orders en hun eigen orders.' });
   return cmsPage({ title: 'Producenten', user, active: 'cms-producers', body: head + panel('Actieve producenten', table(['Producent', 'Plaats', 'Orders', 'Totaal', 'app.pr3nt.nl'], rows, { empty: 'Nog geen producenten.' })) + `<h2 class="cms-h2">Aanmeldingen</h2><div class="stack">${apps}</div>`, flash });
 }
 

@@ -1,0 +1,325 @@
+/*
+  pr3nt op Bootstrap 5
+  Bootstrap (public/vendor/bootstrap) levert de basis: reboot, grid, dropdown, offcanvas en hulpklassen.
+  Dit bestand zet Bootstrap in de pr3nt-kleuren en -letters, maakt alles compacter en bevat de beheerschil:
+  donkere bovenbalk met de wissel Productie / Website, lichte zijbalk en op de telefoon een onderbalk.
+  Volgorde in de pagina: bootstrap.min.css → app.css → shell.css (dit bestand wint).
+*/
+
+/* 1. Bootstrap in pr3nt-stijl */
+:root {
+  --bs-body-font-family: var(--f-body);
+  --bs-body-font-size: .875rem;
+  --bs-body-line-height: 1.5;
+  --bs-body-color: var(--ink);
+  --bs-body-bg: var(--paper);
+  --bs-emphasis-color: var(--ink);
+  --bs-secondary-color: var(--muted);
+  --bs-border-color: var(--line);
+  --bs-border-radius: var(--r-sm);
+  --bs-border-radius-lg: var(--r);
+  --bs-primary: var(--green);
+  --bs-primary-rgb: 0, 208, 132;
+  --bs-link-color: var(--ink);
+  --bs-link-color-rgb: 16, 24, 32;
+  --bs-link-hover-color-rgb: 16, 24, 32;
+  --bs-heading-color: inherit;
+  --bs-focus-ring-color: rgba(61, 139, 255, .35);
+  --r: 8px;
+  --r-sm: 6px;
+  --gap: 16px;
+  --top-h: 52px;
+  --side-w: 216px;
+  --accent: var(--green);
+  --accent-soft: var(--green-soft);
+  --accent-ink: var(--green-ink);
+}
+
+/* De website-omgeving krijgt blauw als accent, zodat je altijd ziet waar je bent. */
+.env-website { --accent: var(--blue); --accent-soft: #E8F1FF; --accent-ink: #1D5BBF; }
+
+body { font-size: 14px; }
+dt { font-weight: 400; }
+legend { font-size: inherit; }
+body.is-admin { background: var(--paper); }
+
+/* Knoppen: Bootstrap-knoppen met pr3nt-kleuren, iets lager dan voorheen. */
+.btn {
+  --bs-btn-padding-y: 6px;
+  --bs-btn-padding-x: 12px;
+  --bs-btn-font-size: 13.5px;
+  --bs-btn-font-weight: 600;
+  --bs-btn-line-height: 1.2;
+  --bs-btn-border-radius: var(--r-sm);
+  --bs-btn-color: var(--ink);
+  --bs-btn-bg: var(--panel);
+  --bs-btn-border-color: var(--line-strong);
+  --bs-btn-hover-color: var(--ink);
+  --bs-btn-hover-bg: var(--panel);
+  --bs-btn-hover-border-color: var(--ink);
+  --bs-btn-active-color: var(--ink);
+  --bs-btn-active-bg: var(--soft);
+  --bs-btn-active-border-color: var(--ink);
+  --bs-btn-disabled-color: var(--muted);
+  --bs-btn-disabled-bg: var(--soft);
+  --bs-btn-disabled-border-color: var(--line);
+  --bs-btn-focus-box-shadow: 0 0 0 3px rgba(61, 139, 255, .3);
+  min-height: 34px;
+  padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x);
+  font-size: var(--bs-btn-font-size);
+  border-radius: var(--bs-btn-border-radius);
+  background: var(--bs-btn-bg);
+  border-color: var(--bs-btn-border-color);
+  color: var(--bs-btn-color);
+  gap: 6px;
+}
+.btn:hover { background: var(--bs-btn-hover-bg); border-color: var(--bs-btn-hover-border-color); color: var(--bs-btn-hover-color); }
+.btn-primary { --bs-btn-color: #082115; --bs-btn-bg: var(--green); --bs-btn-border-color: var(--green); --bs-btn-hover-color: #082115; --bs-btn-hover-bg: #00BC77; --bs-btn-hover-border-color: #00BC77; --bs-btn-active-color: #082115; --bs-btn-active-bg: #00A86A; --bs-btn-active-border-color: #00A86A; }
+.btn-dark { --bs-btn-color: #fff; --bs-btn-bg: var(--ink); --bs-btn-border-color: var(--ink); --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #24313C; --bs-btn-hover-border-color: #24313C; --bs-btn-active-color: #fff; --bs-btn-active-bg: #2D3B47; --bs-btn-active-border-color: #2D3B47; }
+.btn-quiet { --bs-btn-bg: transparent; --bs-btn-border-color: transparent; --bs-btn-color: var(--muted); --bs-btn-hover-bg: transparent; --bs-btn-hover-border-color: transparent; --bs-btn-hover-color: var(--ink); --bs-btn-active-bg: var(--soft); --bs-btn-active-border-color: transparent; padding-inline: 8px; }
+.btn-sm { --bs-btn-padding-y: 4px; --bs-btn-padding-x: 10px; --bs-btn-font-size: 12.5px; min-height: 30px; }
+.btn-row { gap: 6px; }
+
+/* Velden: dezelfde maat als Bootstrap's form-control. */
+input[type="text"], input[type="email"], input[type="tel"], input[type="search"], input[type="password"], input[type="number"], input[type="url"], input[type="date"], input[type="datetime-local"], input:not([type]), select, textarea {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: var(--r-sm);
+}
+select { padding-right: 30px; background: var(--panel) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%235E6670' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") no-repeat right 10px center / 12px 10px; -webkit-appearance: none; appearance: none; }
+select[multiple] { background-image: none; padding-right: 10px; }
+textarea { min-height: 84px; }
+input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(61, 139, 255, .18); }
+input[type="file"] { padding: 12px 10px; }
+.field { gap: 4px; }
+.field > span { font-size: 12.5px; }
+.form { gap: 12px; }
+.form-grid { gap: 10px 12px; }
+
+/* Typografie: kleiner en rustiger. */
+h1 { font-size: clamp(22px, 2.4vw, 26px); line-height: 1.15; }
+h2 { font-size: 15px; }
+h3 { font-size: 14px; }
+.label { font-size: 10.5px; letter-spacing: .08em; }
+.small { font-size: 12.5px; }
+
+/* Panelen = Bootstrap-kaarten. */
+.panel { border-radius: var(--r); box-shadow: 0 1px 2px rgba(16, 24, 32, .04); }
+.panel-head { padding: 10px 14px; min-height: 46px; }
+.panel-body { padding: 12px 14px; gap: 12px; }
+.pill { padding: 2px 8px; font-size: 12px; }
+.notice { padding: 8px 12px; border-radius: var(--r-sm); font-size: 13.5px; }
+.spec { font-size: 13.5px; gap: 6px 14px; }
+.lines th, .lines td { padding: 8px 0; font-size: 13.5px; }
+.lines th { font-size: 12px; }
+.empty-state { padding: 32px 16px; }
+
+/* 2. Beheerschil */
+.admin-top {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  height: var(--top-h);
+  background: var(--ink);
+  color: #fff;
+  border-bottom: 2px solid var(--accent);
+}
+.admin-top-in { height: 100%; display: flex; align-items: center; gap: 16px; padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.admin-top .logo { color: #fff; font-size: 17px; flex: 0 0 auto; }
+.admin-top .logo-mark { width: 26px; height: 26px; font-size: 15px; }
+.admin-top .logo-text span { color: var(--green); }
+.admin-top-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.env-switch { display: inline-flex; padding: 3px; gap: 2px; border-radius: 8px; background: rgba(255, 255, 255, .07); }
+.env-switch a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 6px; color: #AEB7BF; font-size: 13px; font-weight: 600; text-decoration: none; transition: background-color .15s ease, color .15s ease; }
+.env-switch a::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
+.env-switch a:hover { color: #fff; }
+.env-switch a[aria-current] { background: #fff; color: var(--ink); }
+.env-switch a.env-production[aria-current]::before { background: var(--green); opacity: 1; }
+.env-switch a.env-website[aria-current]::before { background: var(--blue); opacity: 1; }
+.env-role { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #8E99A2; }
+
+.btn-top { --bs-btn-bg: transparent; --bs-btn-color: #C9CFD4; --bs-btn-border-color: rgba(255, 255, 255, .18); --bs-btn-hover-bg: rgba(255, 255, 255, .08); --bs-btn-hover-color: #fff; --bs-btn-hover-border-color: rgba(255, 255, 255, .35); }
+.user-btn { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px 3px 3px; border: 0; border-radius: 999px; background: transparent; color: #DDE2E6; font-size: 13px; font-weight: 500; }
+.user-btn:hover, .user-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .08); color: #fff; }
+.avatar { width: 30px; height: 30px; font-size: 11.5px; }
+.admin-top .dropdown-menu { --bs-dropdown-font-size: 14px; --bs-dropdown-link-active-bg: var(--soft); --bs-dropdown-link-active-color: var(--ink); min-width: 200px; }
+.dropdown-header { color: var(--ink); white-space: normal; }
+.dropdown-header small { color: var(--muted); }
+
+.admin { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: calc(100vh - var(--top-h)); background: linear-gradient(to right, var(--panel) var(--side-w), transparent var(--side-w)); }
+
+.side { border-right: 1px solid var(--line); }
+.side, .side-body { background: var(--panel); }
+@media (min-width: 992px) {
+  .side.offcanvas-lg { position: sticky; top: var(--top-h); height: calc(100vh - var(--top-h)); overflow-y: auto; }
+}
+.side-body { display: flex; flex-direction: column; gap: 16px; min-height: 100%; padding: 12px 10px 14px; }
+.side-nav { display: grid; gap: 1px; }
+.side-nav .label { padding: 12px 10px 4px; color: #8A9299; }
+.side-nav .nav-gap { height: 8px; }
+.side-nav .nav-gap:first-child { display: none; }
+.side-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: #3B444D;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color .12s ease, color .12s ease;
+}
+.side-nav a:hover { background: var(--soft); color: var(--ink); }
+.side-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+.side-nav a[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+
+.nav-count {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #2B1300;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  animation: pop .4s cubic-bezier(.3, 1.6, .5, 1) .3s both;
+}
+@keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.side-printers { margin-top: auto; padding: 10px; border-radius: var(--r); background: var(--paper); border: 1px solid var(--line); }
+.side-printers .label { color: #8A9299; }
+.side-printers ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.side-printers li { display: flex; gap: 8px; align-items: flex-start; }
+.side-printers strong { display: block; font-size: 12.5px; font-weight: 600; }
+.side-printers small { display: block; font-size: 11.5px; color: var(--muted); }
+.printer-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: #B8BEC4; }
+.is-busy .printer-dot { background: var(--green); animation: pulse 2s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 208, 132, .55); } 70%, 100% { box-shadow: 0 0 0 7px rgba(0, 208, 132, 0); } }
+
+.admin-main { max-width: 1320px; padding: 20px clamp(16px, 2.4vw, 28px) 40px; gap: 16px; }
+.page-head { gap: 10px 16px; }
+.page-title { gap: 2px; }
+.page-title h1 { font-size: clamp(21px, 2.2vw, 24px); }
+.page-title p { font-size: 13.5px; }
+.page-title .label { font-size: 12.5px; }
+
+/* Orders-overzicht compacter */
+.todo { gap: 10px; }
+.todo-card { padding: 10px 12px; gap: 10px; }
+.todo-card:hover { transform: none; box-shadow: none; }
+.todo-count { width: 36px; height: 36px; font-size: 18px; }
+.todo-card.is-done .todo-count { font-size: 15px; }
+.todo-text strong { font-size: 13.5px; }
+.todo-text small { font-size: 12px; }
+.tabs { padding: 4px 8px 0; }
+.tabs a { padding: 8px 10px 9px; font-size: 13.5px; gap: 6px; }
+.tabs a span { font-size: 11.5px; padding: 0 6px; }
+.order-row { padding: 8px 14px; gap: 12px; }
+.order-head { padding-block: 8px; font-size: 12px; }
+.order-who strong { font-size: 13.5px; }
+.order-who small { font-size: 11.5px; }
+.order-what, .order-amount { font-size: 13.5px; }
+.order-who .avatar.sm { width: 26px; height: 26px; font-size: 10.5px; }
+.archive-row { padding: 8px 14px; }
+.search { width: min(300px, 100%); }
+.next { padding: 12px 14px; }
+.next h2 { font-size: 16px; }
+.savebar { padding: 8px 10px 8px 14px; }
+.kpis { gap: 10px; }
+
+/* Zoekveld: sneltoets-hint niet als zwart Bootstrap-blokje */
+.search kbd { background: transparent; color: var(--muted); box-shadow: none; padding: 0 5px; font-size: 11px; }
+
+/* Website-overzicht compacter */
+.kpi { padding: 12px 14px; gap: 2px; }
+.kpi strong { font-size: 22px; }
+.kpi small { font-size: 12px; }
+.cms-quick { gap: 10px; }
+.cms-quick a { padding: 10px 12px; }
+.cms-quick span { font-size: 12.5px; }
+.cms-todo, .cms-list { gap: 0; }
+.cms-todo a { background: transparent; padding: 8px 4px; border-bottom: 1px solid var(--line); border-radius: 0; }
+.cms-todo li:last-child a { border-bottom: 0; }
+.cms-todo a:hover { background: transparent; color: var(--accent-ink); }
+.cms-list a, .cms-list li > span { padding: 8px 4px; }
+.cms-list .pill { display: inline-flex; }
+.cms-table th, .cms-table td { padding-block: 8px; }
+
+/* Onderbalk (alleen telefoon/tablet) */
+.bottom-nav { display: none; }
+
+@media (max-width: 991.98px) {
+  :root { --top-h: 50px; }
+  .admin { grid-template-columns: minmax(0, 1fr); background: none; }
+  .todo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .todo-card { padding: 10px; align-items: flex-start; }
+  .todo-count { width: 30px; height: 30px; font-size: 16px; }
+  .todo-text strong { font-size: 13px; line-height: 1.25; }
+  .todo-text small { white-space: normal; }
+  .order-who small { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .order-row { padding: 10px 12px; }
+  .page-head .search { width: 100%; }
+  .side { --bs-offcanvas-width: 280px; border-right: 0; }
+  .side .offcanvas-header { padding: 14px 16px 6px; }
+  .side-body { padding: 6px 12px 16px; }
+  .side-nav a { min-height: 42px; font-size: 15px; }
+  .side-nav a[aria-current="page"]::before { left: -12px; }
+  .admin-main { padding: 14px 14px calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .savebar { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1020;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, .96);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+  }
+  .bottom-nav a, .bottom-nav button {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    min-height: 52px;
+    padding: 6px 2px 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .bottom-nav [aria-current="page"] { color: var(--ink); }
+  .bottom-nav [aria-current="page"] .ico { stroke: var(--accent-ink); }
+  .bottom-nav [aria-current="page"]::after { content: ""; position: absolute; top: 0; width: 22px; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
+  .bottom-nav b { position: absolute; top: 3px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--orange); color: #2B1300; font-size: 10.5px; display: grid; place-items: center; }
+  .ico { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .env-switch a { padding: 5px 10px; }
+}
+
+@media (max-width: 420px) {
+  .admin-top-in { gap: 10px; }
+  .admin-top .logo-text { display: none; }
+  .admin-main { padding-inline: 12px; }
+}
+
+/* 3. Klantportaal: zelfde dichtheid */
+.app { gap: 20px; padding-top: 14px; }
+.topbar { padding-bottom: 12px; }
+.topnav a, .topnav .switcher { min-height: 34px; font-size: 13.5px; }
