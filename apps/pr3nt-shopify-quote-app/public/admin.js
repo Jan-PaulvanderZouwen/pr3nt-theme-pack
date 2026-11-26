@@ -530,7 +530,7 @@
       var live = next.querySelector('[data-work-live]');
       if (!live || !next.querySelector('[data-board]')) return false;
       document.querySelector('[data-work-live]').replaceWith(live);
-      ['.side-nav', '.side-printers'].forEach(function (selector) {
+      ['.side-nav', '.side-printers', '.bottom-nav'].forEach(function (selector) {
         var fresh = next.querySelector(selector);
         var old = document.querySelector(selector);
         if (fresh && old) old.replaceWith(fresh);
@@ -642,9 +642,11 @@
           var fresh = next.querySelector('[data-work-live][data-refresh]');
           if (!fresh || fresh.innerHTML === current.innerHTML) return;
           current.replaceWith(fresh);
-          var nav = next.querySelector('.side-nav');
-          var oldNav = document.querySelector('.side-nav');
-          if (nav && oldNav) oldNav.replaceWith(nav);
+          ['.side-nav', '.bottom-nav'].forEach(function (selector) {
+            var nav = next.querySelector(selector);
+            var oldNav = document.querySelector(selector);
+            if (nav && oldNav) oldNav.replaceWith(nav);
+          });
         })
         .catch(function () {});
     }, every);
