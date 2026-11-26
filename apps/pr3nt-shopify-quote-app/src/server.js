@@ -415,8 +415,13 @@ app.post('/api/quote', upload.any(), async (req, res) => {
     }
 
     const firstFile = files[0] || {};
-    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, shipping, name, email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120), rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), billing: { name, address: shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' '), postalCode: shipping.postalCode, city: shipping.city, country: shipping.country || 'Nederland' }, messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
-    if (!quote.name || !quote.email || !quote.color) throw new Error('Niet alle verplichte velden zijn ingevuld.');
+    const quote = { id: quoteId, portalToken: randomUUID(), status: 'received', createdAt: new Date().toISOString(), requestType, description, shipping, name, email: clean(req.body.email, 200), phone: clean(req.body.phone, 80), material: clean(req.body.material, 20) || 'PLA', color: clean(req.body.color, 120) || 'In overleg', rush: clean(req.body.rush, 10) || 'Nee', note: clean(req.body.note, 3000), billing: { name, address: shipping.address || [shipping.street, shipping.houseNumber].filter(Boolean).join(' '), postalCode: shipping.postalCode, city: shipping.city, country: shipping.country || 'Nederland' }, messages: [], files, fileOriginalName: filesSummary(files), fileStoredName: firstFile.storedName || '', fileExtension: firstFile.extension || '', fileUrl: firstFile.url || '' };
+    // Alleen een geldig e-mailadres is echt nodig. Kleur mag later ("In overleg") en het verzendadres vult de klant
+    // in het portaal in, zodat het offerteformulier zo kort mogelijk blijft.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quote.email)) throw new Error('Vul een geldig e-mailadres in, dan sturen we je offerte daarheen.');
+    if (!quote.name) quote.name = quote.email.split('@')[0];
+    if (!quote.shipping.name) quote.shipping.name = quote.name;
+    if (!quote.billing.name) quote.billing.name = quote.name;
 
     const customer = await findOrCreateCustomer(quote);
     if (customer) quote.customerId = customer.id;
