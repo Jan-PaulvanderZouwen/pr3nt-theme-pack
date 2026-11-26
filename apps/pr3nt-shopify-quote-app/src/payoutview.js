@@ -1,4 +1,5 @@
 // Beheer: Verzenden (labels zelf en gebundeld maken) en Uitbetalen (producenten betalen).
+import { bundlePackage } from './packages.js';
 import { e } from './ui/layout.js';
 import { adminOnly, renderAdmin, pageHead, notice, emptyState, euro, ago, plural, dot, swatch } from './ui/adminshell.js';
 import { adminContext } from './ui/orders.js';
@@ -50,7 +51,7 @@ function shipPage({ context, user, flash = '', warn = '' }) {
     else if (group.ready.length) action = `${labelForm(group.ready.map((quote) => quote.id), group.ready.length > 1 ? `1 label voor ${group.ready.length}` : 'Label maken')}${waiting ? labelForm(group.list.map((quote) => quote.id), 'Wacht, alles samen', 'btn-quiet') : ''}`;
     else action = labelForm(group.list.map((quote) => quote.id), 'Nu al maken', 'btn-quiet');
     const ids = group.list.map((quote) => `<a class="mono" href="/admin/quotes/${encodeURIComponent(quote.id)}">${e(quote.id)}</a>`).join(', ');
-    return `<article class="job-row${group.ready.length ? '' : ' is-waiting'}" style="--c:${swatch(first.color)}"><div class="row-main"><strong>${e(first.name || address.person || 'Klant')} ${what}</strong><small>${e([address.postalCode, address.city].filter(Boolean).join(' '))} · ${ids}</small>${check.ok ? '' : `<small class="warn-text">${e(check.reason)}</small>`}</div><div class="row-when"><strong>${e(state)}</strong><small>${e(group.producer ? nameOf(group.producer, settings) : 'Nog geen producent')}</small></div><div class="row-hours num">${group.list.length > 1 ? `${group.list.length}×` : ''}</div><div class="row-action">${action}</div></article>`;
+    return `<article class="job-row${group.ready.length ? '' : ' is-waiting'}" style="--c:${swatch(first.color)}"><div class="row-main"><strong>${e(first.name || address.person || 'Klant')} ${what}</strong><small>${e([address.postalCode, address.city].filter(Boolean).join(' '))} · ${ids} · ${e(bundlePackage(group.list, settings).name)}</small>${check.ok ? '' : `<small class="warn-text">${e(check.reason)}</small>`}</div><div class="row-when"><strong>${e(state)}</strong><small>${e(group.producer ? nameOf(group.producer, settings) : 'Nog geen producent')}</small></div><div class="row-hours num">${group.list.length > 1 ? `${group.list.length}×` : ''}</div><div class="row-action">${action}</div></article>`;
   };
   const readyRows = groups.filter((group) => group.ready.length).map(row).join('');
   const later = groups.filter((group) => !group.ready.length);

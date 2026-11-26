@@ -33,6 +33,7 @@ import { registerProducerInviteRoutes } from './producerinvite.js';
 import { registerProducerViewRoutes } from './producerview.js';
 import { registerPayoutViewRoutes } from './payoutview.js';
 import { startProducerMail } from './producermail.js';
+import { registerPackageRoutes } from './packageroutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -366,6 +367,7 @@ if (process.env.ADMIN_DESIGN !== 'classic' && process.env.PORTAL_DESIGN !== 'cla
   registerWorkViewRoutes(app);
 }
 
+registerPackageRoutes(app);
 registerQuoteContextRoutes(app);
 registerShippingContextRoutes(app);
 registerFilamentRoutes(app);

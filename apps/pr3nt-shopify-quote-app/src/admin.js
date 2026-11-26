@@ -1,4 +1,5 @@
 import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { validPackageId } from './packages.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
@@ -317,6 +318,8 @@ export function registerAdminRoutes(app) {
     if (statusChosen) quote.status = statuses.some(([value]) => value === req.body.status) ? req.body.status : quote.status;
     quote.note = clean(req.body.note, 3000);
     quote.quoteLines = normalizeQuoteLines(req.body);
+    const packageSize = validPackageId(req.body.packageSize);
+    if (packageSize) quote.packageSize = packageSize;
     quote.quoteAmount = fmt(quoteTotal(quote));
     quote.paymentUrl = clean(req.body.paymentUrl, 1000);
     quote.trackingCode = clean(req.body.trackingCode, 200);

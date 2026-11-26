@@ -211,12 +211,45 @@
           var qty = row.querySelector('[name="lineQty"]');
           if (!qty.value) { qty.classList.add('needs'); if (!firstEmpty) firstEmpty = qty; }
         });
+        applyPackage(true);
         recalc();
         markDirty();
         if (firstEmpty) firstEmpty.focus();
       }
     });
+    document.addEventListener('change', function (event) {
+      if (event.target.name === 'packageSize') { applyPackage(false); recalc(); }
+    });
     recalc();
+  }
+
+  // ---------- Pakketmaat: verzendregel volgt de keuze ----------
+  function shippingRow() {
+    return Array.prototype.find.call(lines.querySelectorAll('[data-line]'), function (row) {
+      return /verzend|shipping|porto/i.test(row.querySelector('[name="lineLabel"]').value);
+    });
+  }
+  function applyPackage(fromTemplate) {
+    var box = document.querySelector('[data-packages]');
+    var picked = box && box.querySelector('[name="packageSize"]:checked');
+    if (!picked || !lines || box.hasAttribute('data-paid')) return;
+    var was = box.querySelector('[name="packageSizeWas"]');
+    if (was) was.value = picked.value;
+    var row = shippingRow();
+    if (picked.value === 'pickup') {
+      if (row) { if (lines.querySelectorAll('[data-line]').length > 1) row.remove(); else row.querySelectorAll('input').forEach(function (input) { input.value = ''; }); }
+      return;
+    }
+    if (!row) {
+      if (fromTemplate) return;
+      var empty = Array.prototype.find.call(lines.querySelectorAll('[data-line]'), isEmptyLine);
+      row = empty || addLine();
+    }
+    row.querySelector('[name="lineLabel"]').value = picked.getAttribute('data-line-label');
+    row.querySelector('[name="lineDescription"]').value = picked.getAttribute('data-line-desc');
+    row.querySelector('[name="lineQty"]').value = '1';
+    row.querySelector('[name="lineUnit"]').value = picked.getAttribute('data-line-unit');
+    row.querySelector('[name="lineQty"]').classList.remove('needs');
   }
 
   // ---------- Niet-opgeslagen wijzigingen ----------
